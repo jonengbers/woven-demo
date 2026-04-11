@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Woven — Luke Society Global Hub</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f5f3;
+    --bg-tertiary: #efede8;
+    --text-primary: #1a1a18;
+    --text-secondary: #73726c;
+    --border-light: rgba(0,0,0,0.10);
+    --border-mid: rgba(0,0,0,0.18);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --purple: #534AB7;
+    --purple-light: #EEEDFE;
+    --purple-mid: #AFA9EC;
+    --purple-dark: #3C3489;
+    --teal: #1D9E75;
+    --teal-light: #E1F5EE;
+    --teal-dark: #0F6E56;
+    --amber: #BA7517;
+    --amber-light: #FAEEDA;
+    --green: #3B6D11;
+    --green-light: #EAF3DE;
+    --red: #A32D2D;
+    --red-light: #FCEBEB;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #1e1e1c;
+      --bg-secondary: #2a2a28;
+      --bg-tertiary: #242422;
+      --text-primary: #f0ede8;
+      --text-secondary: #a8a79f;
+      --border-light: rgba(255,255,255,0.10);
+      --border-mid: rgba(255,255,255,0.18);
+      --purple-light: #2a2660;
+      --purple-dark: #cec9f8;
+      --teal-light: #0a2e22;
+      --teal-dark: #7fdcba;
+      --amber-light: #2e1f05;
+      --green-light: #0e2205;
+      --red-light: #2e0a0a;
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px; line-height: 1.5; }
+  .app { max-width: 1100px; margin: 0 auto; background: var(--bg-tertiary); min-height: 100vh; }
+
+  /* TOPBAR */
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background: var(--bg-primary); border-bottom: 0.5px solid var(--border-light); position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 8px; }
+  .logo-area { display: flex; align-items: center; gap: 10px; }
+  .logo-mark { width: 32px; height: 32px; }
+  .logo-name { font-size: 17px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.3px; }
+  .logo-tag { font-size: 11px; color: var(--text-secondary); }
+  .top-nav { display: flex; gap: 3px; flex-wrap: wrap; }
+  .tnav { font-size: 13px; padding: 6px 13px; border-radius: var(--radius-md); border: none; cursor: pointer; color: var(--text-secondary); background: transparent; transition: all 0.15s; }
+  .tnav:hover { background: var(--bg-secondary); color: var(--text-primary); }
+  .tnav.active { background: var(--bg-secondary); color: var(--text-primary); font-weight: 500; }
+  .user-area { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+  .av { width: 30px; height: 30px; border-radius: 50%; background: var(--purple-light); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--purple-dark); flex-shrink: 0; }
+  .role-pill { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--teal-light); color: var(--teal-dark); }
+
+  /* SCREENS */
+  .screen { display: none; padding: 20px; }
+  .screen.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--bg-primary); border: 0.5px solid var(--border-light); border-radius: var(--radius-lg); padding: 16px; }
+  .card-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+  .card-title { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .card-hint { font-size: 11px; color: var(--text-secondary); }
+
+  /* METRICS */
+  .metrics-row { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 18px; }
+  .mc { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 14px; }
+  .mc-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 5px; }
+  .mc-val { font-size: 22px; font-weight: 600; color: var(--text-primary); }
+  .mc-delta { font-size: 11px; margin-top: 3px; }
+  .up { color: var(--green); } .warn { color: var(--amber); } .dn { color: var(--red); }
+
+  /* LAYOUT */
+  .two-col { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; margin-bottom: 18px; }
+  .three-col { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+
+  /* TABLE */
+  .mtable { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+  .mtable th { font-size: 10px; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 8px; border-bottom: 0.5px solid var(--border-light); text-align: left; }
+  .mtable td { padding: 9px 8px; border-bottom: 0.5px solid var(--border-light); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
+  .mtable tr:last-child td { border-bottom: none; }
+  .mtable tr.clickable { cursor: pointer; }
+  .mtable tr.clickable:hover td { background: var(--bg-secondary); }
+
+  /* BADGES & STATUS */
+  .badge { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
+  .b-green { background: var(--green-light); color: var(--green); }
+  .b-amber { background: var(--amber-light); color: var(--amber); }
+  .b-red { background: var(--red-light); color: var(--red); }
+  .b-purple { background: var(--purple-light); color: var(--purple-dark); }
+  .sdot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .s-g { background: #639922; } .s-a { background: #BA7517; } .s-r { background: #E24B4A; }
+  .bar-wrap { width: 64px; height: 6px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; }
+  .bar-inner { height: 100%; border-radius: 3px; }
+
+  /* LEGEND */
+  .leg { display: flex; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; }
+  .leg span { font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
+  .leg-sq { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+
+  /* TOOLBAR */
+  .toolbar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tbtn { font-size: 12px; padding: 6px 13px; border-radius: var(--radius-md); border: 0.5px solid var(--border-mid); background: transparent; color: var(--text-primary); cursor: pointer; transition: all 0.15s; }
+  .tbtn:hover { background: var(--bg-secondary); }
+  select.tbtn { background: var(--bg-primary); }
+
+  /* DETAIL PANEL */
+  .detail-panel { background: var(--bg-secondary); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; }
+  .dp-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; gap: 10px; }
+  .dp-name { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+  .dp-meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .dp-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-bottom: 14px; }
+  .dp-stat { background: var(--bg-primary); border-radius: var(--radius-md); padding: 10px 12px; border: 0.5px solid var(--border-light); }
+  .dp-stat-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 3px; }
+  .dp-stat-val { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+
+  /* FORM */
+  .form-screen { max-width: 580px; margin: 0 auto; }
+  .form-section { background: var(--bg-primary); border: 0.5px solid var(--border-light); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 14px; }
+  .form-section-title { font-size: 13px; font-weight: 500; color: var(--text-primary); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 0.5px solid var(--border-light); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .form-row-1 { margin-bottom: 10px; }
+  .flabel { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+  input[type="number"], input[type="text"], textarea, select {
+    width: 100%; padding: 7px 10px; border: 0.5px solid var(--border-mid); border-radius: var(--radius-md);
+    background: var(--bg-primary); color: var(--text-primary); font-size: 13px; font-family: inherit;
+  }
+  input[type="number"]:focus, input[type="text"]:focus, textarea:focus { outline: none; border-color: var(--purple); box-shadow: 0 0 0 2px rgba(83,74,183,0.15); }
+  .progress-bar { height: 4px; background: var(--bg-secondary); border-radius: 2px; margin-bottom: 16px; }
+  .progress-fill { height: 100%; background: var(--purple); border-radius: 2px; transition: width 0.3s; }
+  .step-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .step { font-size: 11px; padding: 4px 10px; border-radius: 10px; background: var(--bg-secondary); color: var(--text-secondary); }
+  .step.active { background: var(--purple); color: #fff; }
+  .step.done { background: var(--green-light); color: var(--green); }
+  .btn-primary { background: var(--purple); color: #fff; border-color: var(--purple); font-weight: 500; }
+  .btn-primary:hover { background: var(--purple-dark); }
+
+  /* MESSAGES */
+  .msg-layout { display: grid; grid-template-columns: 220px 1fr; gap: 14px; }
+  .convo-item { padding: 10px 12px; cursor: pointer; border-bottom: 0.5px solid var(--border-light); transition: background 0.1s; }
+  .convo-item:hover { background: var(--bg-secondary); }
+  .convo-item.active-convo { background: var(--bg-secondary); }
+  .msg { margin-bottom: 14px; }
+  .msg-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .msg-av { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0; }
+  .msg-name { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+  .msg-time { font-size: 11px; color: var(--text-secondary); }
+  .msg-bubble { background: var(--bg-secondary); border-radius: 0 var(--radius-md) var(--radius-md) var(--radius-md); padding: 10px 12px; font-size: 13px; color: var(--text-primary); line-height: 1.5; margin-left: 34px; }
+  .msg-bubble.own { background: var(--purple-light); color: var(--purple-dark); border-radius: var(--radius-md) 0 var(--radius-md) var(--radius-md); }
+
+  /* COMPARE */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .cmp-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 0.5px solid var(--border-light); font-size: 13px; }
+  .cmp-row:last-child { border-bottom: none; }
+
+  /* RESPONSIVE */
+  @media (max-width: 700px) {
+    .metrics-row { grid-template-columns: repeat(2, 1fr); }
+    .two-col, .compare-grid, .msg-layout, .dp-grid { grid-template-columns: 1fr; }
+    .top-nav .tnav { font-size: 12px; padding: 5px 8px; }
+    .user-area span:not(.role-pill) { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="logo-area">
+      <svg class="logo-mark" viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="8" fill="#EEEDFE"/>
+        <path d="M5 10 Q10 6 16 10 Q22 14 27 10" stroke="#534AB7" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M5 16 Q10 12 16 16 Q22 20 27 16" stroke="#7F77DD" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M5 22 Q10 18 16 22 Q22 26 27 22" stroke="#AFA9EC" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <div class="logo-name">Woven</div>
+        <div class="logo-tag">Luke Society Global Hub</div>
+      </div>
+    </div>
+    <div class="top-nav">
+      <button class="tnav active" onclick="showScreen('dashboard',this)">Dashboard</button>
+      <button class="tnav" onclick="showScreen('ministries',this)">Ministries</button>
+      <button class="tnav" onclick="showScreen('compare',this)">Compare</button>
+      <button class="tnav" onclick="showScreen('submit',this)">Submit report</button>
+      <button class="tnav" onclick="showScreen('messages',this)">Messages</button>
+    </div>
+    <div class="user-area">
+      <div class="av">JV</div>
+      <span>Dr. Vander Laan</span>
+      <span class="role-pill">PMT Member</span>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="screen active" id="screen-dashboard">
+    <div class="toolbar-row">
+      <select class="tbtn">
+        <option>All ministries (40)</option>
+        <option>My PMT (4 ministries)</option>
+        <option>Latin America</option>
+        <option>Sub-Saharan Africa</option>
+        <option>South Asia</option>
+      </select>
+      <select class="tbtn">
+        <option>Last 12 months</option>
+        <option>Last 6 months</option>
+        <option>Year to date</option>
+      </select>
+      <button class="tbtn" style="margin-left:auto;">Export PDF</button>
+    </div>
+    <div class="metrics-row">
+      <div class="mc"><div class="mc-label">Total patient visits (YTD)</div><div class="mc-val">84,203</div><div class="mc-delta up">↑ 12% vs last year</div></div>
+      <div class="mc"><div class="mc-label">Medications dispensed</div><div class="mc-val">312,490</div><div class="mc-delta up">↑ 8% vs last year</div></div>
+      <div class="mc"><div class="mc-label">Community outreach contacts</div><div class="mc-val">29,817</div><div class="mc-delta up">↑ 21% vs last year</div></div>
+      <div class="mc"><div class="mc-label">Reports filed this month</div><div class="mc-val">34 / 40</div><div class="mc-delta warn">6 pending or late</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Patient visits — monthly trend (all ministries)</span><span class="card-hint">12 months</span></div>
+        <div class="leg">
+          <span><span class="leg-sq" style="background:#534AB7;"></span>This year</span>
+          <span><span class="leg-sq" style="background:#AFA9EC;"></span>Last year</span>
+        </div>
+        <div style="position:relative;width:100%;height:210px;"><canvas id="c1"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Budget utilization by region</span><span class="card-hint">YTD</span></div>
+        <div style="position:relative;width:100%;height:210px;"><canvas id="c2"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title">Ministry network — click any row to inspect</span>
+        <input type="text" placeholder="Search ministries..." style="width:180px;font-size:12px;" oninput="filterTable(this.value)"/>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="mtable" id="ministry-table">
+          <thead><tr>
+            <th style="width:28%;">Ministry</th>
+            <th style="width:16%;">Director</th>
+            <th style="width:10%;">Visits</th>
+            <th style="width:14%;">Budget used</th>
+            <th style="width:12%;">Balance</th>
+            <th style="width:10%;">Report</th>
+            <th style="width:5%;"></th>
+          </tr></thead>
+          <tbody id="mtbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- MINISTRY DETAIL -->
+  <div class="screen" id="screen-ministries">
+    <div id="ministry-detail"></div>
+  </div>
+
+  <!-- COMPARE -->
+  <div class="screen" id="screen-compare">
+    <div style="margin-bottom:16px;">
+      <div class="card-title" style="font-size:15px;margin-bottom:12px;">Compare any two ministries side by side</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <select id="cmp1" class="tbtn" onchange="renderCompare()">
+          <option value="0">Clínica Jehová Rafa (Nicaragua)</option>
+          <option value="1">Chennai Community Clinic (India)</option>
+          <option value="2">Nairobi Rural Health (Kenya)</option>
+          <option value="3">Cebu Island Clinic (Philippines)</option>
+          <option value="4">Port-au-Prince Clinic (Haiti)</option>
+          <option value="5">Dhaka Maternal Health (Bangladesh)</option>
+        </select>
+        <span style="font-size:14px;color:var(--text-secondary);">vs.</span>
+        <select id="cmp2" class="tbtn" onchange="renderCompare()">
+          <option value="1">Chennai Community Clinic (India)</option>
+          <option value="0">Clínica Jehová Rafa (Nicaragua)</option>
+          <option value="2">Nairobi Rural Health (Kenya)</option>
+          <option value="3">Cebu Island Clinic (Philippines)</option>
+          <option value="4">Port-au-Prince Clinic (Haiti)</option>
+          <option value="5">Dhaka Maternal Health (Bangladesh)</option>
+        </select>
+      </div>
+    </div>
+    <div class="compare-grid" id="compare-grid"></div>
+    <div class="card" style="margin-top:14px;">
+      <div class="card-hd"><span class="card-title">Patient visits — 6-month trend comparison</span></div>
+      <div class="leg" id="cmp-leg"></div>
+      <div style="position:relative;width:100%;height:230px;"><canvas id="c3"></canvas></div>
+    </div>
+  </div>
+
+  <!-- SUBMIT REPORT -->
+  <div class="screen" id="screen-submit">
+    <div class="form-screen">
+      <div class="step-row" id="step-row">
+        <div class="step done" id="step1">1 Ministry info</div>
+        <div class="step active" id="step2">2 Financials</div>
+        <div class="step" id="step3">3 Clinical stats</div>
+        <div class="step" id="step4">4 Narrative</div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="prog" style="width:33%;"></div></div>
+      <div id="form-body"></div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="tbtn" onclick="prevStep()">Back</button>
+        <button class="tbtn btn-primary" onclick="nextStep()">Continue →</button>
+        <button class="tbtn" style="margin-left:auto;">Save draft</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MESSAGES -->
+  <div class="screen" id="screen-messages">
+    <div class="msg-layout">
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:10px 12px;border-bottom:0.5px solid var(--border-light);font-size:11px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.4px;">Conversations</div>
+        <div id="convo-list"></div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;" id="chat-panel"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ministries = [
+  {name:'Clínica Jehová Rafa',country:'Nicaragua',director:'Dr. E. Vargas',visits:181,budget:72,balance:410,report:'filed',status:'g',income:8578,expenses:10604,consults:{clinic:99,community:29,dental:24,spiritual:29},pharmacy:105,lab:81,pay:{full:235,partial:74,charity:29},trend:[140,155,148,160,171,181]},
+  {name:'Chennai Community Clinic',country:'India',director:'Dr. P. Krishnan',visits:2810,budget:88,balance:1240,report:'filed',status:'a',income:14200,expenses:12800,consults:{clinic:1820,community:410,dental:310,spiritual:270},pharmacy:940,lab:620,pay:{full:1840,partial:640,charity:330},trend:[2200,2380,2510,2640,2720,2810]},
+  {name:'Nairobi Rural Health',country:'Kenya',director:'Dr. A. Wanjiku',visits:980,budget:45,balance:3200,report:'pending',status:'g',income:6100,expenses:2800,consults:{clinic:640,community:180,dental:90,spiritual:70},pharmacy:420,lab:310,pay:{full:540,partial:290,charity:150},trend:[820,860,900,930,960,980]},
+  {name:'Cebu Island Clinic',country:'Philippines',director:'Dr. R. Santos',visits:1650,budget:61,balance:2100,report:'filed',status:'g',income:9800,expenses:6000,consults:{clinic:1020,community:310,dental:210,spiritual:110},pharmacy:680,lab:490,pay:{full:980,partial:470,charity:200},trend:[1420,1490,1540,1580,1620,1650]},
+  {name:'Port-au-Prince Clinic',country:'Haiti',director:'Dr. J. Beaumont',visits:740,budget:97,balance:180,report:'late',status:'r',income:4200,expenses:4080,consults:{clinic:480,community:120,dental:80,spiritual:60},pharmacy:310,lab:180,pay:{full:380,partial:240,charity:120},trend:[780,760,750,740,740,740]},
+  {name:'Dhaka Maternal Health',country:'Bangladesh',director:'Dr. F. Hossain',visits:2120,budget:54,balance:4100,report:'filed',status:'g',income:11200,expenses:6100,consults:{clinic:1310,community:420,dental:190,spiritual:200},pharmacy:810,lab:560,pay:{full:1140,partial:640,charity:340},trend:[1780,1880,1960,2020,2080,2120]},
+];
+
+const months6=['Oct','Nov','Dec','Jan','Feb','Mar'];
+let cmpChart = null;
+let detailCharts = [];
+
+function showScreen(id, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tnav').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'compare') { setTimeout(renderCompare, 50); }
+  if (id === 'messages') renderMessages();
+}
+
+function filterTable(q) {
+  document.querySelectorAll('#mtbody tr').forEach(r => {
+    r.style.display = r.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+
+function renderTable() {
+  document.getElementById('mtbody').innerHTML = ministries.map((m, i) => `
+    <tr class="clickable" onclick="showMinistry(${i})">
+      <td><strong style="font-weight:500;">${m.name}</strong><br><span style="font-size:11px;color:var(--text-secondary);">${m.country}</span></td>
+      <td style="color:var(--text-secondary);font-size:12px;">${m.director}</td>
+      <td>${m.visits.toLocaleString()}</td>
+      <td>
+        <div class="bar-wrap"><div class="bar-inner" style="width:${m.budget}%;background:${m.budget > 90 ? '#E24B4A' : m.budget > 75 ? '#BA7517' : '#534AB7'};"></div></div>
+        <span style="font-size:11px;color:var(--text-secondary);margin-left:5px;">${m.budget}%</span>
+      </td>
+      <td style="font-size:12px;${m.balance < 500 ? 'color:#A32D2D;font-weight:600;' : ''}">$${m.balance.toLocaleString()}</td>
+      <td><span class="badge ${m.report === 'filed' ? 'b-green' : m.report === 'pending' ? 'b-amber' : 'b-red'}">${m.report}</span></td>
+      <td><span class="sdot ${m.status === 'g' ? 's-g' : m.status === 'a' ? 's-a' : 's-r'}"></span></td>
+    </tr>`).join('');
+}
+
+function showMinistry(i) {
+  const m = ministries[i];
+  const total = m.consults.clinic + m.consults.community + m.consults.dental + m.consults.spiritual;
+  const totalPay = m.pay.full + m.pay.partial + m.pay.charity;
+  detailCharts.forEach(c => c.destroy());
+  detailCharts = [];
+
+  document.getElementById('ministry-detail').innerHTML = `
+    <button class="tbtn" style="margin-bottom:14px;" onclick="showScreen('dashboard', document.querySelector('.tnav'))">← Back to dashboard</button>
+    <div class="detail-panel">
+      <div class="dp-header">
+        <div>
+          <div class="dp-name">${m.name}</div>
+          <div class="dp-meta">${m.country} · ${m.director} · March 2026 report</div>
+        </div>
+        <span class="badge ${m.report === 'filed' ? 'b-green' : m.report === 'pending' ? 'b-amber' : 'b-red'}" style="font-size:12px;padding:4px 10px;">${m.report}</span>
+      </div>
+      <div class="dp-grid">
+        <div class="dp-stat"><div class="dp-stat-label">Total consultations</div><div class="dp-stat-val">${total.toLocaleString()}</div></div>
+        <div class="dp-stat"><div class="dp-stat-label">Pharmacy patients</div><div class="dp-stat-val">${m.pharmacy.toLocaleString()}</div></div>
+        <div class="dp-stat"><div class="dp-stat-label">Lab tests</div><div class="dp-stat-val">${m.lab.toLocaleString()}</div></div>
+        <div class="dp-stat"><div class="dp-stat-label">Total income (USD)</div><div class="dp-stat-val">$${m.income.toLocaleString()}</div></div>
+        <div class="dp-stat"><div class="dp-stat-label">Total expenses (USD)</div><div class="dp-stat-val">$${m.expenses.toLocaleString()}</div></div>
+        <div class="dp-stat" style="${m.balance < 500 ? 'border-color:#E24B4A;' : ''}">
+          <div class="dp-stat-label">Ending cash balance</div>
+          <div class="dp-stat-val" style="${m.balance < 500 ? 'color:#A32D2D;' : ''}">${m.balance < 500 ? '⚠ ' : ''}$${m.balance.toLocaleString()}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div class="card" style="padding:14px;">
+          <div class="card-title" style="margin-bottom:10px;">Consultation breakdown</div>
+          <div style="position:relative;height:170px;"><canvas id="cd1"></canvas></div>
+        </div>
+        <div class="card" style="padding:14px;">
+          <div class="card-title" style="margin-bottom:10px;">Patient payment methods</div>
+          <div style="position:relative;height:130px;"><canvas id="cd2"></canvas></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
+            <span style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#534AB7;display:inline-block;"></span>Full pay ${Math.round(m.pay.full/totalPay*100)}%</span>
+            <span style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#1D9E75;display:inline-block;"></span>Subsidized ${Math.round(m.pay.partial/totalPay*100)}%</span>
+            <span style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#AFA9EC;display:inline-block;"></span>Charity ${Math.round(m.pay.charity/totalPay*100)}%</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  showScreen('ministries', null);
+  document.querySelectorAll('.tnav')[1].classList.add('active');
+
+  setTimeout(() => {
+    detailCharts.push(new Chart(document.getElementById('cd1'), {
+      type: 'bar',
+      data: { labels: ['Clinic','Community','Dental','Spiritual'], datasets: [{ data: [m.consults.clinic, m.consults.community, m.consults.dental, m.consults.spiritual], backgroundColor: ['#534AB7','#1D9E75','#EF9F27','#AFA9EC'], borderRadius: 4 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#888780' } }, y: { grid: { color: 'rgba(136,135,128,0.12)' }, ticks: { font: { size: 10 }, color: '#888780' } } } }
+    }));
+    detailCharts.push(new Chart(document.getElementById('cd2'), {
+      type: 'doughnut',
+      data: { labels: ['Full pay','Subsidized','Charity'], datasets: [{ data: [m.pay.full, m.pay.partial, m.pay.charity], backgroundColor: ['#534AB7','#1D9E75','#AFA9EC'], borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '62%' }
+    }));
+  }, 80);
+}
+
+function renderCompare() {
+  const i1 = parseInt(document.getElementById('cmp1').value);
+  const i2 = parseInt(document.getElementById('cmp2').value);
+  const a = ministries[i1], b = ministries[i2];
+  const fields = [
+    { label: 'Monthly visits', va: a.visits.toLocaleString(), vb: b.visits.toLocaleString(), better: a.visits > b.visits ? 'a' : 'b' },
+    { label: 'Budget utilized', va: a.budget + '%', vb: b.budget + '%', better: a.budget < b.budget ? 'a' : 'b' },
+    { label: 'Ending cash balance', va: '$' + a.balance.toLocaleString(), vb: '$' + b.balance.toLocaleString(), better: a.balance > b.balance ? 'a' : 'b' },
+    { label: 'Pharmacy patients', va: a.pharmacy.toLocaleString(), vb: b.pharmacy.toLocaleString(), better: a.pharmacy > b.pharmacy ? 'a' : 'b' },
+    { label: 'Lab tests', va: a.lab.toLocaleString(), vb: b.lab.toLocaleString(), better: a.lab > b.lab ? 'a' : 'b' },
+    { label: 'Charity patients served', va: a.pay.charity.toLocaleString(), vb: b.pay.charity.toLocaleString(), better: 'both' },
+    { label: 'Report status', va: a.report, vb: b.report, better: a.report === 'filed' && b.report !== 'filed' ? 'a' : b.report === 'filed' && a.report !== 'filed' ? 'b' : 'both' },
+  ];
+
+  const cardHTML = (m, side) => `
+    <div class="card" style="${side === 'a' ? 'border:2px solid #534AB7;' : ''}">
+      ${side === 'a' ? '<div style="font-size:11px;background:#EEEDFE;color:#3C3489;padding:3px 10px;border-radius:4px;display:inline-block;margin-bottom:8px;">Selected</div>' : ''}
+      <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:2px;">${m.name}</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px;">${m.country} · ${m.director}</div>
+      ${fields.map(f => `
+        <div class="cmp-row">
+          <span style="color:var(--text-secondary);">${f.label}</span>
+          <span style="font-weight:500;${f.better === side || f.better === 'both' ? 'color:var(--green);' : ''}">${side === 'a' ? f.va : f.vb}</span>
+        </div>`).join('')}
+    </div>`;
+
+  document.getElementById('compare-grid').innerHTML = cardHTML(a, 'a') + cardHTML(b, 'b');
+  document.getElementById('cmp-leg').innerHTML = `
+    <span><span class="leg-sq" style="background:#534AB7;"></span>${a.name}</span>
+    <span><span class="leg-sq" style="background:#1D9E75;"></span>${b.name}</span>`;
+
+  if (cmpChart) cmpChart.destroy();
+  cmpChart = new Chart(document.getElementById('c3'), {
+    type: 'line',
+    data: {
+      labels: months6,
+      datasets: [
+        { label: a.name, data: a.trend, borderColor: '#534AB7', backgroundColor: 'rgba(83,74,183,0.07)', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2 },
+        { label: b.name, data: b.trend, borderColor: '#1D9E75', backgroundColor: 'rgba(29,158,117,0.07)', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2 }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#888780' } }, y: { grid: { color: 'rgba(136,135,128,0.12)' }, ticks: { font: { size: 11 }, color: '#888780', callback: v => v.toLocaleString() } } } }
+  });
+}
+
+let formStep = 2;
+const formContent = {
+  2: `<div class="form-section"><div class="form-section-title">Income — March 2026 (local currency NIO)</div>
+    <div class="form-row"><div><div class="flabel">Luke Society USA support</div><input type="number" value="219745"/></div><div><div class="flabel">Clinic consultation income</div><input type="number" value="5200"/></div></div>
+    <div class="form-row"><div><div class="flabel">Pharmacy income</div><input type="number" value="19200"/></div><div><div class="flabel">Laboratory income</div><input type="number" value="7800"/></div></div>
+    <div class="form-row"><div><div class="flabel">Dental income</div><input type="number" value="8100"/></div><div><div class="flabel">Other income</div><input type="number" value="53929"/></div></div>
+    </div>
+    <div class="form-section"><div class="form-section-title">Salary expenses (local currency)</div>
+    <div class="form-row"><div><div class="flabel">Ministry director</div><input type="number" value="38500"/></div><div><div class="flabel">Dentist</div><input type="number" value="15000"/></div></div>
+    <div class="form-row"><div><div class="flabel">Nurse</div><input type="number" value="4000"/></div><div><div class="flabel">Bookkeeper</div><input type="number" value="6000"/></div></div>
+    <div class="form-row"><div><div class="flabel">Lab technician</div><input type="number" value="8000"/></div><div><div class="flabel">Other staff</div><input type="number" value="0"/></div></div>
+    </div>`,
+  3: `<div class="form-section"><div class="form-section-title">Patient consultations</div>
+    <div class="form-row"><div><div class="flabel">Clinic consultations</div><input type="number" value="99"/></div><div><div class="flabel">Community consultations</div><input type="number" value="29"/></div></div>
+    <div class="form-row"><div><div class="flabel">Dental consultations</div><input type="number" value="24"/></div><div><div class="flabel">Spiritual health consultations</div><input type="number" value="29"/></div></div>
+    </div>
+    <div class="form-section"><div class="form-section-title">Services provided</div>
+    <div class="form-row"><div><div class="flabel">Lab tests performed</div><input type="number" value="81"/></div><div><div class="flabel">Pharmacy patients</div><input type="number" value="105"/></div></div>
+    <div class="form-row"><div><div class="flabel">X-rays / dental x-rays</div><input type="number" value="6"/></div><div><div class="flabel">Immunizations given</div><input type="number" value="0"/></div></div>
+    </div>
+    <div class="form-section"><div class="form-section-title">Payment methods</div>
+    <div class="form-row"><div><div class="flabel">Full pay patients</div><input type="number" value="235"/></div><div><div class="flabel">Partial subsidy patients</div><input type="number" value="74"/></div></div>
+    <div class="form-row-1"><div class="flabel">Charity patients (no cost)</div><input type="number" value="29" style="width:50%;"/></div>
+    </div>`,
+  4: `<div class="form-section"><div class="form-section-title">Monthly narrative report</div>
+    <div class="form-row-1"><div class="flabel">Write in your language — English translation generated automatically</div>
+    <textarea style="height:120px;resize:vertical;">En marzo atendimos 99 consultas en clínica y realizamos visitas comunitarias. El laboratorio procesó 81 pruebas. Continuamos con las charlas dentales en domicilios, alcanzando a 100 personas. Necesitamos oración por la situación financiera este mes.</textarea></div>
+    <div class="form-row-1" style="margin-top:12px;"><div class="flabel">Prayer requests — shared with your PMT and the Woven network</div>
+    <textarea style="height:80px;resize:vertical;">Pray for wisdom in managing the tight budget this month, and for the vehicle purchase to come through so we can expand community outreach.</textarea></div>
+    <div class="form-row-1" style="margin-top:12px;"><div class="flabel">Attach photos (optional)</div><input type="file" multiple style="padding:4px 0;border:none;background:transparent;"/></div>
+    </div>`
+};
+
+function renderForm() {
+  document.getElementById('form-body').innerHTML = formContent[formStep] || '';
+  ['step1','step2','step3','step4'].forEach((id, idx) => {
+    const el = document.getElementById(id);
+    const n = idx + 1;
+    el.className = 'step' + (n < formStep ? ' done' : n === formStep ? ' active' : '');
+  });
+  document.getElementById('prog').style.width = Math.round((formStep - 1) / 3 * 100) + '%';
+}
+function nextStep() { if (formStep < 4) { formStep++; renderForm(); } else { alert('Report submitted! Thank you, Dr. Vargas. Your PMT has been notified.'); } }
+function prevStep() { if (formStep > 2) { formStep--; renderForm(); } }
+
+const convos = [
+  { id: 0, name: 'Clínica Jehová Rafa', initials: 'JR', color: '#534AB7', bg: '#EEEDFE', last: 'El vehículo es necesario...', unread: 0 },
+  { id: 1, name: 'Chennai Community Clinic', initials: 'CC', color: '#0F6E56', bg: '#E1F5EE', last: 'We need guidance on reagent costs', unread: 2 },
+  { id: 2, name: 'PMT Guatemala / Nicaragua', initials: 'GT', color: '#854F0B', bg: '#FAEEDA', last: 'Meeting next Tuesday', unread: 1 },
+  { id: 3, name: 'Nairobi Rural Health', initials: 'NR', color: '#185FA5', bg: '#E6F1FB', last: 'March report submitted!', unread: 0 },
+];
+const chats = {
+  0: [
+    { from: 'Dr. E. Vargas', initials: 'EV', color: '#534AB7', bg: '#EEEDFE', time: 'Apr 7', text: 'Hola, hemos enviado el reporte de marzo. Este mes fue difícil financieramente con la compra del vehículo.', own: false },
+    { from: 'Dr. Vander Laan', initials: 'JV', color: '#0F6E56', bg: '#E1F5EE', time: 'Apr 8', text: 'Dr. Vargas, thank you for the report. We noticed the ending balance is very tight at $410 — can you walk us through the vehicle purchase timing?', own: true },
+    { from: 'Dr. E. Vargas', initials: 'EV', color: '#534AB7', bg: '#EEEDFE', time: 'Apr 8', text: 'El vehículo es necesario para las visitas comunitarias. Esperamos recuperar el balance en abril con los ingresos de la clínica y la ofrenda esperada.', own: false },
+  ],
+  1: [
+    { from: 'Dr. P. Krishnan', initials: 'PK', color: '#0F6E56', bg: '#E1F5EE', time: 'Apr 9', text: 'Good morning. We need guidance on the new lab reagent supplier — costs are 22% higher this quarter.', own: false },
+    { from: 'Dr. P. Krishnan', initials: 'PK', color: '#0F6E56', bg: '#E1F5EE', time: 'Apr 9', text: 'We are considering switching suppliers. Do other ministries in the network have recommendations?', own: false },
+  ],
+  2: [
+    { from: 'Sarah M. (PMT Lead)', initials: 'SM', color: '#854F0B', bg: '#FAEEDA', time: 'Apr 6', text: 'Team — PMT meeting confirmed for Tuesday April 14 at 7pm CST. Agenda: Nicaragua Q1 review and Kenya budget discussion.', own: false },
+    { from: 'Dr. Vander Laan', initials: 'JV', color: '#0F6E56', bg: '#E1F5EE', time: 'Apr 6', text: "I'll be there. I've also flagged the Haiti report as late — should we reach out to Dr. Beaumont directly?", own: true },
+  ],
+  3: [
+    { from: 'Dr. A. Wanjiku', initials: 'AW', color: '#185FA5', bg: '#E6F1FB', time: 'Apr 5', text: 'March report submitted! Good month — we facilitated 2 community health education sessions and trained 1 health worker. Grateful for your continued support.', own: false },
+  ]
+};
+let activeConvo = 0;
+
+function renderMessages() {
+  document.getElementById('convo-list').innerHTML = convos.map(c => `
+    <div class="convo-item ${c.id === activeConvo ? 'active-convo' : ''}" onclick="selectConvo(${c.id})">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:32px;height:32px;border-radius:50%;background:${c.bg};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:${c.color};flex-shrink:0;">${c.initials}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</div>
+          <div style="font-size:11px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.last}</div>
+        </div>
+        ${c.unread > 0 ? `<span style="background:#534AB7;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;">${c.unread}</span>` : ''}
+      </div>
+    </div>`).join('');
+  renderChat();
+}
+
+function selectConvo(id) { activeConvo = id; renderMessages(); }
+
+function renderChat() {
+  const msgs = chats[activeConvo];
+  const c = convos[activeConvo];
+  document.getElementById('chat-panel').innerHTML = `
+    <div style="padding:12px 16px;border-bottom:0.5px solid var(--border-light);display:flex;align-items:center;gap:10px;">
+      <div style="width:34px;height:34px;border-radius:50%;background:${c.bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:${c.color};">${c.initials}</div>
+      <div style="font-size:14px;font-weight:500;color:var(--text-primary);">${c.name}</div>
+    </div>
+    <div style="padding:16px 16px 8px;">
+      ${msgs.map(m => `
+        <div class="msg">
+          <div class="msg-header">
+            <div class="msg-av" style="background:${m.bg};color:${m.color};">${m.initials}</div>
+            <span class="msg-name">${m.from}</span>
+            <span class="msg-time">${m.time}</span>
+          </div>
+          <div class="msg-bubble${m.own ? ' own' : ''}">${m.text}</div>
+        </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;padding:8px 16px 16px;">
+      <input type="text" placeholder="Reply to ${c.name}..." style="flex:1;"/>
+      <button class="tbtn btn-primary" style="white-space:nowrap;">Send</button>
+    </div>`;
+}
+
+// Init
+renderTable();
+renderForm();
+
+window.addEventListener('load', () => {
+  new Chart(document.getElementById('c1'), {
+    type: 'line',
+    data: {
+      labels: ['May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr'],
+      datasets: [
+        { data: [5800,6100,6400,6200,7100,7400,7000,6800,7300,7600,7200,7800], borderColor: '#534AB7', backgroundColor: 'rgba(83,74,183,0.07)', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2 },
+        { data: [5100,5400,5700,5500,6200,6500,6100,5900,6400,6800,6500,6900], borderColor: '#AFA9EC', fill: false, tension: 0.4, pointRadius: 0, borderWidth: 1.5, borderDash: [4,3] }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#888780', autoSkip: false, maxRotation: 0 } }, y: { grid: { color: 'rgba(136,135,128,0.12)' }, ticks: { font: { size: 10 }, color: '#888780', callback: v => Math.round(v/1000) + 'k' } } } }
+  });
+  new Chart(document.getElementById('c2'), {
+    type: 'bar',
+    data: {
+      labels: ['Lat. Am.','S. Asia','Africa','SE Asia','Caribbean','Other'],
+      datasets: [{ data: [68,82,51,63,97,47], backgroundColor: ['#534AB7','#7F77DD','#1D9E75','#378ADD','#E24B4A','#888780'], borderRadius: 4 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { max: 100, grid: { color: 'rgba(136,135,128,0.12)' }, ticks: { font: { size: 10 }, color: '#888780', callback: v => v + '%' } }, y: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#888780' } } } }
+  });
+});
+</script>
+</body>
+</html>
