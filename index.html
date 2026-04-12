@@ -249,12 +249,15 @@ button:hover{background:var(--surface2);}
   <div class="screen active" id="screen-dashboard">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
       <select id="region-filter" style="width:auto;" onchange="loadDashboard()">
-        <option value="">All ministries</option>
+        <option value="">All ministries (40)</option>
         <option value="Latin America">Latin America</option>
         <option value="Sub-Saharan Africa">Sub-Saharan Africa</option>
         <option value="South Asia">South Asia</option>
         <option value="Southeast Asia">Southeast Asia</option>
+        <option value="Eastern Europe">Eastern Europe</option>
         <option value="Caribbean">Caribbean</option>
+        <option value="Central Asia">Central Asia</option>
+        <option value="Middle East & North Africa">Middle East & North Africa</option>
       </select>
       <div id="dash-loading" class="hidden"><span class="spinner"></span></div>
     </div>
@@ -278,7 +281,7 @@ button:hover{background:var(--surface2);}
       </div>
       <div class="card">
         <div style="font-size:13px;font-weight:500;margin-bottom:10px;">Budget utilization by region</div>
-        <div style="position:relative;width:100%;height:210px;"><canvas id="budget-chart"></canvas></div>
+        <div style="position:relative;width:100%;height:280px;"><canvas id="budget-chart"></canvas></div>
       </div>
     </div>
     <div class="card">
@@ -590,16 +593,17 @@ async function renderTrendChart() {
 
 function renderBudgetChart() {
   if (budgetChart) budgetChart.destroy();
-  const regions = ['Latin America','South Asia','Sub-Saharan Africa','Southeast Asia','Caribbean','Other'];
+  const regions = ['Latin America','Sub-Saharan Africa','South Asia','Southeast Asia','Eastern Europe','Caribbean','Central Asia','Middle East & North Africa'];
+  const colors   = ['#534AB7','#1D9E75','#BA7517','#185FA5','#854F0B','#D4537E','#639922','#A32D2D'];
   const vals = regions.map(r => {
     const ms = ministriesData.filter(m=>m.region===r);
     return ms.length ? Math.round(ms.reduce((s,m)=>s+(m.budget_utilization_pct||0),0)/ms.length) : null;
   });
-  const colors = ['#534AB7','#7F77DD','#1D9E75','#378ADD','#E24B4A','#888780'];
   const filtered = regions.map((r,i)=>({r,v:vals[i],c:colors[i]})).filter(x=>x.v!==null);
+  const shortLabel = r => r.replace('Sub-Saharan ','').replace('Southeast ','SE ').replace('Middle East & North Africa','M. East & N. Africa').replace('Central Asia','Central Asia').replace('Eastern Europe','E. Europe');
   budgetChart = new Chart(document.getElementById('budget-chart'), {
     type:'bar',
-    data:{labels:filtered.map(x=>x.r.replace('Sub-Saharan ','').replace('Southeast ','SE ')),datasets:[{data:filtered.map(x=>x.v),backgroundColor:filtered.map(x=>x.c),borderRadius:4}]},
+    data:{labels:filtered.map(x=>shortLabel(x.r)),datasets:[{data:filtered.map(x=>x.v),backgroundColor:filtered.map(x=>x.c),borderRadius:4}]},
     options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{
       x:{max:100,grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780',callback:v=>v+'%'}},
       y:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}}
