@@ -248,6 +248,11 @@ button:hover{background:var(--surface2);}
   <!-- DASHBOARD -->
   <div class="screen active" id="screen-dashboard">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+      <select id="year-filter" style="width:auto;" onchange="loadDashboard()">
+        <option value="">Latest month</option>
+        <option value="2026">2026 year view</option>
+        <option value="2025">2025 year view</option>
+      </select>
       <select id="region-filter" style="width:auto;" onchange="loadDashboard()">
         <option value="">All ministries (40)</option>
         <option value="Latin America">Latin America</option>
@@ -381,7 +386,21 @@ const DEMO_MINISTRIES = [
 ];
 
 const DEMO_USER = {name:'Dr. Jon Vander Laan', role:'board', initials:'JV'};
-const MONTHS6 = ['Oct','Nov','Dec','Jan','Feb','Mar'];
+// Dynamic trailing 6 months — always current regardless of year
+function getTrailing6Months() {
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      y: d.getFullYear(),
+      m: d.getMonth() + 1,
+      label: d.toLocaleString('default', {month:'short'})
+    });
+  }
+  return months;
+}
+const MONTHS6 = getTrailing6Months().map(m => m.label);
 
 // ── STATE ──
 let currentUser = null;
@@ -506,11 +525,14 @@ function showScreen(id, btn) {
 async function loadDashboard() {
   document.getElementById('dash-loading').classList.remove('hidden');
   const region = document.getElementById('region-filter').value;
+  const year = document.getElementById('year-filter')?.value || '';
   if (DEMO_MODE) {
     ministriesData = region ? DEMO_MINISTRIES.filter(m => m.region === region) : [...DEMO_MINISTRIES];
   } else {
     let q = sb.from('ministry_dashboard').select('*');
     if (region) q = q.eq('region', region);
+    // If a specific year is selected, filter reports to that year
+    if (year) q = q.eq('report_year', parseInt(year));
     const { data } = await q;
     ministriesData = data || [];
   }
@@ -563,9 +585,9 @@ async function renderTrendChart() {
   if (DEMO_MODE) {
     totals = MONTHS6.map((_, i) => ministriesData.reduce((s,m) => s + (m.trend ? m.trend[i] || 0 : 0), 0));
   } else {
-    const months = [{y:2025,m:10},{y:2025,m:11},{y:2025,m:12},{y:2026,m:1},{y:2026,m:2},{y:2026,m:3}];
-    for (let i = 0; i < months.length; i++) {
-      const {y, m} = months[i];
+    const trailing = getTrailing6Months();
+    for (let i = 0; i < trailing.length; i++) {
+      const {y, m} = trailing[i];
       const { data } = await sb
         .from('monthly_reports')
         .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual)')
@@ -663,16 +685,16 @@ function showMinistryDetail(id) {
   setTimeout(async () => {
     // Fetch 6-month trend for this ministry
     if (!DEMO_MODE && sb) {
-      const months6 = [{y:2025,m:10},{y:2025,m:11},{y:2025,m:12},{y:2026,m:1},{y:2026,m:2},{y:2026,m:3}];
+      const months6 = getTrailing6Months();
       const trendVals = [];
-      for (const {y,mo} of months6.map(x=>({y:x.y,mo:x.m}))) {
+      for (const {y,m:mo} of months6) {
         const {data:rd} = await sb.from('monthly_reports')
           .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual)')
           .eq('ministry_id', m.ministry_id).eq('report_year',y).eq('report_month',mo);
         const cs = rd?.[0]?.clinical_stats;
         trendVals.push(cs ? (cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0) : 0);
       }
-      detailCharts.push(new Chart(document.getElementById('dc1'),{type:'line',data:{labels:['Oct','Nov','Dec','Jan','Feb','Mar'],datasets:[{data:trendVals,borderColor:'#534AB7',backgroundColor:'rgba(83,74,183,0.08)',fill:true,tension:0.4,pointRadius:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}}));
+      detailCharts.push(new Chart(document.getElementById('dc1'),{type:'line',data:{labels:getTrailing6Months().map(m=>m.label),datasets:[{data:trendVals,borderColor:'#534AB7',backgroundColor:'rgba(83,74,183,0.08)',fill:true,tension:0.4,pointRadius:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}}));
     } else {
       detailCharts.push(new Chart(document.getElementById('dc1'),{type:'bar',data:{labels:['Clinic','Community','Dental','Spiritual'],datasets:[{data:[m.consult_clinic||0,m.consult_community||0,m.consult_dental||0,m.consult_spiritual||0],backgroundColor:['#534AB7','#1D9E75','#EF9F27','#AFA9EC'],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}}));
     }
@@ -751,7 +773,7 @@ async function renderCompare() {
   if (cmpChart) cmpChart.destroy();
   setTimeout(async () => {
     // Fetch real trend data for both ministries
-    const months = [{y:2025,m:10},{y:2025,m:11},{y:2025,m:12},{y:2026,m:1},{y:2026,m:2},{y:2026,m:3}];
+    const months = getTrailing6Months();
     const getTrend = async (ministryId) => {
       const vals = [];
       for (const {y,m} of months) {
