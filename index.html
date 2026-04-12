@@ -1164,7 +1164,7 @@ function openConvo(id) {
       <div style="display:flex;gap:6px;align-items:center;">
         <button onclick="openAddMembersModal(${id})" style="font-size:12px;padding:5px 11px;border-radius:var(--r-md);">+ Add members</button>
         <div style="position:relative;">
-          <button id="convo-menu-btn-${id}" onclick="toggleConvoMenu(${id})" style="font-size:18px;padding:4px 8px;border-radius:var(--r-md);line-height:1;color:var(--text2);">⋯</button>
+          <button id="convo-menu-btn-${id}" onclick="toggleConvoMenu(${id})" style="font-size:12px;padding:5px 10px;border-radius:var(--r-md);color:var(--text2);">Options ▾</button>
           <div id="convo-menu-${id}" style="display:none;position:absolute;right:0;top:100%;background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--r-md);min-width:160px;z-index:200;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
             <div onclick="archiveConvo(${id})" style="padding:10px 14px;font-size:13px;cursor:pointer;color:var(--text);" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">Archive conversation</div>
             <div onclick="confirmDeleteConvo(${id},'${c.title.replace(/'/g, String.fromCharCode(39))}')" style="padding:10px 14px;font-size:13px;cursor:pointer;color:var(--red);border-top:0.5px solid var(--border);" onmouseover="this.style.background='var(--red-l)'" onmouseout="this.style.background=''">Delete conversation</div>
