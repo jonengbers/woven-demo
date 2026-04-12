@@ -1149,65 +1149,146 @@ function renderConvoItem(c) {
 
 function openConvo(id) {
   activeConvoId = id;
-  const c = demoConvos.find(x=>x.id===id);
+  const c = demoConvos.find(x => x.id === id);
   if (!c) return;
   c.unread = 0;
   renderConvoList();
+
   const panel = document.getElementById('chat-panel');
-  panel.innerHTML = `
-    <div class="chat-header">
-      <div style="width:34px;height:34px;border-radius:50%;background:${c.bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:${c.color};">${c.initials}</div>
-      <div style="flex:1;">
-        <div style="font-size:14px;font-weight:600;">${c.title}</div>
-        <div id="member-count-${id}" style="font-size:11px;color:var(--text2);">Loading members...</div>
+
+  // Build header separately to avoid template literal escaping issues
+  const header = document.createElement('div');
+  header.className = 'chat-header';
+  header.style.cssText = 'padding:12px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;position:relative;';
+
+  // Avatar
+  const av = document.createElement('div');
+  av.style.cssText = `width:34px;height:34px;border-radius:50%;background:${c.bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:${c.color};flex-shrink:0;`;
+  av.textContent = c.initials;
+  header.appendChild(av);
+
+  // Title area
+  const titleArea = document.createElement('div');
+  titleArea.style.cssText = 'flex:1;min-width:0;';
+  titleArea.innerHTML = `<div style="font-size:14px;font-weight:600;">${c.title}</div><div id="member-count-${id}" style="font-size:11px;color:var(--text2);">Loading members...</div>`;
+  header.appendChild(titleArea);
+
+  // Button group
+  const btnGroup = document.createElement('div');
+  btnGroup.style.cssText = 'display:flex;gap:6px;align-items:center;flex-shrink:0;';
+
+  // Add members button
+  const addBtn = document.createElement('button');
+  addBtn.style.cssText = 'font-size:12px;padding:5px 11px;border-radius:var(--r-md);';
+  addBtn.textContent = '+ Add members';
+  addBtn.onclick = () => openAddMembersModal(id);
+  btnGroup.appendChild(addBtn);
+
+  // Options button
+  const optBtn = document.createElement('button');
+  optBtn.style.cssText = 'font-size:12px;padding:5px 11px;border-radius:var(--r-md);color:var(--text2);';
+  optBtn.textContent = 'Options';
+  optBtn.id = 'convo-menu-btn-' + id;
+
+  // Dropdown menu
+  const menu = document.createElement('div');
+  menu.id = 'convo-menu-' + id;
+  menu.style.cssText = 'display:none;position:absolute;right:16px;top:52px;background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--r-md);min-width:180px;z-index:500;box-shadow:0 4px 16px rgba(0,0,0,0.15);overflow:hidden;';
+
+  const archiveItem = document.createElement('div');
+  archiveItem.style.cssText = 'padding:11px 16px;font-size:13px;cursor:pointer;color:var(--text);border-bottom:0.5px solid var(--border);';
+  archiveItem.textContent = 'Archive conversation';
+  archiveItem.onmouseover = () => archiveItem.style.background = 'var(--surface2)';
+  archiveItem.onmouseout = () => archiveItem.style.background = '';
+  archiveItem.onclick = () => { menu.style.display = 'none'; archiveConvo(id); };
+
+  const deleteItem = document.createElement('div');
+  deleteItem.style.cssText = 'padding:11px 16px;font-size:13px;cursor:pointer;color:var(--red);';
+  deleteItem.textContent = 'Delete conversation';
+  deleteItem.onmouseover = () => deleteItem.style.background = 'var(--red-l)';
+  deleteItem.onmouseout = () => deleteItem.style.background = '';
+  deleteItem.onclick = () => { menu.style.display = 'none'; confirmDeleteConvo(id, c.title); };
+
+  menu.appendChild(archiveItem);
+  menu.appendChild(deleteItem);
+
+  optBtn.onclick = () => {
+    const isOpen = menu.style.display !== 'none';
+    menu.style.display = isOpen ? 'none' : 'block';
+  };
+
+  btnGroup.appendChild(optBtn);
+  header.appendChild(btnGroup);
+  header.appendChild(menu);
+
+  // Close menu on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function closeMenu(e) {
+      if (!menu.contains(e.target) && e.target !== optBtn) {
+        menu.style.display = 'none';
+      }
+    }, { once: false, capture: false });
+  }, 100);
+
+  // Build messages area
+  const msgsDiv = document.createElement('div');
+  msgsDiv.className = 'chat-messages';
+  msgsDiv.id = 'chat-msgs';
+
+  // Render demo messages
+  (c.messages || []).forEach(m => {
+    const msgEl = document.createElement('div');
+    msgEl.className = 'msg';
+    const imgHtml = m.image_url
+      ? `<div style="margin-top:6px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:var(--r-md);border:0.5px solid var(--border);cursor:pointer;" onclick="window.open('${m.image_url}','_blank')"/></div>`
+      : '';
+    const bodyHtml = m.text ? `<div>${m.text}</div>` : '';
+    msgEl.innerHTML = `
+      <div class="msg-header">
+        <div class="msg-av" style="background:${m.bg};color:${m.color};">${m.initials}</div>
+        <span class="msg-name">${m.sender}</span>
+        <span class="msg-time">${m.time}</span>
       </div>
-      <div style="display:flex;gap:6px;align-items:center;">
-        <button onclick="openAddMembersModal(${id})" style="font-size:12px;padding:5px 11px;border-radius:var(--r-md);">+ Add members</button>
-        <button onclick="toggleConvoMenu(${id})" style="font-size:12px;padding:5px 10px;border-radius:var(--r-md);color:var(--text2);" id="convo-menu-btn-${id}">Options</button>
-      </div>
+      <div class="msg-bubble${m.own ? ' own' : ''}">${bodyHtml}${imgHtml}</div>`;
+    msgsDiv.appendChild(msgEl);
+  });
+
+  // Build input row
+  const inputRow = document.createElement('div');
+  inputRow.className = 'chat-input-row';
+  inputRow.innerHTML = `
+    <label for="img-upload-${id}" style="cursor:pointer;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--r-md);font-size:13px;color:var(--text2);display:flex;align-items:center;flex-shrink:0;" title="Attach photo">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    </label>
+    <input type="file" id="img-upload-${id}" accept="image/*,video/*" style="display:none;" onchange="handleImageUpload(this,${id})"/>
+    <input type="text" id="chat-input-${id}" placeholder="Reply to ${c.title}..." onkeydown="if(event.key==='Enter')sendMsg(${id})" style="flex:1;"/>
+    <button class="btn-primary btn-sm" onclick="sendMsg(${id})">Send</button>`;
+
+  // Build image preview area
+  const previewDiv = document.createElement('div');
+  previewDiv.id = 'img-preview-' + id;
+  previewDiv.style.cssText = 'display:none;padding:8px 16px;border-top:0.5px solid var(--border);';
+  previewDiv.innerHTML = `
+    <div style="position:relative;display:inline-block;">
+      <img id="img-preview-thumb-${id}" style="max-height:80px;max-width:200px;border-radius:var(--r-md);border:0.5px solid var(--border);"/>
+      <button onclick="cancelImage(${id})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;padding:0;font-size:12px;line-height:1;background:var(--red-l);color:var(--red);border-color:var(--red);">x</button>
     </div>
-    <div id="convo-menu-${id}" style="display:none;background:var(--surface);border-bottom:0.5px solid var(--border);padding:4px 0;">
-      <div onclick="archiveConvo(${id})" style="padding:10px 16px;font-size:13px;cursor:pointer;color:var(--text);border-bottom:0.5px solid var(--border);" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">Archive conversation</div>
-      <div id="delete-convo-${id}" style="padding:10px 16px;font-size:13px;cursor:pointer;color:var(--red);" onmouseover="this.style.background='var(--red-l)'" onmouseout="this.style.background=''">Delete conversation</div>
-    </div>
-        <div class="chat-messages" id="chat-msgs">
-      ${(c.messages||[]).map(m=>{
-        const imgHtml = m.image_url ? `<div style="margin-top:6px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:8px;border:0.5px solid var(--border);cursor:pointer;" onclick="window.open('${m.image_url}','_blank')"/></div>` : '';
-        const bodyHtml = m.text ? `<div>${m.text}</div>` : '';
-        return `<div class="msg">
-          <div class="msg-header">
-            <div class="msg-av" style="background:${m.bg};color:${m.color};">${m.initials}</div>
-            <span class="msg-name">${m.sender}</span>
-            <span class="msg-time">${m.time}</span>
-          </div>
-          <div class="msg-bubble${m.own?' own':''}">${bodyHtml}${imgHtml}</div>
-        </div>`;
-      }).join('')}
-    </div>
-    <div class="chat-input-row">
-      <label for="img-upload-${id}" style="cursor:pointer;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--r-md);font-size:13px;color:var(--text2);display:flex;align-items:center;flex-shrink:0;" title="Attach photo">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-      </label>
-      <input type="file" id="img-upload-${id}" accept="image/*,video/*" style="display:none;" onchange="handleImageUpload(this,${id})"/>
-      <input type="text" id="chat-input-${id}" placeholder="Reply to ${c.title}..." onkeydown="if(event.key==='Enter')sendMsg(${id})" style="flex:1;"/>
-      <button class="btn-primary btn-sm" onclick="sendMsg(${id})">Send</button>
-    </div>
-    <div id="img-preview-${id}" style="display:none;padding:8px 16px;border-top:0.5px solid var(--border);">
-      <div style="position:relative;display:inline-block;">
-        <img id="img-preview-thumb-${id}" style="max-height:80px;max-width:200px;border-radius:var(--r-md);border:0.5px solid var(--border);"/>
-        <button onclick="cancelImage(${id})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;padding:0;font-size:12px;line-height:1;background:var(--red-l);color:var(--red);border-color:var(--red);">✕</button>
-      </div>
-      <div style="font-size:11px;color:var(--text2);margin-top:4px;" id="img-preview-name-${id}"></div>
-    </div>`;
-  document.getElementById('chat-msgs').scrollTop = 99999;
+    <div style="font-size:11px;color:var(--text2);margin-top:4px;" id="img-preview-name-${id}"></div>`;
+
+  // Assemble panel
+  panel.innerHTML = '';
+  panel.appendChild(header);
+  panel.appendChild(msgsDiv);
+  panel.appendChild(inputRow);
+  panel.appendChild(previewDiv);
+
+  msgsDiv.scrollTop = 99999;
 
   if (!DEMO_MODE && sb) {
-    // Load member count
     sb.from('conversation_members').select('user_id', {count:'exact'}).eq('conversation_id', id).then(({count}) => {
-      const el = document.getElementById('member-count-'+id);
+      const el = document.getElementById('member-count-' + id);
       if (el) el.textContent = `${count || 1} member${(count||1)===1?'':'s'}`;
     });
-
     sb.from('messages_with_sender').select('*').eq('conversation_id', id).order('created_at').then(({data, error}) => {
       if (data && data.length > 0) renderLiveMessages(data, id);
       else if (error) console.error('Message fetch error:', error);
