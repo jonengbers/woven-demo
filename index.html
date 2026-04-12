@@ -1234,7 +1234,88 @@ function initMap() {
         .attr('stroke', isDark ? '#444' : '#fff')
         .attr('stroke-width', 0.3);
 
-      // Draw ministry pins
+      // Zoom controls
+      const zoomBtns = document.createElement('div');
+      zoomBtns.style.cssText = 'position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:4px;z-index:10;';
+      zoomBtns.innerHTML = `
+        <button onclick="mapZoomIn()" style="width:30px;height:30px;font-size:16px;padding:0;border-radius:6px;line-height:1;font-weight:500;">+</button>
+        <button onclick="mapZoomOut()" style="width:30px;height:30px;font-size:16px;padding:0;border-radius:6px;line-height:1;font-weight:500;">−</button>
+        <button onclick="mapReset()" style="width:30px;height:24px;font-size:9px;padding:0;border-radius:6px;line-height:1;" title="Reset view">Reset</button>`;
+      mapDiv.style.position = 'relative';
+      mapDiv.appendChild(zoomBtns);
+
+      // Zoom region shortcuts
+      const shortcuts = document.createElement('div');
+      shortcuts.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:10px 0 4px;';
+      const zoomRegions = [
+        {label:'Latin America', lng:-85, lat:5,   scale:2.8},
+        {label:'W. Africa',     lng:5,   lat:10,  scale:3.5},
+        {label:'E. Africa',     lng:35,  lat:0,   scale:3.5},
+        {label:'South Asia',    lng:82,  lat:22,  scale:3.2},
+        {label:'SE Asia',       lng:118, lat:5,   scale:3.5},
+        {label:'E. Europe',     lng:32,  lat:49,  scale:4.0},
+        {label:'Caribbean',     lng:-70, lat:18,  scale:5.0},
+      ];
+      zoomRegions.forEach(r => {
+        shortcuts.innerHTML += `<button onclick="zoomToRegion(${r.lng},${r.lat},${r.scale})" style="font-size:11px;padding:4px 10px;border-radius:20px;">${r.label}</button>`;
+      });
+      container.insertBefore(shortcuts, mapDiv);
+
+      // Set up D3 zoom
+      const zoomBehavior = d3.zoom()
+        .scaleExtent([1, 12])
+        .on('zoom', (event) => {
+          mapGroup.attr('transform', event.transform);
+          // Scale pins inversely so they stay readable when zoomed in
+          const k = event.transform.k;
+          svg.selectAll('.pin').each(function() {
+            d3.select(this).select('circle:last-child').attr('r', Math.max(2, 4 / Math.sqrt(k)));
+            d3.select(this).select('circle:first-child').attr('r', Math.max(4, 7 / Math.sqrt(k)));
+          });
+        });
+
+      svg.call(zoomBehavior);
+
+      // Wrap everything in a group for zoom transforms
+      const mapGroup = svg.append('g');
+
+      // Expose zoom controls globally
+      window.currentZoom = zoomBehavior;
+      window.currentSvg = svg;
+      window.mapW = W;
+      window.mapH = H;
+      window.mapProjection = projection;
+
+      window.mapZoomIn = () => svg.transition().duration(300).call(zoomBehavior.scaleBy, 1.6);
+      window.mapZoomOut = () => svg.transition().duration(300).call(zoomBehavior.scaleBy, 0.625);
+      window.mapReset = () => svg.transition().duration(500).call(zoomBehavior.transform, d3.zoomIdentity);
+      window.zoomToRegion = (lng, lat, scale) => {
+        const [cx, cy] = projection([lng, lat]);
+        const transform = d3.zoomIdentity
+          .translate(W / 2, H / 2)
+          .scale(scale)
+          .translate(-cx, -cy);
+        svg.transition().duration(600).call(zoomBehavior.transform, transform);
+      };
+
+      // Draw countries into the group
+      mapGroup.append('g')
+        .selectAll('path')
+        .data(topojson.feature(world, world.objects.countries).features)
+        .join('path')
+        .attr('d', path)
+        .attr('fill', isDark ? '#2a2a28' : '#e8e6e0')
+        .attr('stroke', isDark ? '#3a3a38' : '#ffffff')
+        .attr('stroke-width', 0.5);
+
+      mapGroup.append('path')
+        .datum(topojson.mesh(world, world.objects.countries, (a,b) => a !== b))
+        .attr('d', path)
+        .attr('fill', 'none')
+        .attr('stroke', isDark ? '#444' : '#fff')
+        .attr('stroke-width', 0.3);
+
+      // Draw ministry pins into the group
       const tip = document.getElementById('map-tooltip');
 
       MINISTRY_LOCATIONS.forEach(m => {
@@ -1243,7 +1324,7 @@ function initMap() {
 
         const color = REGION_COLORS[m.region] || '#534AB7';
 
-        const g = svg.append('g')
+        const g = mapGroup.append('g')
           .attr('class', 'pin')
           .attr('transform', `translate(${x},${y})`);
 
@@ -1265,7 +1346,6 @@ function initMap() {
           d3.select(this).select('circle:last-child').attr('r', 6);
           d3.select(this).select('circle:first-child').attr('r', 10).attr('opacity', 0.35);
 
-          // Get ministry data for tooltip
           const mData = ministriesData.find(d => d.ministry_id === m.id);
           const visits = mData ? (mData.total_consultations||0).toLocaleString() : '—';
           const status = mData ? mData.report_status : '—';
@@ -1278,7 +1358,6 @@ function initMap() {
             <span>Report: <strong style="color:${statusColor};">${status}</strong></span>`;
 
           const rect = container.getBoundingClientRect();
-          const svgRect = mapDiv.getBoundingClientRect();
           let tx = event.clientX - rect.left + 12;
           let ty = event.clientY - rect.top - 10;
           if (tx + 200 > container.offsetWidth) tx -= 210;
@@ -1300,7 +1379,6 @@ function initMap() {
           tip.style.opacity = '0';
         })
         .on('click', function() {
-          // Navigate to ministry detail
           const mData = ministriesData.find(d => d.ministry_id === m.id);
           if (mData) showMinistryDetail(m.id);
         });
