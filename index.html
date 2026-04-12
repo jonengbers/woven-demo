@@ -2813,34 +2813,18 @@ async function translateText(text, fromLang, toLang) {
     return await translateChunk(text, fromLang, toLang);
   }
 
-  // Split on sentence boundaries to keep meaning intact
-  const sentences = text.split(/(?<=[.!?])\s+|(?<=
-)\s*/);
+  // Split into chunks by words, keeping under MAX_CHUNK chars
+  const words = text.split(' ');
   const chunks = [];
   let current = '';
 
-  for (const sentence of sentences) {
-    if ((current + ' ' + sentence).trim().length <= MAX_CHUNK) {
-      current = (current + ' ' + sentence).trim();
+  for (const word of words) {
+    const candidate = current ? current + ' ' + word : word;
+    if (candidate.length <= MAX_CHUNK) {
+      current = candidate;
     } else {
       if (current) chunks.push(current);
-      // If a single sentence is too long, split on commas
-      if (sentence.length > MAX_CHUNK) {
-        const parts = sentence.split(/,\s*/);
-        let partial = '';
-        for (const part of parts) {
-          if ((partial + ', ' + part).length <= MAX_CHUNK) {
-            partial = partial ? partial + ', ' + part : part;
-          } else {
-            if (partial) chunks.push(partial);
-            partial = part;
-          }
-        }
-        if (partial) current = partial;
-        else current = '';
-      } else {
-        current = sentence;
-      }
+      current = word;
     }
   }
   if (current) chunks.push(current);
