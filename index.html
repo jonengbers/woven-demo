@@ -149,6 +149,14 @@ button:hover{background:var(--surface2);}
 .msg-bubble{background:var(--surface2);border-radius:0 var(--r-md) var(--r-md) var(--r-md);padding:10px 12px;font-size:13px;line-height:1.5;margin-left:34px;}
 .msg-bubble.own{background:var(--purple-l);color:var(--purple-d);border-radius:var(--r-md) 0 var(--r-md) var(--r-md);}
 
+/* ── MAP ── */
+#map-container svg { width: 100%; display: block; }
+.map-tooltip { position: absolute; background: var(--surface); border: 0.5px solid var(--border2); border-radius: var(--r-md); padding: 10px 14px; font-size: 12px; pointer-events: none; opacity: 0; transition: opacity .15s; min-width: 180px; z-index: 50; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.map-tooltip strong { font-size: 13px; font-weight: 600; color: var(--text); display: block; margin-bottom: 4px; }
+.map-tooltip span { color: var(--text2); display: block; line-height: 1.6; }
+.pin { cursor: pointer; transition: r .15s; }
+.pin:hover circle { r: 7; }
+
 /* ── RESPONSIVE ── */
 @media(max-width:700px){
   .metrics-row{grid-template-columns:repeat(2,1fr);}
@@ -226,6 +234,7 @@ button:hover{background:var(--surface2);}
       <button class="tnav" onclick="showScreen('ministries',this)">Ministries</button>
       <button class="tnav" onclick="showScreen('compare',this)">Compare</button>
       <button class="tnav" id="nav-submit" onclick="showScreen('submit',this)">Submit report</button>
+      <button class="tnav" onclick="showScreen('map',this)">World map</button>
       <button class="tnav" onclick="showScreen('messages',this)">Messages</button>
     </div>
     <div class="user-pill">
@@ -328,6 +337,11 @@ button:hover{background:var(--surface2);}
         <button style="margin-left:auto;" onclick="saveFormDraft()">Save draft</button>
       </div>
     </div>
+  </div>
+
+  <!-- WORLD MAP -->
+  <div class="screen" id="screen-map">
+    <div id="map-container" style="position:relative;width:100%;"></div>
   </div>
 
   <!-- MESSAGES -->
@@ -480,6 +494,7 @@ function showScreen(id, btn) {
   if (btn) btn.classList.add('active');
   if (id === 'compare') { loadCompareSelects(); }
   if (id === 'messages') { loadConversations(); }
+  if (id === 'map') { initMap(); }
 }
 
 // ── DASHBOARD ──
@@ -1048,6 +1063,250 @@ async function sendMsg(convoId) {
     return;
   }
   await sb.from('messages').insert({ conversation_id: convoId, sender_id: currentUser.id, body: text });
+}
+
+
+// ── WORLD MAP ──
+const MINISTRY_LOCATIONS = [
+  // Philippines
+  {id:1,  name:'Iloilo Island Ministry',        country:'Philippines',  lat:10.72,  lng:122.56, region:'Southeast Asia'},
+  {id:2,  name:'Palawan Health Ministry',        country:'Philippines',  lat:9.83,   lng:118.73, region:'Southeast Asia'},
+  // India
+  {id:3,  name:'Odisha Community Health',        country:'India',        lat:20.29,  lng:85.82,  region:'South Asia'},
+  {id:4,  name:'Madhya Pradesh Ministry',        country:'India',        lat:23.47,  lng:77.95,  region:'South Asia'},
+  // Ghana
+  {id:5,  name:'Kasei Health Ministry',          country:'Ghana',        lat:7.96,   lng:-1.42,  region:'Sub-Saharan Africa'},
+  // Guatemala
+  {id:6,  name:'Patzun Community Clinic',        country:'Guatemala',    lat:14.68,  lng:-90.97, region:'Latin America'},
+  {id:7,  name:'San Juan Health Ministry',       country:'Guatemala',    lat:14.73,  lng:-90.65, region:'Latin America'},
+  // Myanmar
+  {id:8,  name:'Matupi Health Ministry',         country:'Myanmar',      lat:23.00,  lng:93.58,  region:'Southeast Asia'},
+  // Ukraine
+  {id:9,  name:'Transcarpathia Medical Center',  country:'Ukraine',      lat:48.44,  lng:22.70,  region:'Eastern Europe'},
+  {id:10, name:'Rivne Community Clinic',         country:'Ukraine',      lat:50.62,  lng:26.25,  region:'Eastern Europe'},
+  {id:11, name:'Lugansk Medical Ministry',       country:'Ukraine',      lat:48.57,  lng:39.31,  region:'Eastern Europe'},
+  // Kenya
+  {id:12, name:'Nairobi Health Ministry',        country:'Kenya',        lat:-1.29,  lng:36.82,  region:'Sub-Saharan Africa'},
+  // Indonesia
+  {id:13, name:'Papua Health Ministry',          country:'Indonesia',    lat:-4.27,  lng:138.08, region:'Southeast Asia'},
+  // Mexico
+  {id:14, name:'Jalapa Community Clinic',        country:'Mexico',       lat:19.53,  lng:-96.92, region:'Latin America'},
+  {id:15, name:'Eloxochitlan Health Ministry',   country:'Mexico',       lat:18.45,  lng:-97.08, region:'Latin America'},
+  // Ecuador
+  {id:16, name:'Quininde Community Clinic',      country:'Ecuador',      lat:0.32,   lng:-79.47, region:'Latin America'},
+  // Cameroon
+  {id:17, name:'Bamenda Medical Ministry',       country:'Cameroon',     lat:5.96,   lng:10.15,  region:'Sub-Saharan Africa'},
+  {id:18, name:'Mbongo Health Ministry',         country:'Cameroon',     lat:4.35,   lng:9.25,   region:'Sub-Saharan Africa'},
+  // Mali
+  {id:19, name:'Kayes Health Ministry',          country:'Mali',         lat:14.45,  lng:-11.44, region:'Sub-Saharan Africa'},
+  {id:20, name:'Segou Community Clinic',         country:'Mali',         lat:13.45,  lng:-6.27,  region:'Sub-Saharan Africa'},
+  {id:21, name:'Kaniaka Health Ministry',        country:'Mali',         lat:12.85,  lng:-8.55,  region:'Sub-Saharan Africa'},
+  // Nepal
+  {id:22, name:'Birtamod Community Health',      country:'Nepal',        lat:26.64,  lng:87.99,  region:'South Asia'},
+  // Benin
+  {id:23, name:"N'Dali Health Ministry",         country:'Benin',        lat:9.86,   lng:2.70,   region:'Sub-Saharan Africa'},
+  {id:24, name:'Tchaourou Medical Center',       country:'Benin',        lat:8.88,   lng:2.60,   region:'Sub-Saharan Africa'},
+  // Haiti
+  {id:25, name:'Cayes-Jacmel Community Clinic',  country:'Haiti',        lat:18.23,  lng:-72.53, region:'Caribbean'},
+  // Bolivia
+  {id:26, name:'Chilimarca Health Ministry',     country:'Bolivia',      lat:-17.39, lng:-66.16, region:'Latin America'},
+  // Niger
+  {id:27, name:'Madaoua Medical Ministry',       country:'Niger',        lat:14.08,  lng:5.96,   region:'Sub-Saharan Africa'},
+  {id:28, name:'Maradi Community Clinic',        country:'Niger',        lat:13.50,  lng:7.10,   region:'Sub-Saharan Africa'},
+  {id:29, name:'Tekanassar Health Ministry',     country:'Niger',        lat:15.22,  lng:5.26,   region:'Sub-Saharan Africa'},
+  // Liberia
+  {id:30, name:'Monrovia Health Ministry',       country:'Liberia',      lat:6.29,   lng:-10.75, region:'Sub-Saharan Africa'},
+  // Chad
+  {id:31, name:'Moundou Medical Center',         country:'Chad',         lat:8.57,   lng:16.08,  region:'Sub-Saharan Africa'},
+  // Nicaragua
+  {id:32, name:'Leon Community Health',          country:'Nicaragua',    lat:12.43,  lng:-86.88, region:'Latin America'},
+  {id:33, name:'Ministerio Clinica Jehova Rafa', country:'Nicaragua',    lat:12.13,  lng:-86.28, region:'Latin America'},
+  // Dominican Republic
+  {id:34, name:'Rafey Health Ministry',          country:'Dominican Republic', lat:19.45, lng:-70.70, region:'Caribbean'},
+  // El Salvador
+  {id:35, name:'Metapan Community Clinic',       country:'El Salvador',  lat:14.33,  lng:-89.44, region:'Latin America'},
+  // Kyrgyzstan
+  {id:36, name:'Tokmok Health Ministry',         country:'Kyrgyzstan',   lat:42.84,  lng:75.30,  region:'Central Asia'},
+  // Sri Lanka
+  {id:37, name:'Habaraduwa Medical Center',      country:'Sri Lanka',    lat:6.04,   lng:80.25,  region:'South Asia'},
+  // Egypt
+  {id:38, name:'Northern Egypt Ministry',        country:'Egypt',        lat:30.50,  lng:28.50,  region:'Middle East & N. Africa'},
+  // China
+  {id:39, name:'Anshan Ministry',               country:'China',         lat:41.12,  lng:122.99, region:'Central Asia'},
+  // South Sudan
+  {id:40, name:'Juba Health Ministry',           country:'South Sudan',  lat:4.85,   lng:31.60,  region:'Sub-Saharan Africa'},
+];
+
+const REGION_COLORS = {
+  'Latin America':          '#534AB7',
+  'Sub-Saharan Africa':     '#1D9E75',
+  'South Asia':             '#BA7517',
+  'Southeast Asia':         '#185FA5',
+  'Eastern Europe':         '#854F0B',
+  'Caribbean':              '#D4537E',
+  'Central Asia':           '#639922',
+  'Middle East & N. Africa':'#A32D2D',
+};
+
+let mapInitialized = false;
+
+function initMap() {
+  if (mapInitialized) return;
+  mapInitialized = true;
+
+  const container = document.getElementById('map-container');
+  container.innerHTML = '';
+
+  // Legend
+  const legend = document.createElement('div');
+  legend.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;padding:0 0 12px;';
+  Object.entries(REGION_COLORS).forEach(([region, color]) => {
+    legend.innerHTML += `<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);">
+      <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block;"></span>${region}
+    </span>`;
+  });
+  container.appendChild(legend);
+
+  // Tooltip
+  const tooltip = document.createElement('div');
+  tooltip.className = 'map-tooltip';
+  tooltip.id = 'map-tooltip';
+  container.appendChild(tooltip);
+
+  // Summary bar
+  const summary = document.createElement('div');
+  summary.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px;';
+  const regions = [...new Set(MINISTRY_LOCATIONS.map(m => m.region))];
+  summary.innerHTML = `
+    <div class="mc"><div class="mc-label">Active ministries</div><div class="mc-val">${MINISTRY_LOCATIONS.length}</div></div>
+    <div class="mc"><div class="mc-label">Countries</div><div class="mc-val">${new Set(MINISTRY_LOCATIONS.map(m=>m.country)).size}</div></div>
+    <div class="mc"><div class="mc-label">Continents</div><div class="mc-val">5</div></div>
+    <div class="mc"><div class="mc-label">Regions</div><div class="mc-val">${regions.length}</div></div>`;
+  container.insertBefore(summary, legend);
+
+  // D3 map
+  const mapDiv = document.createElement('div');
+  mapDiv.id = 'map-svg-wrap';
+  mapDiv.style.cssText = 'background:var(--surface);border:0.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;';
+  container.appendChild(mapDiv);
+
+  // Load D3 and TopoJSON
+  const loadScript = (src) => new Promise(res => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = res;
+    document.head.appendChild(s);
+  });
+
+  Promise.all([
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js'),
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js')
+  ]).then(() => {
+    const W = mapDiv.offsetWidth || 900;
+    const H = Math.round(W * 0.52);
+    const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+
+    const svg = d3.select('#map-svg-wrap').append('svg')
+      .attr('viewBox', `0 0 ${W} ${H}`)
+      .attr('width', '100%');
+
+    const projection = d3.geoNaturalEarth1()
+      .scale(W / 6.5)
+      .translate([W / 2, H / 2]);
+
+    const path = d3.geoPath().projection(projection);
+
+    d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(world => {
+      // Draw countries
+      svg.append('g')
+        .selectAll('path')
+        .data(topojson.feature(world, world.objects.countries).features)
+        .join('path')
+        .attr('d', path)
+        .attr('fill', isDark ? '#2a2a28' : '#e8e6e0')
+        .attr('stroke', isDark ? '#3a3a38' : '#ffffff')
+        .attr('stroke-width', 0.5);
+
+      // Draw borders
+      svg.append('path')
+        .datum(topojson.mesh(world, world.objects.countries, (a,b) => a !== b))
+        .attr('d', path)
+        .attr('fill', 'none')
+        .attr('stroke', isDark ? '#444' : '#fff')
+        .attr('stroke-width', 0.3);
+
+      // Draw ministry pins
+      const tip = document.getElementById('map-tooltip');
+
+      MINISTRY_LOCATIONS.forEach(m => {
+        const [x, y] = projection([m.lng, m.lat]);
+        if (!x || !y) return;
+
+        const color = REGION_COLORS[m.region] || '#534AB7';
+
+        const g = svg.append('g')
+          .attr('class', 'pin')
+          .attr('transform', `translate(${x},${y})`);
+
+        // Outer ring
+        g.append('circle')
+          .attr('r', 7)
+          .attr('fill', color)
+          .attr('opacity', 0.25);
+
+        // Inner dot
+        g.append('circle')
+          .attr('r', 4)
+          .attr('fill', color)
+          .attr('stroke', '#fff')
+          .attr('stroke-width', 1);
+
+        // Hover interactions
+        g.on('mouseover', function(event) {
+          d3.select(this).select('circle:last-child').attr('r', 6);
+          d3.select(this).select('circle:first-child').attr('r', 10).attr('opacity', 0.35);
+
+          // Get ministry data for tooltip
+          const mData = ministriesData.find(d => d.ministry_id === m.id);
+          const visits = mData ? (mData.total_consultations||0).toLocaleString() : '—';
+          const status = mData ? mData.report_status : '—';
+          const statusColor = status === 'submitted' || status === 'approved' ? 'var(--green)' : 'var(--amber)';
+
+          tip.innerHTML = `
+            <strong>${m.name}</strong>
+            <span>${m.country} · ${m.region}</span>
+            <span style="margin-top:6px;display:block;">Consultations: <strong style="color:var(--text);">${visits}</strong></span>
+            <span>Report: <strong style="color:${statusColor};">${status}</strong></span>`;
+
+          const rect = container.getBoundingClientRect();
+          const svgRect = mapDiv.getBoundingClientRect();
+          let tx = event.clientX - rect.left + 12;
+          let ty = event.clientY - rect.top - 10;
+          if (tx + 200 > container.offsetWidth) tx -= 210;
+          tip.style.left = tx + 'px';
+          tip.style.top = ty + 'px';
+          tip.style.opacity = '1';
+        })
+        .on('mousemove', function(event) {
+          const rect = container.getBoundingClientRect();
+          let tx = event.clientX - rect.left + 12;
+          let ty = event.clientY - rect.top - 10;
+          if (tx + 200 > container.offsetWidth) tx -= 210;
+          tip.style.left = tx + 'px';
+          tip.style.top = ty + 'px';
+        })
+        .on('mouseout', function() {
+          d3.select(this).select('circle:last-child').attr('r', 4);
+          d3.select(this).select('circle:first-child').attr('r', 7).attr('opacity', 0.25);
+          tip.style.opacity = '0';
+        })
+        .on('click', function() {
+          // Navigate to ministry detail
+          const mData = ministriesData.find(d => d.ministry_id === m.id);
+          if (mData) showMinistryDetail(m.id);
+        });
+      });
+    });
+  });
 }
 
 // ── INIT FORM ──
