@@ -850,18 +850,44 @@ function showMinistryDetail(id, period) {
       </div>
       <div id="dp-loading" style="text-align:center;padding:30px;color:var(--text2);"><span class="spinner"></span> Loading ${period} data...</div>
       <div id="dp-content" style="display:none;">
-        <div class="dp-grid" id="dp-stats"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;">
-          <div class="card" style="padding:14px;">
-            <div style="font-size:13px;font-weight:500;margin-bottom:10px;" id="dp-trend-title">Consultation trend</div>
-            <div style="position:relative;height:170px;"><canvas id="dc1"></canvas></div>
-          </div>
-          <div class="card" style="padding:14px;">
-            <div style="font-size:13px;font-weight:500;margin-bottom:10px;">Payment methods</div>
-            <div style="position:relative;height:130px;"><canvas id="dc2"></canvas></div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;" id="dp-pay-legend"></div>
+
+        <!-- View tabs -->
+        <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:0.5px solid var(--border);">
+          <button onclick="switchDetailTab('stats')" id="dtab-stats" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid #534AB7;color:#534AB7;font-weight:500;background:transparent;cursor:pointer;margin-bottom:-1px;">Statistics</button>
+          <button onclick="switchDetailTab('reports')" id="dtab-reports" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid transparent;color:var(--text2);background:transparent;cursor:pointer;margin-bottom:-1px;">Narrative reports</button>
+          <button onclick="switchDetailTab('prayer')" id="dtab-prayer" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid transparent;color:var(--text2);background:transparent;cursor:pointer;margin-bottom:-1px;">Prayer requests</button>
+        </div>
+
+        <!-- Statistics tab -->
+        <div id="dtab-stats-content">
+          <div class="dp-grid" id="dp-stats"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;">
+            <div class="card" style="padding:14px;">
+              <div style="font-size:13px;font-weight:500;margin-bottom:10px;" id="dp-trend-title">Consultation trend</div>
+              <div style="position:relative;height:170px;"><canvas id="dc1"></canvas></div>
+            </div>
+            <div class="card" style="padding:14px;">
+              <div style="font-size:13px;font-weight:500;margin-bottom:10px;">Payment methods</div>
+              <div style="position:relative;height:130px;"><canvas id="dc2"></canvas></div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;" id="dp-pay-legend"></div>
+            </div>
           </div>
         </div>
+
+        <!-- Narrative reports tab -->
+        <div id="dtab-reports-content" style="display:none;">
+          <div id="narrative-reports-list">
+            <div style="text-align:center;padding:20px;color:var(--text2);"><span class="spinner"></span></div>
+          </div>
+        </div>
+
+        <!-- Prayer requests tab -->
+        <div id="dtab-prayer-content" style="display:none;">
+          <div id="prayer-requests-list">
+            <div style="text-align:center;padding:20px;color:var(--text2);"><span class="spinner"></span></div>
+          </div>
+        </div>
+
       </div>
     </div>`;
 
@@ -880,6 +906,9 @@ function showMinistryDetail(id, period) {
     }
   }, 10);
 
+  currentDetailMinistryId = m.ministry_id;
+  narrativeReportsLoaded = false;
+  prayerRequestsLoaded = false;
   showScreen('ministries', null);
   document.querySelectorAll('.tnav')[1].classList.add('active');
 
@@ -1767,6 +1796,169 @@ async function sendMsg(convoId) {
   });
 }
 
+
+
+// ── MINISTRY DETAIL TABS ──
+let currentDetailMinistryId = null;
+let narrativeReportsLoaded = false;
+let prayerRequestsLoaded = false;
+
+function switchDetailTab(tab) {
+  ['stats','reports','prayer'].forEach(t => {
+    const btn = document.getElementById('dtab-'+t);
+    const content = document.getElementById('dtab-'+t+'-content');
+    if (btn) {
+      btn.style.borderBottomColor = t === tab ? '#534AB7' : 'transparent';
+      btn.style.color = t === tab ? '#534AB7' : 'var(--text2)';
+      btn.style.fontWeight = t === tab ? '500' : '400';
+    }
+    if (content) content.style.display = t === tab ? 'block' : 'none';
+  });
+
+  if (tab === 'reports' && !narrativeReportsLoaded) {
+    loadNarrativeReports(currentDetailMinistryId);
+    narrativeReportsLoaded = true;
+  }
+  if (tab === 'prayer' && !prayerRequestsLoaded) {
+    loadPrayerRequests(currentDetailMinistryId);
+    prayerRequestsLoaded = true;
+  }
+}
+
+async function loadNarrativeReports(ministryId) {
+  const container = document.getElementById('narrative-reports-list');
+  if (!container) return;
+
+  if (DEMO_MODE) {
+    // Show rich demo narrative reports
+    const demoReports = [
+      {month:'March 2026', lang:'es', original:'En marzo atendimos 99 consultas en clínica y realizamos 29 visitas comunitarias. El laboratorio procesó 81 pruebas este mes. Continuamos con las charlas dentales en domicilios, alcanzando a 100 personas con educación sobre salud oral. El equipo está comprometido con la misión a pesar de los desafíos financieros. Dios ha sido fiel y continuamos sirviendo con alegría y esperanza.', english:'In March we attended 99 clinic consultations and conducted 29 community visits. The laboratory processed 81 tests this month. We continued with dental talks in homes, reaching 100 people with oral health education. The team is committed to the mission despite financial challenges. God has been faithful and we continue serving with joy and hope.', status:'submitted'},
+      {month:'February 2026', lang:'es', original:'Febrero fue un mes de bendiciones. Atendimos a 87 pacientes en la clínica y realizamos 24 visitas comunitarias. Iniciamos un nuevo programa de educación prenatal que benefició a 12 mujeres embarazadas. El dentista realizó 4 extracciones y varias limpiezas dentales. Continuamos viendo a Dios obrar en la vida de nuestros pacientes.', english:'February was a month of blessings. We attended 87 patients at the clinic and made 24 community visits. We started a new prenatal education program that benefited 12 pregnant women. The dentist performed 4 extractions and several dental cleanings. We continue to see God at work in the lives of our patients.', status:'submitted'},
+      {month:'January 2026', lang:'es', original:'Enero comenzó el año con gran energía. El equipo regresó renovado después de las festividades. Atendimos 94 consultas y procesamos 76 pruebas de laboratorio. La farmacia sirvió a 98 pacientes. Comenzamos el año con oración y dedicación renovada a nuestra misión de servir a los más vulnerables en el nombre de Jesucristo.', english:'January began the year with great energy. The team returned renewed after the holidays. We attended 94 consultations and processed 76 laboratory tests. The pharmacy served 98 patients. We began the year with prayer and renewed dedication to our mission of serving the most vulnerable in the name of Jesus Christ.', status:'submitted'},
+    ];
+
+    container.innerHTML = demoReports.map(r => renderNarrativeCard(r)).join('');
+    return;
+  }
+
+  try {
+    const { data } = await sb
+      .from('written_reports')
+      .select('*, monthly_reports(report_year, report_month, status)')
+      .eq('monthly_reports.ministry_id', ministryId)
+      .order('monthly_reports.report_year', {ascending: false})
+      .order('monthly_reports.report_month', {ascending: false})
+      .limit(12);
+
+    if (!data || data.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);">No narrative reports filed yet for this ministry.</div>';
+      return;
+    }
+
+    container.innerHTML = data.map(r => {
+      const mr = r.monthly_reports;
+      const month = mr ? new Date(mr.report_year, mr.report_month-1, 1).toLocaleString('default',{month:'long',year:'numeric'}) : 'Unknown period';
+      return renderNarrativeCard({
+        month, lang: r.original_language, original: r.body_original,
+        english: r.body_english, status: mr?.status
+      });
+    }).join('');
+  } catch(e) {
+    container.innerHTML = `<div style="padding:20px;color:var(--red);">Error loading reports: ${e.message}</div>`;
+  }
+}
+
+function renderNarrativeCard(r) {
+  const langName = {es:'Spanish',fr:'French',en:'English',pt:'Portuguese',ar:'Arabic',hi:'Hindi',bn:'Bengali',fr:'French'}[r.lang] || r.lang;
+  const statusBadge = r.status === 'submitted' || r.status === 'approved'
+    ? '<span class="badge b-green">Filed</span>'
+    : '<span class="badge b-amber">Draft</span>';
+  const showTranslation = r.english && r.english !== r.original && r.lang !== 'en';
+
+  return `<div class="card" style="margin-bottom:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="font-size:14px;font-weight:600;color:var(--text);">${r.month}</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--surface2);color:var(--text2);">${langName}</span>
+        ${statusBadge}
+      </div>
+    </div>
+    ${r.original ? `
+      <div style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;">${r.original}</div>
+      ${showTranslation ? `
+        <div style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border);">
+          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">English translation</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;">${r.english}</div>
+        </div>` : ''}
+    ` : '<div style="color:var(--text2);font-size:13px;">No narrative submitted for this month.</div>'}
+  </div>`;
+}
+
+async function loadPrayerRequests(ministryId) {
+  const container = document.getElementById('prayer-requests-list');
+  if (!container) return;
+
+  if (DEMO_MODE) {
+    const demoPrayers = [
+      {month:'March 2026', lang:'es', text:'Ore por sabiduría en el manejo del presupuesto ajustado este mes. La compra del vehículo fue necesaria pero dejó el balance muy bajo. Ore también por un paciente diagnosticado con tuberculosis — necesitamos recursos para atenderle y que Dios le sane.', english:'Pray for wisdom in managing the tight budget this month. The vehicle purchase was necessary but left the balance very low. Also pray for a patient diagnosed with tuberculosis — we need resources to care for him and for God to heal him.'},
+      {month:'February 2026', lang:'es', text:'Ore por las 12 mujeres embarazadas en nuestro nuevo programa prenatal. Ore también por el esposo de una de nuestras enfermeras que está enfermo. Y ore por sabiduría al comenzar el nuevo programa de educación comunitaria.', english:'Pray for the 12 pregnant women in our new prenatal program. Also pray for the husband of one of our nurses who is ill. And pray for wisdom as we begin the new community education program.'},
+      {month:'January 2026', lang:'es', text:'Comenzamos el año pidiendo oración por la unidad del equipo y por provisión financiera. También pedimos oración por las familias de nuestra comunidad que enfrentan pobreza extrema y necesitan tanto ayuda física como espiritual.', english:'We begin the year asking for prayer for team unity and financial provision. We also ask for prayer for the families in our community facing extreme poverty who need both physical and spiritual help.'},
+    ];
+
+    container.innerHTML = `
+      <div style="background:var(--purple-l);border-radius:var(--r-md);padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--purple-d);line-height:1.6;">
+        These prayer requests are shared with the Woven network. Each request is automatically translated so the global community can pray together.
+      </div>` +
+      demoPrayers.map(p => {
+        const langName = {es:'Spanish',fr:'French',en:'English'}[p.lang] || p.lang;
+        return `<div class="card" style="margin-bottom:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="font-size:13px;font-weight:500;">${p.month}</div>
+            <span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--surface2);color:var(--text2);">${langName}</span>
+          </div>
+          <div style="font-size:13px;line-height:1.7;color:var(--text);">${p.text}</div>
+          ${p.english && p.lang !== 'en' ? `
+            <div style="margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border);">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">English</div>
+              <div style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;">${p.english}</div>
+            </div>` : ''}
+        </div>`;
+      }).join('');
+    return;
+  }
+
+  try {
+    const { data } = await sb
+      .from('written_reports')
+      .select('prayer_requests, original_language, monthly_reports(report_year, report_month)')
+      .not('prayer_requests', 'is', null)
+      .eq('monthly_reports.ministry_id', ministryId)
+      .order('monthly_reports.report_year', {ascending:false})
+      .order('monthly_reports.report_month', {ascending:false})
+      .limit(12);
+
+    if (!data || data.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);">No prayer requests filed yet for this ministry.</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <div style="background:var(--purple-l);border-radius:var(--r-md);padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--purple-d);line-height:1.6;">
+        These prayer requests are shared with the Woven network.
+      </div>` +
+      data.map(r => {
+        const mr = r.monthly_reports;
+        const month = mr ? new Date(mr.report_year, mr.report_month-1,1).toLocaleString('default',{month:'long',year:'numeric'}) : '—';
+        const lang = r.original_language || 'en';
+        return `<div class="card" style="margin-bottom:10px;">
+          <div style="font-size:13px;font-weight:500;margin-bottom:8px;">${month}</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--text);">${r.prayer_requests}</div>
+        </div>`;
+      }).join('');
+  } catch(e) {
+    container.innerHTML = `<div style="padding:20px;color:var(--red);">Error: ${e.message}</div>`;
+  }
+}
 
 // ── WORLD MAP ──
 const MINISTRY_LOCATIONS = [
