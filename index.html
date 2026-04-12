@@ -988,7 +988,7 @@ function openConvo(id) {
   document.getElementById('chat-msgs').scrollTop = 99999;
 
   if (!DEMO_MODE && sb) {
-    sb.from('messages').select('*, user_profiles(full_name)').eq('conversation_id', id).order('created_at').then(({data}) => {
+    sb.from('messages_with_sender').select('*').eq('conversation_id', id).order('created_at').then(({data}) => {
       if (data) renderLiveMessages(data, id);
     });
     if (realtimeSub) realtimeSub.unsubscribe();
@@ -1005,8 +1005,7 @@ function renderLiveMessages(msgs, convoId) {
   }
   container.innerHTML = msgs.map(m => {
     const isOwn = m.sender_id === currentUser?.id;
-    const profile = Array.isArray(m.user_profiles) ? m.user_profiles[0] : m.user_profiles;
-    const name = profile?.full_name || (isOwn ? (userProfile?.full_name || 'You') : 'Team member');
+    const name = m.sender_name || (isOwn ? (userProfile?.full_name || 'You') : 'Team member');
     const initials = name.split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase() || '?';
     const bg = isOwn ? 'var(--purple-l)' : 'var(--surface2)';
     const color = isOwn ? 'var(--purple-d)' : 'var(--text2)';
