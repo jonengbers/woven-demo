@@ -1903,13 +1903,35 @@ async function loadNarrativeReports(ministryId) {
         if (a.mr.report_year !== b.mr.report_year) return b.mr.report_year - a.mr.report_year;
         return b.mr.report_month - a.mr.report_month;
       });
-    container.innerHTML = sorted.map(({r, mr}) => {
+    const narrativeItems = sorted.map(({r, mr}) => {
       const month = mr ? new Date(mr.report_year, mr.report_month-1, 1).toLocaleString('default',{month:'long',year:'numeric'}) : 'Unknown period';
-      return renderNarrativeCard({
-        month, lang: r.original_language, original: r.body_original,
-        english: r.body_english, status: mr?.status
-      });
-    }).join('');
+      return {
+        html: renderNarrativeCard({ month, lang: r.original_language, original: r.body_original, english: r.body_english, status: mr?.status }),
+        original: r.body_original, lang: r.original_language, month
+      };
+    });
+    container.innerHTML = narrativeItems.map(x => x.html).join('');
+
+    // Live-translate any narratives without stored English translation
+    if (autoTranslate) {
+      setTimeout(async () => {
+        for (const item of narrativeItems) {
+          if (!item.original || !item.lang || item.lang === 'en' || item.lang === userLang) continue;
+          if (item.body_english) continue; // has stored translation
+          const cardId = `narrative-${item.month.replace(/\s/g,'-')}`;
+          const card = document.getElementById(cardId);
+          if (!card) continue;
+          const transBlock = card.querySelector('.narrative-live-translation');
+          const transText = card.querySelector('.narrative-translated-text');
+          if (!transBlock || !transText) continue;
+          const translated = await translateText(item.original, item.lang, userLang);
+          if (translated && translated !== item.original) {
+            transText.textContent = translated;
+            transBlock.style.display = 'block';
+          }
+        }
+      }, 100);
+    }
   } catch(e) {
     container.innerHTML = `<div style="padding:20px;color:var(--red);">Error loading reports: ${e.message}</div>`;
   }
@@ -1920,9 +1942,11 @@ function renderNarrativeCard(r) {
   const statusBadge = r.status === 'submitted' || r.status === 'approved'
     ? '<span class="badge b-green">Filed</span>'
     : '<span class="badge b-amber">Draft</span>';
-  const showTranslation = r.english && r.english !== r.original && r.lang !== 'en';
+  const hasStoredTranslation = r.english && r.english !== r.original && r.lang !== 'en';
+  const needsLiveTranslation = !hasStoredTranslation && r.lang && r.lang !== 'en' && r.lang !== userLang;
+  const cardUid = `narrative-${r.month.replace(/\s/g,'-')}`;
 
-  return `<div class="card" style="margin-bottom:12px;">
+  return `<div class="card" style="margin-bottom:12px;" id="${cardUid}">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <div style="font-size:14px;font-weight:600;color:var(--text);">${r.month}</div>
       <div style="display:flex;align-items:center;gap:8px;">
@@ -1931,11 +1955,16 @@ function renderNarrativeCard(r) {
       </div>
     </div>
     ${r.original ? `
-      <div style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;">${r.original}</div>
-      ${showTranslation ? `
+      <div style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;" class="narrative-original">${r.original}</div>
+      ${hasStoredTranslation ? `
         <div style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border);">
           <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">English translation</div>
           <div style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;">${r.english}</div>
+        </div>` : ''}
+      ${needsLiveTranslation ? `
+        <div class="narrative-live-translation" style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border);display:none;">
+          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Auto-translated to ${LANG_NAMES[userLang]||userLang}</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;" class="narrative-translated-text"></div>
         </div>` : ''}
     ` : '<div style="color:var(--text2);font-size:13px;">No narrative submitted for this month.</div>'}
   </div>`;
@@ -2018,14 +2047,39 @@ async function loadPrayerRequests(ministryId) {
         const reportId = r.report_id;
         const month = mr ? new Date(mr.report_year, mr.report_month-1, 1).toLocaleString('default',{month:'long',year:'numeric'}) : '—';
         const langName = {es:'Spanish',fr:'French',en:'English',pt:'Portuguese'}[r.original_language] || r.original_language || 'English';
-        return `<div class="card" style="margin-bottom:12px;">
+        const cardId = `prayer-card-${r.report_id}`;
+        return `<div class="card" style="margin-bottom:12px;" id="${cardId}">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
             <div style="font-size:14px;font-weight:600;">${month}</div>
             <span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--surface2);color:var(--text2);">${langName}</span>
           </div>
-          <div style="font-size:13px;line-height:1.8;color:var(--text);white-space:pre-wrap;">${r.prayer_requests}</div>
+          <div style="font-size:13px;line-height:1.8;color:var(--text);white-space:pre-wrap;" class="prayer-original">${r.prayer_requests}</div>
+          <div class="prayer-translation" style="display:none;margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border);">
+            <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">English translation</div>
+            <div style="font-size:13px;line-height:1.8;color:var(--text2);font-style:italic;" class="prayer-translated-text"></div>
+          </div>
         </div>`;
       }).join('');
+
+    // Auto-translate prayer requests if language differs from user's
+    if (autoTranslate) {
+      setTimeout(async () => {
+        for (const {r, mr} of sortedPrayer) {
+          const lang = r.original_language || 'en';
+          if (!r.prayer_requests || lang === userLang) continue;
+          const card = document.getElementById(`prayer-card-${r.report_id}`);
+          if (!card) continue;
+          const transBlock = card.querySelector('.prayer-translation');
+          const transText = card.querySelector('.prayer-translated-text');
+          if (!transBlock || !transText) continue;
+          const translated = await translateText(r.prayer_requests, lang, userLang);
+          if (translated && translated !== r.prayer_requests) {
+            transText.textContent = translated;
+            transBlock.style.display = 'block';
+          }
+        }
+      }, 100);
+    }
   } catch(e) {
     container.innerHTML = `<div style="padding:20px;color:var(--red);">Error: ${e.message}</div>`;
   }
