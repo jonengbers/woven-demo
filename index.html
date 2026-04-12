@@ -1186,15 +1186,33 @@ async function loadConversations() {
       .in('id', ids)
       .order('created_at', { ascending: false });
 
-    demoConvos = (convos || []).map((c, i) => ({
-      id: c.id,
-      title: c.title || 'Conversation',
-      initials: (c.title||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
-      color: CONVO_COLORS[i % CONVO_COLORS.length],
-      bg:    CONVO_BGS[i % CONVO_BGS.length],
-      unread: 0,
-      messages: []
+    // Fetch last message for each conversation for preview
+    const convoList = await Promise.all((convos || []).map(async (c, i) => {
+      let lastMsgPreview = 'No messages yet';
+      try {
+        const { data: lastMsg } = await sb
+          .from('messages_with_sender')
+          .select('body, sender_name')
+          .eq('conversation_id', c.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        if (lastMsg?.body) {
+          lastMsgPreview = (lastMsg.sender_name || 'Someone') + ': ' + lastMsg.body.slice(0, 35) + (lastMsg.body.length > 35 ? '…' : '');
+        }
+      } catch(e) {}
+      return {
+        id: c.id,
+        title: c.title || 'Conversation',
+        initials: (c.title||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
+        color: CONVO_COLORS[i % CONVO_COLORS.length],
+        bg:    CONVO_BGS[i % CONVO_BGS.length],
+        unread: 0,
+        messages: [],
+        preview: lastMsgPreview
+      };
     }));
+    demoConvos = convoList;
     renderConvoList();
   } catch(e) {
     console.error('loadConversations error:', e);
@@ -1273,7 +1291,7 @@ function toggleArchivedSection() {
 }
 
 function renderConvoItem(c) {
-  const lastMsg = c.messages?.length ? c.messages[c.messages.length-1].text?.slice(0,40)+'…' : 'No messages yet';
+  const lastMsg = c.preview || (c.messages?.length ? c.messages[c.messages.length-1].text?.slice(0,40)+'…' : 'No messages yet');
   const archivedStyle = c.archived ? 'opacity:0.6;' : '';
   return `<div class="convo-item ${c.id===activeConvoId?'active-c':''}" onclick="openConvo(${c.id})" style="${archivedStyle}">
     <div style="display:flex;align-items:center;gap:8px;">
@@ -1398,7 +1416,16 @@ function openConvo(id) {
       if (el) el.textContent = `${count || 1} member${(count||1)===1?'':'s'}`;
     });
     sb.from('messages_with_sender').select('*').eq('conversation_id', id).order('created_at').then(({data, error}) => {
-      if (data && data.length > 0) renderLiveMessages(data, id);
+      if (data && data.length > 0) {
+        renderLiveMessages(data, id);
+        // Update preview in convo list
+        const c = demoConvos.find(x => x.id === id);
+        if (c && data.length > 0) {
+          const last = data[data.length-1];
+          c.preview = (last.sender_name || 'Someone') + ': ' + (last.body||'').slice(0,35) + ((last.body||'').length > 35 ? '…' : '');
+          renderConvoList();
+        }
+      }
       else if (error) console.error('Message fetch error:', error);
     });
     if (realtimeSub) realtimeSub.unsubscribe();
