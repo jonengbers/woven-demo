@@ -1132,7 +1132,7 @@ function openConvo(id) {
         <div style="font-size:14px;font-weight:600;">${c.title}</div>
         <div id="member-count-${id}" style="font-size:11px;color:var(--text2);">Loading members...</div>
       </div>
-      <button onclick="openAddMembersModal(${id},'${c.title.replace(/'/g,\'')}')" style="font-size:12px;padding:5px 11px;border-radius:var(--r-md);">+ Add members</button>
+      <button onclick="openAddMembersModal(${id})" style="font-size:12px;padding:5px 11px;border-radius:var(--r-md);">+ Add members</button>
     </div>
     <div class="chat-messages" id="chat-msgs">
       ${(c.messages||[]).map(m=>`
@@ -1530,8 +1530,10 @@ let addMembersConvoId = null;
 let allUsers = [];
 let currentMembers = [];
 
-async function openAddMembersModal(convoId, convoTitle) {
+async function openAddMembersModal(convoId) {
   addMembersConvoId = convoId;
+  const convo = demoConvos.find(c => c.id === convoId);
+  const convoTitle = convo ? convo.title : 'Conversation';
   document.getElementById('add-members-convo-title').textContent = convoTitle;
   document.getElementById('member-search').value = '';
   document.getElementById('add-members-error').textContent = '';
