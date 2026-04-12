@@ -160,11 +160,6 @@ button:hover{background:var(--surface2);}
 </head>
 <body>
 
-<!-- ── CONFIG BANNER (shown until keys are added) ── -->
-<div id="config-banner" style="background:#FAEEDA;border-bottom:1px solid #EF9F27;padding:10px 20px;font-size:13px;color:#633806;display:flex;align-items:center;gap:12px;">
-  <strong>Setup required:</strong> Open this file in a text editor and replace <code>YOUR_SUPABASE_URL</code> and <code>YOUR_SUPABASE_ANON_KEY</code> with your project values. See instructions below.
-  <button onclick="document.getElementById('config-banner').remove()" style="margin-left:auto;padding:3px 8px;font-size:12px;">Dismiss</button>
-</div>
 
 <!-- ── AUTH SCREEN ── -->
 <div id="auth-screen">
@@ -207,9 +202,6 @@ button:hover{background:var(--surface2);}
       <button class="btn-primary" style="width:100%;margin-top:12px;" onclick="handleSignup()">Create account</button>
       <div id="signup-error" style="font-size:12px;color:var(--red);margin-top:8px;"></div>
       <div id="signup-success" style="font-size:12px;color:var(--green);margin-top:8px;"></div>
-    </div>
-    <div style="margin-top:16px;padding-top:14px;border-top:0.5px solid var(--border);font-size:12px;color:var(--text2);">
-      <strong style="color:var(--text);">Demo mode:</strong> Enter any email + password to explore with sample data if Supabase is not yet configured.
     </div>
   </div>
 </div>
