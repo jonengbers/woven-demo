@@ -2379,9 +2379,28 @@ function initMap() {
           d3.select(this).select('circle:first-child').attr('r', 7).attr('opacity', 0.25);
           tip.style.opacity = '0';
         })
-        .on('click', function() {
-          const mData = ministriesData.find(d => d.ministry_id === m.id);
-          if (mData) showMinistryDetail(m.id);
+        .on('click', async function() {
+          // Check if ministry is in current filtered data
+          let mData = ministriesData.find(d => d.ministry_id === m.id);
+          if (!mData && !DEMO_MODE && sb) {
+            // Not in filtered view — fetch directly from DB
+            const { data } = await sb.from('ministry_dashboard')
+              .select('*').eq('ministry_id', m.id).single();
+            if (data) {
+              // Temporarily add to ministriesData so detail view works
+              ministriesData = [...ministriesData, data];
+              mData = data;
+            }
+          } else if (!mData && DEMO_MODE) {
+            // In demo mode, reset region filter and reload
+            const input = document.getElementById('region-filter');
+            if (input) input.value = '';
+            setRegion('');
+            await new Promise(r => setTimeout(r, 300));
+          }
+          if (ministriesData.find(d => d.ministry_id === m.id)) {
+            showMinistryDetail(m.id);
+          }
         });
       });
     });
