@@ -160,6 +160,12 @@ button:hover{background:var(--surface2);}
 </head>
 <body>
 
+<!-- ── CONFIG BANNER (shown until keys are added) ── -->
+<div id="config-banner" style="background:#FAEEDA;border-bottom:1px solid #EF9F27;padding:10px 20px;font-size:13px;color:#633806;display:flex;align-items:center;gap:12px;">
+  <strong>Setup required:</strong> Open this file in a text editor and replace <code>YOUR_SUPABASE_URL</code> and <code>YOUR_SUPABASE_ANON_KEY</code> with your project values. See instructions below.
+  <button onclick="document.getElementById('config-banner').remove()" style="margin-left:auto;padding:3px 8px;font-size:12px;">Dismiss</button>
+</div>
+
 <!-- ── AUTH SCREEN ── -->
 <div id="auth-screen">
   <div class="auth-card card">
@@ -203,10 +209,9 @@ button:hover{background:var(--surface2);}
       <div id="signup-success" style="font-size:12px;color:var(--green);margin-top:8px;"></div>
     </div>
     <div style="margin-top:16px;padding-top:14px;border-top:0.5px solid var(--border);font-size:12px;color:var(--text2);">
-      <strong style="color:var(--text);">New to Woven?</strong> Create an account above to get started.
+      <strong style="color:var(--text);">Demo mode:</strong> Enter any email + password to explore with sample data if Supabase is not yet configured.
     </div>
   </div>
-</div>
 </div>
 
 <!-- ── APP ── -->
@@ -349,8 +354,8 @@ button:hover{background:var(--surface2);}
 // ─────────────────────────────────────────────
 // CONFIGURATION — replace these two values
 // ─────────────────────────────────────────────
-const SUPABASE_URL  = 'https://weptedvdrzfaulbnimmf.supabase.co';
-const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlcHRlZHZkcnpmYXVsYm5pbW1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MzAyNTIsImV4cCI6MjA5MTUwNjI1Mn0.j64AZCtUBKjT2ySMlHZqbaal1rWwL7jCSX_BNqNNphI';
+const SUPABASE_URL  = 'YOUR_SUPABASE_URL';
+const SUPABASE_KEY  = 'YOUR_SUPABASE_ANON_KEY';
 // ─────────────────────────────────────────────
 
 const DEMO_MODE = SUPABASE_URL === 'YOUR_SUPABASE_URL';
@@ -542,9 +547,28 @@ function filterTable(q) {
   });
 }
 
-function renderTrendChart() {
+async function renderTrendChart() {
   if (trendChart) trendChart.destroy();
-  const totals = MONTHS6.map((_, i) => ministriesData.reduce((s,m) => s + (m.trend ? m.trend[i] || 0 : 0), 0));
+  let totals = [0,0,0,0,0,0];
+  if (DEMO_MODE) {
+    totals = MONTHS6.map((_, i) => ministriesData.reduce((s,m) => s + (m.trend ? m.trend[i] || 0 : 0), 0));
+  } else {
+    const months = [{y:2025,m:10},{y:2025,m:11},{y:2025,m:12},{y:2026,m:1},{y:2026,m:2},{y:2026,m:3}];
+    for (let i = 0; i < months.length; i++) {
+      const {y, m} = months[i];
+      const { data } = await sb
+        .from('monthly_reports')
+        .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual)')
+        .eq('report_year', y).eq('report_month', m);
+      if (data) {
+        totals[i] = data.reduce((sum, r) => {
+          const cs = r.clinical_stats;
+          if (!cs) return sum;
+          return sum + (cs.consult_clinic||0) + (cs.consult_community||0) + (cs.consult_dental||0) + (cs.consult_spiritual||0);
+        }, 0);
+      }
+    }
+  }
   const lastYear = totals.map(v => Math.round(v * 0.88));
   trendChart = new Chart(document.getElementById('trend-chart'), {
     type:'line',
@@ -609,7 +633,7 @@ function showMinistryDetail(id) {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div class="card" style="padding:14px;">
-          <div style="font-size:13px;font-weight:500;margin-bottom:10px;">Consultation breakdown</div>
+          <div style="font-size:13px;font-weight:500;margin-bottom:10px;">Consultation trend (6 months)</div>
           <div style="position:relative;height:170px;"><canvas id="dc1"></canvas></div>
         </div>
         <div class="card" style="padding:14px;">
@@ -625,8 +649,22 @@ function showMinistryDetail(id) {
     </div>`;
   showScreen('ministries', null);
   document.querySelectorAll('.tnav')[1].classList.add('active');
-  setTimeout(() => {
-    detailCharts.push(new Chart(document.getElementById('dc1'),{type:'bar',data:{labels:['Clinic','Community','Dental','Spiritual'],datasets:[{data:[m.consult_clinic||0,m.consult_community||0,m.consult_dental||0,m.consult_spiritual||0],backgroundColor:['#534AB7','#1D9E75','#EF9F27','#AFA9EC'],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}}));
+  setTimeout(async () => {
+    // Fetch 6-month trend for this ministry
+    if (!DEMO_MODE && sb) {
+      const months6 = [{y:2025,m:10},{y:2025,m:11},{y:2025,m:12},{y:2026,m:1},{y:2026,m:2},{y:2026,m:3}];
+      const trendVals = [];
+      for (const {y,mo} of months6.map(x=>({y:x.y,mo:x.m}))) {
+        const {data:rd} = await sb.from('monthly_reports')
+          .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual)')
+          .eq('ministry_id', m.ministry_id).eq('report_year',y).eq('report_month',mo);
+        const cs = rd?.[0]?.clinical_stats;
+        trendVals.push(cs ? (cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0) : 0);
+      }
+      detailCharts.push(new Chart(document.getElementById('dc1'),{type:'line',data:{labels:['Oct','Nov','Dec','Jan','Feb','Mar'],datasets:[{data:trendVals,borderColor:'#534AB7',backgroundColor:'rgba(83,74,183,0.08)',fill:true,tension:0.4,pointRadius:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}}));
+    } else {
+      detailCharts.push(new Chart(document.getElementById('dc1'),{type:'bar',data:{labels:['Clinic','Community','Dental','Spiritual'],datasets:[{data:[m.consult_clinic||0,m.consult_community||0,m.consult_dental||0,m.consult_spiritual||0],backgroundColor:['#534AB7','#1D9E75','#EF9F27','#AFA9EC'],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}}));
+    }
     detailCharts.push(new Chart(document.getElementById('dc2'),{type:'doughnut',data:{labels:['Full pay','Subsidized','Charity'],datasets:[{data:[m.pay_full||0,m.pay_partial||0,m.pay_charity||0],backgroundColor:['#534AB7','#1D9E75','#AFA9EC'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'62%'}}));
   }, 80);
 }
@@ -700,10 +738,28 @@ async function renderCompare() {
       <div style="position:relative;width:100%;height:230px;"><canvas id="cmp-chart"></canvas></div>
     </div>`;
   if (cmpChart) cmpChart.destroy();
-  setTimeout(() => {
+  setTimeout(async () => {
+    // Fetch real trend data for both ministries
+    const months = [{y:2025,m:10},{y:2025,m:11},{y:2025,m:12},{y:2026,m:1},{y:2026,m:2},{y:2026,m:3}];
+    const getTrend = async (ministryId) => {
+      const vals = [];
+      for (const {y,m} of months) {
+        const {data} = await sb.from('monthly_reports')
+          .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual)')
+          .eq('ministry_id', ministryId).eq('report_year',y).eq('report_month',m);
+        const r = data?.[0];
+        const cs = r?.clinical_stats;
+        vals.push(cs ? (cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0) : 0);
+      }
+      return vals;
+    };
+    const [trendA, trendB] = await Promise.all([
+      (DEMO_MODE ? Promise.resolve(a.trend||[]) : getTrend(a.ministry_id)),
+      (DEMO_MODE ? Promise.resolve(b.trend||[]) : getTrend(b.ministry_id))
+    ]);
     cmpChart = new Chart(document.getElementById('cmp-chart'),{type:'line',data:{labels:MONTHS6,datasets:[
-      {label:a.ministry_name,data:a.trend||[],borderColor:'#534AB7',backgroundColor:'rgba(83,74,183,0.07)',fill:true,tension:0.4,pointRadius:3,borderWidth:2},
-      {label:b.ministry_name,data:b.trend||[],borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.07)',fill:true,tension:0.4,pointRadius:3,borderWidth:2}
+      {label:a.ministry_name,data:trendA,borderColor:'#534AB7',backgroundColor:'rgba(83,74,183,0.07)',fill:true,tension:0.4,pointRadius:3,borderWidth:2},
+      {label:b.ministry_name,data:trendB,borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.07)',fill:true,tension:0.4,pointRadius:3,borderWidth:2}
     ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:11},color:'#888780'}},y:{grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:11},color:'#888780',callback:v=>v.toLocaleString()}}}}});
   }, 80);
 }
@@ -860,10 +916,16 @@ async function loadConversations() {
 }
 
 async function seedConversations() {
+  // Ministry IDs match the real Luke Society ministry list
   const starters = [
-    { title: 'Clínica Jehová Rafa',  ministry_id: 1 },
-    { title: 'PMT Team Channel',     ministry_id: null },
-    { title: 'Nairobi Rural Health', ministry_id: 3 },
+    { title: 'Ministerio Clinica Jehova Rafa', ministry_id: 33,
+      welcome: 'Welcome to the Nicaragua channel. Use this space to coordinate with Dr. Vargas and share updates on the Managua ministry.' },
+    { title: 'PMT Network — All Teams', ministry_id: null,
+      welcome: 'Welcome to the PMT network channel. This is a shared space for all Partnership Ministry Team members to connect, share best practices, and encourage one another.' },
+    { title: 'Nairobi Health Ministry', ministry_id: 12,
+      welcome: 'Welcome to the Nairobi channel. Use this space to stay connected with Dr. Wanjiku and the Kenya team.' },
+    { title: 'Prayer & Encouragement', ministry_id: null,
+      welcome: 'Welcome to the prayer channel. This is where prayer requests from our global directors are shared with the Woven network. Let us hold one another up.' },
   ];
   demoConvos = [];
   for (let i = 0; i < starters.length; i++) {
@@ -877,12 +939,13 @@ async function seedConversations() {
         .insert({ conversation_id: convo.id, user_id: currentUser.id });
       await sb.from('messages')
         .insert({ conversation_id: convo.id, sender_id: currentUser.id,
-          body: `Welcome to the ${s.title} channel. Use this space to share updates, ask questions, and coordinate with your team.`,
-          language: 'en' });
+          body: s.welcome, language: 'en' });
       demoConvos.push({
         id: convo.id, title: s.title,
         initials: s.title.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
-        color: CONVO_COLORS[i], bg: CONVO_BGS[i], unread: 0, messages: []
+        color: CONVO_COLORS[i % CONVO_COLORS.length],
+        bg: CONVO_BGS[i % CONVO_BGS.length],
+        unread: 0, messages: []
       });
     } catch(e) { console.error('seed convo error:', e); }
   }
