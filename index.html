@@ -823,71 +823,251 @@ function renderBudgetChart() {
 }
 
 // ── MINISTRY DETAIL ──
-function showMinistryDetail(id) {
+function showMinistryDetail(id, period) {
+  period = period || 'current';
   const m = ministriesData.find(x => x.ministry_id === id);
   if (!m) return;
   detailCharts.forEach(c => c.destroy());
   detailCharts = [];
-  const totalPay = (m.pay_full||0)+(m.pay_partial||0)+(m.pay_charity||0);
-  const bal = m.ending_balance_usd || 0;
+
   document.getElementById('ministry-detail-content').innerHTML = `
     <button onclick="showScreen('dashboard',document.querySelector('.tnav'))" style="margin-bottom:14px;">← Dashboard</button>
     <div class="dp-panel">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
         <div>
           <div class="dp-name">${m.ministry_name}</div>
-          <div class="dp-meta">${m.country} · ${m.director_name||'—'} · Latest report</div>
+          <div class="dp-meta">${m.country} · ${m.director_name||'—'}</div>
         </div>
-        <span class="badge ${m.report_status==='submitted'||m.report_status==='approved'?'b-green':'b-amber'}">${m.report_status||'—'}</span>
-      </div>
-      <div class="dp-grid">
-        <div class="dp-stat"><div class="dp-stat-label">Total consultations</div><div class="dp-stat-val">${(m.total_consultations||0).toLocaleString()}</div></div>
-        <div class="dp-stat"><div class="dp-stat-label">Pharmacy patients</div><div class="dp-stat-val">${(m.services_pharmacy||0).toLocaleString()}</div></div>
-        <div class="dp-stat"><div class="dp-stat-label">Lab tests</div><div class="dp-stat-val">${(m.services_lab||0).toLocaleString()}</div></div>
-        <div class="dp-stat"><div class="dp-stat-label">Total income (USD)</div><div class="dp-stat-val">$${(m.total_income_usd||0).toLocaleString()}</div></div>
-        <div class="dp-stat"><div class="dp-stat-label">Total expenses (USD)</div><div class="dp-stat-val">$${(m.total_expenses_usd||0).toLocaleString()}</div></div>
-        <div class="dp-stat" style="${bal<500?'border-color:#E24B4A;':''}">
-          <div class="dp-stat-label">Ending cash balance</div>
-          <div class="dp-stat-val" style="${bal<500?'color:#A32D2D;':''}">${bal<500?'⚠ ':''}$${bal.toLocaleString()}</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;gap:4px;background:var(--surface);border:0.5px solid var(--border);border-radius:20px;padding:3px;">
+            <button onclick="showMinistryDetail(${m.ministry_id},'current')" id="period-current" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">Current month</button>
+            <button onclick="showMinistryDetail(${m.ministry_id},'ytd')" id="period-ytd" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">YTD</button>
+            <button onclick="showMinistryDetail(${m.ministry_id},'prev')" id="period-prev" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">Prior year</button>
+            <button onclick="showMinistryDetail(${m.ministry_id},'all')" id="period-all" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">All time</button>
+          </div>
+          <span class="badge ${m.report_status==='submitted'||m.report_status==='approved'?'b-green':'b-amber'}" style="font-size:12px;padding:4px 10px;">${m.report_status||'—'}</span>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-        <div class="card" style="padding:14px;">
-          <div style="font-size:13px;font-weight:500;margin-bottom:10px;">Consultation trend (6 months)</div>
-          <div style="position:relative;height:170px;"><canvas id="dc1"></canvas></div>
-        </div>
-        <div class="card" style="padding:14px;">
-          <div style="font-size:13px;font-weight:500;margin-bottom:10px;">Payment methods</div>
-          <div style="position:relative;height:130px;"><canvas id="dc2"></canvas></div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
-            <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#534AB7;display:inline-block;"></span>Full ${totalPay?Math.round((m.pay_full||0)/totalPay*100):0}%</span>
-            <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#1D9E75;display:inline-block;"></span>Subsidized ${totalPay?Math.round((m.pay_partial||0)/totalPay*100):0}%</span>
-            <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#AFA9EC;display:inline-block;"></span>Charity ${totalPay?Math.round((m.pay_charity||0)/totalPay*100):0}%</span>
+      <div id="dp-loading" style="text-align:center;padding:30px;color:var(--text2);"><span class="spinner"></span> Loading ${period} data...</div>
+      <div id="dp-content" style="display:none;">
+        <div class="dp-grid" id="dp-stats"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;">
+          <div class="card" style="padding:14px;">
+            <div style="font-size:13px;font-weight:500;margin-bottom:10px;" id="dp-trend-title">Consultation trend</div>
+            <div style="position:relative;height:170px;"><canvas id="dc1"></canvas></div>
+          </div>
+          <div class="card" style="padding:14px;">
+            <div style="font-size:13px;font-weight:500;margin-bottom:10px;">Payment methods</div>
+            <div style="position:relative;height:130px;"><canvas id="dc2"></canvas></div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;" id="dp-pay-legend"></div>
           </div>
         </div>
       </div>
     </div>`;
+
+  // Style the active period button
+  setTimeout(() => {
+    document.querySelectorAll('.period-btn').forEach(btn => {
+      btn.style.background = 'transparent';
+      btn.style.color = 'var(--text2)';
+      btn.style.fontWeight = '400';
+    });
+    const active = document.getElementById('period-' + period);
+    if (active) {
+      active.style.background = '#534AB7';
+      active.style.color = '#fff';
+      active.style.fontWeight = '500';
+    }
+  }, 10);
+
   showScreen('ministries', null);
   document.querySelectorAll('.tnav')[1].classList.add('active');
-  setTimeout(async () => {
-    // Fetch 6-month trend for this ministry
-    if (!DEMO_MODE && sb) {
-      const months6 = getTrailing6Months();
-      const trendVals = [];
-      for (const {y,m:mo} of months6) {
-        const {data:rd} = await sb.from('monthly_reports')
-          .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual)')
-          .eq('ministry_id', m.ministry_id).eq('report_year',y).eq('report_month',mo);
-        const cs = rd?.[0]?.clinical_stats;
-        trendVals.push(cs ? (cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0) : 0);
-      }
-      detailCharts.push(new Chart(document.getElementById('dc1'),{type:'line',data:{labels:getTrailing6Months().map(m=>m.label),datasets:[{data:trendVals,borderColor:'#534AB7',backgroundColor:'rgba(83,74,183,0.08)',fill:true,tension:0.4,pointRadius:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}}));
-    } else {
-      detailCharts.push(new Chart(document.getElementById('dc1'),{type:'bar',data:{labels:['Clinic','Community','Dental','Spiritual'],datasets:[{data:[m.consult_clinic||0,m.consult_community||0,m.consult_dental||0,m.consult_spiritual||0],backgroundColor:['#534AB7','#1D9E75','#EF9F27','#AFA9EC'],borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}}));
+
+  // Load period data
+  loadMinistryPeriodData(m.ministry_id, period);
+}
+
+async function loadMinistryPeriodData(ministryId, period) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+
+  let reports = [];
+
+  if (DEMO_MODE) {
+    // Generate demo aggregated data based on period
+    const baseVisits = Math.floor(Math.random() * 500) + 200;
+    const multiplier = period === 'current' ? 1 : period === 'ytd' ? currentMonth : period === 'prev' ? 12 : 24;
+    reports = [{
+      total_consultations: baseVisits * multiplier,
+      consult_clinic: Math.floor(baseVisits * 0.55 * multiplier),
+      consult_community: Math.floor(baseVisits * 0.20 * multiplier),
+      consult_dental: Math.floor(baseVisits * 0.14 * multiplier),
+      consult_spiritual: Math.floor(baseVisits * 0.11 * multiplier),
+      services_pharmacy: Math.floor(baseVisits * 0.55 * multiplier),
+      services_lab: Math.floor(baseVisits * 0.40 * multiplier),
+      proc_surgeries: Math.floor(baseVisits * 0.02 * multiplier),
+      proc_deliveries: Math.floor(baseVisits * 0.01 * multiplier),
+      pay_full: Math.floor(baseVisits * 0.60 * multiplier),
+      pay_partial: Math.floor(baseVisits * 0.25 * multiplier),
+      pay_charity: Math.floor(baseVisits * 0.15 * multiplier),
+      total_income_usd: Math.floor(Math.random() * 5000 + 3000) * multiplier,
+      total_expenses_usd: Math.floor(Math.random() * 4000 + 2500) * multiplier,
+      ending_balance_usd: Math.floor(Math.random() * 3000 + 500),
+      luke_society_support_usd: Math.floor(Math.random() * 4000 + 3000) * multiplier,
+    }];
+  } else {
+    // Build date filter based on period
+    let yearFilter = null, monthFilter = null, yearFrom = null;
+
+    if (period === 'current') {
+      yearFilter = currentYear; monthFilter = currentMonth;
+    } else if (period === 'ytd') {
+      yearFilter = currentYear;
+    } else if (period === 'prev') {
+      yearFilter = currentYear - 1;
     }
-    detailCharts.push(new Chart(document.getElementById('dc2'),{type:'doughnut',data:{labels:['Full pay','Subsidized','Charity'],datasets:[{data:[m.pay_full||0,m.pay_partial||0,m.pay_charity||0],backgroundColor:['#534AB7','#1D9E75','#AFA9EC'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'62%'}}));
+    // 'all' = no filter
+
+    try {
+      let q = sb.from('monthly_reports')
+        .select(`
+          clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual,
+            services_lab,services_pharmacy,proc_surgeries,proc_deliveries,
+            pay_full,pay_partial,pay_charity),
+          financial_summary(total_income_usd,total_expenses_usd,ending_balance_usd,luke_society_support_usd)
+        `)
+        .eq('ministry_id', ministryId);
+
+      if (yearFilter) q = q.eq('report_year', yearFilter);
+      if (monthFilter) q = q.eq('report_month', monthFilter);
+      if (period === 'prev') q = q.eq('report_year', currentYear - 1);
+
+      const { data } = await q;
+      reports = data || [];
+    } catch(e) {
+      console.error('Period data error:', e);
+    }
+  }
+
+  // Aggregate across all fetched reports
+  const agg = {
+    consult_clinic: 0, consult_community: 0,
+    consult_dental: 0, consult_spiritual: 0,
+    services_pharmacy: 0, services_lab: 0,
+    proc_surgeries: 0, proc_deliveries: 0,
+    pay_full: 0, pay_partial: 0, pay_charity: 0,
+    total_income_usd: 0, total_expenses_usd: 0,
+    ending_balance_usd: 0, luke_society_support_usd: 0,
+  };
+
+  if (DEMO_MODE) {
+    Object.assign(agg, reports[0] || {});
+  } else {
+    reports.forEach(r => {
+      const cs = r.clinical_stats;
+      const fs = r.financial_summary;
+      if (cs) {
+        agg.consult_clinic     += cs.consult_clinic||0;
+        agg.consult_community  += cs.consult_community||0;
+        agg.consult_dental     += cs.consult_dental||0;
+        agg.consult_spiritual  += cs.consult_spiritual||0;
+        agg.services_pharmacy  += cs.services_pharmacy||0;
+        agg.services_lab       += cs.services_lab||0;
+        agg.proc_surgeries     += cs.proc_surgeries||0;
+        agg.proc_deliveries    += cs.proc_deliveries||0;
+        agg.pay_full           += cs.pay_full||0;
+        agg.pay_partial        += cs.pay_partial||0;
+        agg.pay_charity        += cs.pay_charity||0;
+      }
+      if (fs) {
+        agg.total_income_usd        += fs.total_income_usd||0;
+        agg.total_expenses_usd      += fs.total_expenses_usd||0;
+        agg.luke_society_support_usd+= fs.luke_society_support_usd||0;
+        // For balance, use the latest (last report)
+        agg.ending_balance_usd = fs.ending_balance_usd||0;
+      }
+    });
+  }
+
+  const totalConsults = agg.consult_clinic + agg.consult_community + agg.consult_dental + agg.consult_spiritual;
+  const totalPay = agg.pay_full + agg.pay_partial + agg.pay_charity;
+  const periodLabel = {current:'Current month',ytd:'Year to date',prev:'Prior year',all:'All time'}[period];
+  const reportCount = DEMO_MODE ? 1 : reports.length;
+
+  // Render stats
+  const bal = agg.ending_balance_usd;
+  document.getElementById('dp-stats').innerHTML = `
+    <div class="dp-stat"><div class="dp-stat-label">Total consultations</div><div class="dp-stat-val">${totalConsults.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);margin-top:3px;">${periodLabel}${reportCount > 1 ? ' · '+reportCount+' reports' : ''}</div></div>
+    <div class="dp-stat"><div class="dp-stat-label">Pharmacy patients</div><div class="dp-stat-val">${agg.services_pharmacy.toLocaleString()}</div></div>
+    <div class="dp-stat"><div class="dp-stat-label">Lab tests</div><div class="dp-stat-val">${agg.services_lab.toLocaleString()}</div></div>
+    <div class="dp-stat"><div class="dp-stat-label">Total income (USD)</div><div class="dp-stat-val">$${Math.round(agg.total_income_usd).toLocaleString()}</div></div>
+    <div class="dp-stat"><div class="dp-stat-label">Total expenses (USD)</div><div class="dp-stat-val">$${Math.round(agg.total_expenses_usd).toLocaleString()}</div></div>
+    <div class="dp-stat" style="${bal<500?'border-color:#E24B4A;':''}">
+      <div class="dp-stat-label">Ending cash balance</div>
+      <div class="dp-stat-val" style="${bal<500?'color:#A32D2D;':''}">${bal<500?'⚠ ':''}$${Math.round(bal).toLocaleString()}</div>
+    </div>`;
+
+  document.getElementById('dp-loading').style.display = 'none';
+  document.getElementById('dp-content').style.display = 'block';
+
+  // Trend chart title
+  const trendTitles = {current:'Consultation breakdown',ytd:'Monthly trend (YTD)',prev:'Monthly trend (prior year)',all:'Monthly trend (all time)'};
+  const titleEl = document.getElementById('dp-trend-title');
+  if (titleEl) titleEl.textContent = trendTitles[period];
+
+  // Payment legend
+  const legendEl = document.getElementById('dp-pay-legend');
+  if (legendEl) {
+    legendEl.innerHTML = `
+      <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#534AB7;display:inline-block;"></span>Full ${totalPay?Math.round(agg.pay_full/totalPay*100):0}%</span>
+      <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#1D9E75;display:inline-block;"></span>Subsidized ${totalPay?Math.round(agg.pay_partial/totalPay*100):0}%</span>
+      <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#AFA9EC;display:inline-block;"></span>Charity ${totalPay?Math.round(agg.pay_charity/totalPay*100):0}%</span>`;
+  }
+
+  // Build trend chart
+  setTimeout(async () => {
+    // For current: bar chart breakdown; for others: line trend
+    if (period === 'current' || DEMO_MODE) {
+      detailCharts.push(new Chart(document.getElementById('dc1'), {
+        type:'bar',
+        data:{labels:['Clinic','Community','Dental','Spiritual'],datasets:[{data:[agg.consult_clinic,agg.consult_community,agg.consult_dental,agg.consult_spiritual],backgroundColor:['#534AB7','#1D9E75','#EF9F27','#AFA9EC'],borderRadius:4}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}
+      }));
+    } else if (!DEMO_MODE && sb) {
+      // Fetch monthly trend for line chart
+      const trailing = getTrailing6Months();
+      let months;
+      if (period === 'ytd') {
+        months = Array.from({length: new Date().getMonth()+1}, (_,i) => ({y:new Date().getFullYear(),m:i+1,label:new Date(new Date().getFullYear(),i,1).toLocaleString('default',{month:'short'})}));
+      } else if (period === 'prev') {
+        months = Array.from({length:12}, (_,i) => ({y:new Date().getFullYear()-1,m:i+1,label:new Date(new Date().getFullYear()-1,i,1).toLocaleString('default',{month:'short'})}));
+      } else {
+        months = trailing;
+      }
+      const trendVals = [];
+      for (const {y,m} of months) {
+        const {data} = await sb.from('monthly_reports')
+          .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual)')
+          .eq('ministry_id', ministryId).eq('report_year',y).eq('report_month',m);
+        const cs = data?.[0]?.clinical_stats;
+        trendVals.push(cs?(cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0):0);
+      }
+      detailCharts.push(new Chart(document.getElementById('dc1'),{
+        type:'line',
+        data:{labels:months.map(m=>m.label),datasets:[{data:trendVals,borderColor:'#534AB7',backgroundColor:'rgba(83,74,183,0.08)',fill:true,tension:0.4,pointRadius:4,borderWidth:2}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}
+      }));
+    }
+
+    detailCharts.push(new Chart(document.getElementById('dc2'),{
+      type:'doughnut',
+      data:{labels:['Full pay','Subsidized','Charity'],datasets:[{data:[agg.pay_full,agg.pay_partial,agg.pay_charity],backgroundColor:['#534AB7','#1D9E75','#AFA9EC'],borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'62%'}
+    }));
   }, 80);
 }
+
 
 // ── COMPARE ──
 async function loadCompareSelects() {
