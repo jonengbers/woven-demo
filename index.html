@@ -327,17 +327,18 @@ button:hover{background:var(--surface2);}
     <div class="form-wrap">
       <div style="font-size:15px;font-weight:600;margin-bottom:14px;">Submit monthly report</div>
       <div class="step-row">
-        <div class="step done" id="fstep1">1 Ministry</div>
-        <div class="step active" id="fstep2">2 Financials</div>
+        <div class="step active" id="fstep1">1 Ministry</div>
+        <div class="step" id="fstep2">2 Financials</div>
         <div class="step" id="fstep3">3 Clinical</div>
         <div class="step" id="fstep4">4 Narrative</div>
       </div>
-      <div class="progress-bar"><div class="progress-fill" id="form-progress" style="width:33%;"></div></div>
+      <div class="progress-bar"><div class="progress-fill" id="form-progress" style="width:0%;"></div></div>
       <div id="form-content"></div>
-      <div style="display:flex;gap:8px;margin-top:8px;">
-        <button onclick="formPrev()">← Back</button>
-        <button class="btn-primary" onclick="formNext()">Continue →</button>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+        <button id="form-back-btn" onclick="formPrev()" style="display:none;">← Back</button>
+        <button id="form-cont-btn" class="btn-primary" onclick="formNext()">Continue →</button>
         <button style="margin-left:auto;" onclick="saveFormDraft()">Save draft</button>
+        <button onclick="showScreen('dashboard',document.querySelector('.tnav'))" style="color:var(--text2);">Cancel</button>
       </div>
     </div>
   </div>
@@ -387,7 +388,7 @@ let currentUser = null;
 let userProfile = null;
 let ministriesData = [];
 let activeConvoId = null;
-let formStep = 2;
+let formStep = 1;
 let formData = {};
 let trendChart = null, budgetChart = null, cmpChart = null;
 let detailCharts = [];
@@ -498,6 +499,7 @@ function showScreen(id, btn) {
   if (id === 'compare') { loadCompareSelects(); }
   if (id === 'messages') { loadConversations(); }
   if (id === 'map') { initMap(); }
+  if (id === 'submit') { formStep = 1; renderForm(); }
 }
 
 // ── DASHBOARD ──
@@ -775,55 +777,119 @@ async function renderCompare() {
 
 // ── REPORT FORM ──
 const FORM_CONTENT = {
+  1: () => {
+    const now = new Date();
+    const monthName = now.toLocaleString('default', {month:'long'});
+    const year = now.getFullYear();
+    const ministry = userProfile?.ministry_id
+      ? (ministriesData.find(m => m.ministry_id === userProfile.ministry_id)?.ministry_name || 'Your ministry')
+      : 'All ministries (admin)';
+    return `<div class="form-section">
+      <div class="form-section-title">Report details</div>
+      <div class="form-row-1">
+        <div class="flabel">Ministry</div>
+        <div style="padding:8px 10px;background:var(--surface2);border-radius:var(--r-md);font-size:13px;color:var(--text);">${ministry}</div>
+      </div>
+      <div class="form-row" style="margin-top:10px;">
+        <div>
+          <div class="flabel">Reporting month</div>
+          <select id="f-month">
+            ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m => {
+              const name = new Date(2026,m-1,1).toLocaleString('default',{month:'long'});
+              const selected = m === now.getMonth()+1 ? 'selected' : '';
+              return `<option value="${m}" ${selected}>${name}</option>`;
+            }).join('')}
+          </select>
+        </div>
+        <div>
+          <div class="flabel">Reporting year</div>
+          <select id="f-year">
+            <option value="2025">2025</option>
+            <option value="2026" selected>2026</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row" style="margin-top:10px;">
+        <div>
+          <div class="flabel">Local currency</div>
+          <input type="text" id="f-currency" placeholder="e.g. NIO, KES, INR"/>
+        </div>
+        <div>
+          <div class="flabel">Exchange rate (local per 1 USD)</div>
+          <input type="number" id="f-exchange" placeholder="e.g. 36.62" step="0.01"/>
+        </div>
+      </div>
+      <div class="form-row-1" style="margin-top:10px;">
+        <div class="flabel">Beginning cash balance (local currency)</div>
+        <input type="number" id="f-opening" placeholder="0"/>
+      </div>
+    </div>`;
+  },
   2:`<div class="form-section"><div class="form-section-title">Income (local currency)</div>
-    <div class="form-row"><div><div class="flabel">Luke Society USA support</div><input type="number" id="f-ls-support" value="219745"/></div><div><div class="flabel">Clinic consultations income</div><input type="number" id="f-clinic-income" value="5200"/></div></div>
-    <div class="form-row"><div><div class="flabel">Pharmacy income</div><input type="number" id="f-pharmacy-income" value="19200"/></div><div><div class="flabel">Laboratory income</div><input type="number" id="f-lab-income" value="7800"/></div></div>
-    <div class="form-row"><div><div class="flabel">Dental income</div><input type="number" id="f-dental-income" value="8100"/></div><div><div class="flabel">Other income</div><input type="number" id="f-other-income" value="53929"/></div></div>
+    <div class="form-row"><div><div class="flabel">Luke Society USA support</div><input type="number" id="f-ls-support" placeholder="0"/></div><div><div class="flabel">Clinic consultation income</div><input type="number" id="f-clinic-income" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Pharmacy income</div><input type="number" id="f-pharmacy-income" placeholder="0"/></div><div><div class="flabel">Laboratory income</div><input type="number" id="f-lab-income" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Dental income</div><input type="number" id="f-dental-income" placeholder="0"/></div><div><div class="flabel">Other income</div><input type="number" id="f-other-income" placeholder="0"/></div></div>
     </div>
-    <div class="form-section"><div class="form-section-title">Beginning cash balance</div>
-    <div class="form-row"><div><div class="flabel">Opening balance (local currency)</div><input type="number" id="f-opening" value="89229"/></div><div><div class="flabel">Exchange rate (local per USD)</div><input type="number" id="f-exchange" value="36.62" step="0.01"/></div></div>
+    <div class="form-section"><div class="form-section-title">Salary expenses (local currency)</div>
+    <div class="form-row"><div><div class="flabel">Ministry director</div><input type="number" id="f-sal-director" placeholder="0"/></div><div><div class="flabel">Dentist / dental assistant</div><input type="number" id="f-sal-dentist" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Nurse</div><input type="number" id="f-sal-nurse" placeholder="0"/></div><div><div class="flabel">Bookkeeper / accountant</div><input type="number" id="f-sal-book" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Lab technician</div><input type="number" id="f-sal-lab" placeholder="0"/></div><div><div class="flabel">Other staff</div><input type="number" id="f-sal-other" placeholder="0"/></div></div>
     </div>
-    <div class="form-section"><div class="form-section-title">Major expenses (local currency)</div>
-    <div class="form-row"><div><div class="flabel">Director salary</div><input type="number" id="f-sal-director" value="38500"/></div><div><div class="flabel">Dentist salary</div><input type="number" id="f-sal-dentist" value="15000"/></div></div>
-    <div class="form-row"><div><div class="flabel">Nurse salary</div><input type="number" id="f-sal-nurse" value="4000"/></div><div><div class="flabel">Bookkeeper salary</div><input type="number" id="f-sal-book" value="6000"/></div></div>
-    <div class="form-row"><div><div class="flabel">Medicines & supplies</div><input type="number" id="f-medicines" value="40670"/></div><div><div class="flabel">Facility costs</div><input type="number" id="f-facility" value="4612"/></div></div>
+    <div class="form-section"><div class="form-section-title">Operating expenses (local currency)</div>
+    <div class="form-row"><div><div class="flabel">Medicines & first aid</div><input type="number" id="f-medicines" placeholder="0"/></div><div><div class="flabel">Facility costs (rent, utilities)</div><input type="number" id="f-facility" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Supplies & office</div><input type="number" id="f-supplies" placeholder="0"/></div><div><div class="flabel">Transportation & fuel</div><input type="number" id="f-transport" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Bank charges & taxes</div><input type="number" id="f-bank" placeholder="0"/></div><div><div class="flabel">Other expenses</div><input type="number" id="f-other-exp" placeholder="0"/></div></div>
     </div>`,
   3:`<div class="form-section"><div class="form-section-title">Patient consultations</div>
-    <div class="form-row"><div><div class="flabel">Clinic consultations</div><input type="number" id="f-c-clinic" value="99"/></div><div><div class="flabel">Community consultations</div><input type="number" id="f-c-comm" value="29"/></div></div>
-    <div class="form-row"><div><div class="flabel">Dental consultations</div><input type="number" id="f-c-dental" value="24"/></div><div><div class="flabel">Spiritual health consultations</div><input type="number" id="f-c-spiritual" value="29"/></div></div>
+    <div class="form-row"><div><div class="flabel">Clinic consultations</div><input type="number" id="f-c-clinic" placeholder="0"/></div><div><div class="flabel">Community consultations</div><input type="number" id="f-c-comm" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Dental consultations</div><input type="number" id="f-c-dental" placeholder="0"/></div><div><div class="flabel">Spiritual health consultations</div><input type="number" id="f-c-spiritual" placeholder="0"/></div></div>
     </div>
     <div class="form-section"><div class="form-section-title">Services provided</div>
-    <div class="form-row"><div><div class="flabel">Lab tests performed</div><input type="number" id="f-s-lab" value="81"/></div><div><div class="flabel">Pharmacy patients served</div><input type="number" id="f-s-pharm" value="105"/></div></div>
-    <div class="form-row"><div><div class="flabel">X-rays / dental x-rays</div><input type="number" id="f-s-xray" value="6"/></div><div><div class="flabel">Immunizations given</div><input type="number" id="f-s-immun" value="0"/></div></div>
-    <div class="form-row"><div><div class="flabel">Surgeries / extractions</div><input type="number" id="f-p-surg" value="4"/></div><div><div class="flabel">Births attended</div><input type="number" id="f-p-birth" value="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Lab tests performed</div><input type="number" id="f-s-lab" placeholder="0"/></div><div><div class="flabel">Pharmacy patients served</div><input type="number" id="f-s-pharm" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">X-rays / dental x-rays</div><input type="number" id="f-s-xray" placeholder="0"/></div><div><div class="flabel">Immunizations given</div><input type="number" id="f-s-immun" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Surgeries / extractions</div><input type="number" id="f-p-surg" placeholder="0"/></div><div><div class="flabel">Births attended</div><input type="number" id="f-p-birth" placeholder="0"/></div></div>
+    </div>
+    <div class="form-section"><div class="form-section-title">Community health education</div>
+    <div class="form-row"><div><div class="flabel">Community meetings held</div><input type="number" id="f-comm-meet" placeholder="0"/></div><div><div class="flabel">People receiving health education</div><input type="number" id="f-comm-health" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">People receiving spiritual education</div><input type="number" id="f-comm-spirit" placeholder="0"/></div><div><div class="flabel">Women receiving prenatal/postnatal ed</div><input type="number" id="f-comm-prenatal" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Health workers trained</div><input type="number" id="f-comm-workers" placeholder="0"/></div><div><div class="flabel">Hygiene projects (latrines, water)</div><input type="number" id="f-comm-hygiene" placeholder="0"/></div></div>
     </div>
     <div class="form-section"><div class="form-section-title">Patient payment methods</div>
-    <div class="form-row"><div><div class="flabel">Full pay patients</div><input type="number" id="f-pay-full" value="235"/></div><div><div class="flabel">Partial subsidy patients</div><input type="number" id="f-pay-part" value="74"/></div></div>
-    <div class="form-row-1"><div class="flabel">Charity patients (free of charge)</div><input type="number" id="f-pay-char" value="29" style="max-width:200px;"/></div>
+    <div class="form-row"><div><div class="flabel">Full pay patients</div><input type="number" id="f-pay-full" placeholder="0"/></div><div><div class="flabel">Partial subsidy patients</div><input type="number" id="f-pay-part" placeholder="0"/></div></div>
+    <div class="form-row-1"><div class="flabel">Charity patients (free of charge)</div><input type="number" id="f-pay-char" placeholder="0" style="max-width:200px;"/></div>
     </div>`,
   4:`<div class="form-section"><div class="form-section-title">Monthly narrative — write in your own language</div>
-    <div class="form-row-1"><div class="flabel">Narrative report (English translation will be generated automatically)</div>
-    <textarea id="f-narrative" style="height:130px;resize:vertical;">En marzo atendimos 99 consultas en clínica y realizamos visitas comunitarias. El laboratorio procesó 81 pruebas. Continuamos con las charlas dentales en domicilios, alcanzando a 100 personas. Necesitamos oración por la situación financiera este mes.</textarea></div>
-    <div class="form-row-1" style="margin-top:12px;"><div class="flabel">Prayer requests — shared with your PMT and the Woven network</div>
-    <textarea id="f-prayer" style="height:80px;resize:vertical;">Pray for wisdom managing a tight budget this month. The vehicle purchase will help us reach more communities — pray it comes through. Pray for our dental patients who need follow-up care.</textarea></div>
+    <div class="form-row-1"><div class="flabel">Narrative report (English translation will be generated automatically on submit)</div>
+    <textarea id="f-narrative" style="height:140px;resize:vertical;" placeholder="Describe this month's activities, challenges, and highlights in your own language..."></textarea></div>
+    <div class="form-row-1" style="margin-top:12px;"><div class="flabel">Prayer requests — shared with your PMT and the Woven prayer network</div>
+    <textarea id="f-prayer" style="height:90px;resize:vertical;" placeholder="Share specific prayer requests for your ministry and community..."></textarea></div>
     <div class="form-row-1" style="margin-top:12px;"><div class="flabel">Photo attachments (optional)</div><input type="file" multiple style="padding:4px 0;border:none;background:transparent;width:auto;"/></div>
     </div>`
 };
 
 function renderForm() {
-  document.getElementById('form-content').innerHTML = FORM_CONTENT[formStep] || '';
+  const stepContent = FORM_CONTENT[formStep];
+  document.getElementById('form-content').innerHTML = typeof stepContent === 'function' ? stepContent() : (stepContent || '');
   ['fstep1','fstep2','fstep3','fstep4'].forEach((id,i) => {
     const n = i+1;
     document.getElementById(id).className = 'step'+(n<formStep?' done':n===formStep?' active':'');
   });
-  document.getElementById('form-progress').style.width = Math.round((formStep-1)/3*100)+'%';
+  document.getElementById('form-progress').style.width = Math.round((formStep-1)/4*100)+'%';
+  // Show/hide back button
+  const backBtn = document.getElementById('form-back-btn');
+  if (backBtn) backBtn.style.display = formStep === 1 ? 'none' : '';
+  // Update continue button label
+  const contBtn = document.getElementById('form-cont-btn');
+  if (contBtn) contBtn.textContent = formStep === 4 ? 'Submit report' : 'Continue →';
 }
 
 function formNext() {
   if (formStep < 4) { formStep++; renderForm(); }
   else { submitReport(); }
 }
-function formPrev() { if (formStep > 2) { formStep--; renderForm(); } }
+function formPrev() {
+  if (formStep > 1) { formStep--; renderForm(); }
+}
 
 async function submitReport() {
   if (DEMO_MODE) {
