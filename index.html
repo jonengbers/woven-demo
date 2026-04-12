@@ -1135,19 +1135,33 @@ function openConvo(id) {
       <button onclick="openAddMembersModal(${id})" style="font-size:12px;padding:5px 11px;border-radius:var(--r-md);">+ Add members</button>
     </div>
     <div class="chat-messages" id="chat-msgs">
-      ${(c.messages||[]).map(m=>`
-        <div class="msg">
+      ${(c.messages||[]).map(m=>{
+        const imgHtml = m.image_url ? `<div style="margin-top:6px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:8px;border:0.5px solid var(--border);cursor:pointer;" onclick="window.open('${m.image_url}','_blank')"/></div>` : '';
+        const bodyHtml = m.text ? `<div>${m.text}</div>` : '';
+        return `<div class="msg">
           <div class="msg-header">
             <div class="msg-av" style="background:${m.bg};color:${m.color};">${m.initials}</div>
             <span class="msg-name">${m.sender}</span>
             <span class="msg-time">${m.time}</span>
           </div>
-          <div class="msg-bubble${m.own?' own':''}">${m.text}</div>
-        </div>`).join('')}
+          <div class="msg-bubble${m.own?' own':''}">${bodyHtml}${imgHtml}</div>
+        </div>`;
+      }).join('')}
     </div>
     <div class="chat-input-row">
-      <input type="text" id="chat-input-${id}" placeholder="Reply to ${c.title}..." onkeydown="if(event.key==='Enter')sendMsg(${id})"/>
+      <label for="img-upload-${id}" style="cursor:pointer;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--r-md);font-size:13px;color:var(--text2);display:flex;align-items:center;flex-shrink:0;" title="Attach photo">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      </label>
+      <input type="file" id="img-upload-${id}" accept="image/*,video/*" style="display:none;" onchange="handleImageUpload(this,${id})"/>
+      <input type="text" id="chat-input-${id}" placeholder="Reply to ${c.title}..." onkeydown="if(event.key==='Enter')sendMsg(${id})" style="flex:1;"/>
       <button class="btn-primary btn-sm" onclick="sendMsg(${id})">Send</button>
+    </div>
+    <div id="img-preview-${id}" style="display:none;padding:8px 16px;border-top:0.5px solid var(--border);">
+      <div style="position:relative;display:inline-block;">
+        <img id="img-preview-thumb-${id}" style="max-height:80px;max-width:200px;border-radius:var(--r-md);border:0.5px solid var(--border);"/>
+        <button onclick="cancelImage(${id})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;padding:0;font-size:12px;line-height:1;background:var(--red-l);color:var(--red);border-color:var(--red);">✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px;" id="img-preview-name-${id}"></div>
     </div>`;
   document.getElementById('chat-msgs').scrollTop = 99999;
 
@@ -1181,13 +1195,17 @@ function renderLiveMessages(msgs, convoId) {
     const bg = isOwn ? 'var(--purple-l)' : 'var(--surface2)';
     const color = isOwn ? 'var(--purple-d)' : 'var(--text2)';
     const time = m.created_at ? new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+    const imageHtml = m.image_url
+      ? `<div style="margin-top:6px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:var(--r-md);border:0.5px solid var(--border);cursor:pointer;" onclick="window.open('${m.image_url}','_blank')"/></div>`
+      : '';
+    const bodyHtml = m.body ? `<div>${m.body}</div>` : '';
     return `<div class="msg">
       <div class="msg-header">
         <div class="msg-av" style="background:${bg};color:${color};">${initials}</div>
         <span class="msg-name">${name}</span>
         <span class="msg-time">${time}</span>
       </div>
-      <div class="msg-bubble${isOwn?' own':''}">${m.body}</div>
+      <div class="msg-bubble${isOwn?' own':''}">${bodyHtml}${imageHtml}</div>
     </div>`;
   }).join('');
   container.scrollTop = 99999;
@@ -1197,27 +1215,108 @@ function appendLiveMsg(msg) {
   const container = document.getElementById('chat-msgs');
   if (!container) return;
   const isOwn = msg.sender_id === currentUser?.id;
-  container.innerHTML += `<div class="msg"><div class="msg-header"><div class="msg-av" style="background:var(--purple-l);color:var(--purple-d);">?</div><span class="msg-name">New message</span></div><div class="msg-bubble${isOwn?' own':''}">${msg.body}</div></div>`;
+  const imageHtml = msg.image_url
+    ? `<div style="margin-top:6px;"><img src="${msg.image_url}" style="max-width:260px;max-height:200px;border-radius:var(--r-md);border:0.5px solid var(--border);cursor:pointer;" onclick="window.open('${msg.image_url}','_blank')"/></div>`
+    : '';
+  const bodyHtml = msg.body ? `<div>${msg.body}</div>` : '';
+  const name = isOwn ? (userProfile?.full_name || 'You') : 'Team member';
+  const initials = name.split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase() || '?';
+  container.innerHTML += `<div class="msg"><div class="msg-header"><div class="msg-av" style="background:var(--purple-l);color:var(--purple-d);">${initials}</div><span class="msg-name">${name}</span></div><div class="msg-bubble${isOwn?' own':''}">${bodyHtml}${imageHtml}</div></div>`;
   container.scrollTop = 99999;
+}
+
+// Pending image for current conversation
+let pendingImageUrl = null;
+let pendingImageFile = null;
+
+function handleImageUpload(input, convoId) {
+  const file = input.files[0];
+  if (!file) return;
+
+  // Show preview
+  const preview = document.getElementById('img-preview-'+convoId);
+  const thumb = document.getElementById('img-preview-thumb-'+convoId);
+  const nameEl = document.getElementById('img-preview-name-'+convoId);
+
+  if (preview && thumb) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      thumb.src = e.target.result;
+      preview.style.display = 'block';
+      if (nameEl) nameEl.textContent = file.name + ' (' + Math.round(file.size/1024) + ' KB)';
+    };
+    reader.readAsDataURL(file);
+  }
+  pendingImageFile = file;
+}
+
+function cancelImage(convoId) {
+  pendingImageFile = null;
+  pendingImageUrl = null;
+  const preview = document.getElementById('img-preview-'+convoId);
+  const input = document.getElementById('img-upload-'+convoId);
+  if (preview) preview.style.display = 'none';
+  if (input) input.value = '';
+}
+
+async function uploadImage(file) {
+  if (DEMO_MODE) {
+    // In demo mode return a placeholder image URL
+    return 'https://via.placeholder.com/400x300?text=Photo+from+ministry';
+  }
+  const ext = file.name.split('.').pop();
+  const fileName = `${currentUser.id}/${Date.now()}.${ext}`;
+  const { data, error } = await sb.storage
+    .from('message-attachments')
+    .upload(fileName, file, { cacheControl: '3600', upsert: false });
+  if (error) throw error;
+  const { data: urlData } = sb.storage
+    .from('message-attachments')
+    .getPublicUrl(fileName);
+  return urlData.publicUrl;
 }
 
 async function sendMsg(convoId) {
   const input = document.getElementById('chat-input-'+convoId);
   const text = input?.value?.trim();
-  if (!text) return;
-  input.value = '';
+  const hasImage = !!pendingImageFile;
+
+  if (!text && !hasImage) return;
+
+  let imageUrl = null;
+  if (hasImage) {
+    try {
+      imageUrl = await uploadImage(pendingImageFile);
+    } catch(e) {
+      toast('Error uploading image: ' + e.message, 'error');
+      return;
+    }
+  }
+
+  if (input) input.value = '';
+  cancelImage(convoId);
+
   if (DEMO_MODE) {
     const c = demoConvos.find(x=>x.id===convoId);
     if (c) {
       const profile = userProfile || DEMO_USER;
       const name = profile.full_name || profile.name || 'You';
       const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-      c.messages.push({sender:name,initials,color:'#0F6E56',bg:'#E1F5EE',time:'Now',text,own:true});
+      c.messages.push({
+        sender:name, initials, color:'#0F6E56', bg:'#E1F5EE',
+        time:'Now', text: text || '', image_url: imageUrl, own:true
+      });
       openConvo(convoId);
     }
     return;
   }
-  await sb.from('messages').insert({ conversation_id: convoId, sender_id: currentUser.id, body: text });
+
+  await sb.from('messages').insert({
+    conversation_id: convoId,
+    sender_id: currentUser.id,
+    body: text || '',
+    image_url: imageUrl
+  });
 }
 
 
