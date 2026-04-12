@@ -1216,24 +1216,6 @@ function initMap() {
     const path = d3.geoPath().projection(projection);
 
     d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(world => {
-      // Draw countries
-      svg.append('g')
-        .selectAll('path')
-        .data(topojson.feature(world, world.objects.countries).features)
-        .join('path')
-        .attr('d', path)
-        .attr('fill', isDark ? '#2a2a28' : '#e8e6e0')
-        .attr('stroke', isDark ? '#3a3a38' : '#ffffff')
-        .attr('stroke-width', 0.5);
-
-      // Draw borders
-      svg.append('path')
-        .datum(topojson.mesh(world, world.objects.countries, (a,b) => a !== b))
-        .attr('d', path)
-        .attr('fill', 'none')
-        .attr('stroke', isDark ? '#444' : '#fff')
-        .attr('stroke-width', 0.3);
-
       // Zoom controls
       const zoomBtns = document.createElement('div');
       zoomBtns.style.cssText = 'position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:4px;z-index:10;';
