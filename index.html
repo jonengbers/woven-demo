@@ -1861,21 +1861,36 @@ async function loadNarrativeReports(ministryId) {
   }
 
   try {
+    // First get report IDs for this ministry
+    const { data: reportIds } = await sb
+      .from('monthly_reports')
+      .select('id, report_year, report_month, status')
+      .eq('ministry_id', ministryId)
+      .order('report_year', {ascending: false})
+      .order('report_month', {ascending: false});
+
+    if (!reportIds || reportIds.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);">No reports found for this ministry.</div>';
+      return;
+    }
+
+    const ids = reportIds.map(r => r.id);
+
+    // Then fetch written reports for those IDs
     const { data } = await sb
       .from('written_reports')
-      .select('*, monthly_reports(report_year, report_month, status)')
-      .eq('monthly_reports.ministry_id', ministryId)
-      .order('monthly_reports.report_year', {ascending: false})
-      .order('monthly_reports.report_month', {ascending: false})
-      .limit(12);
+      .select('*')
+      .in('report_id', ids)
+      .not('body_original', 'is', null);
 
     if (!data || data.length === 0) {
       container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);">No narrative reports filed yet for this ministry.</div>';
       return;
     }
 
+    // Join with report metadata
     container.innerHTML = data.map(r => {
-      const mr = r.monthly_reports;
+      const mr = reportIds.find(x => x.id === r.report_id);
       const month = mr ? new Date(mr.report_year, mr.report_month-1, 1).toLocaleString('default',{month:'long',year:'numeric'}) : 'Unknown period';
       return renderNarrativeCard({
         month, lang: r.original_language, original: r.body_original,
@@ -1947,14 +1962,26 @@ async function loadPrayerRequests(ministryId) {
   }
 
   try {
+    // Get report IDs for this ministry
+    const { data: reportIds } = await sb
+      .from('monthly_reports')
+      .select('id, report_year, report_month')
+      .eq('ministry_id', ministryId)
+      .order('report_year', {ascending: false})
+      .order('report_month', {ascending: false});
+
+    if (!reportIds || reportIds.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);">No reports found for this ministry.</div>';
+      return;
+    }
+
+    const ids = reportIds.map(r => r.id);
+
     const { data } = await sb
       .from('written_reports')
-      .select('prayer_requests, original_language, monthly_reports(report_year, report_month)')
-      .not('prayer_requests', 'is', null)
-      .eq('monthly_reports.ministry_id', ministryId)
-      .order('monthly_reports.report_year', {ascending:false})
-      .order('monthly_reports.report_month', {ascending:false})
-      .limit(12);
+      .select('prayer_requests, original_language, report_id')
+      .in('report_id', ids)
+      .not('prayer_requests', 'is', null);
 
     if (!data || data.length === 0) {
       container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);">No prayer requests filed yet for this ministry.</div>';
@@ -1966,12 +1993,15 @@ async function loadPrayerRequests(ministryId) {
         These prayer requests are shared with the Woven network.
       </div>` +
       data.map(r => {
-        const mr = r.monthly_reports;
-        const month = mr ? new Date(mr.report_year, mr.report_month-1,1).toLocaleString('default',{month:'long',year:'numeric'}) : '—';
-        const lang = r.original_language || 'en';
-        return `<div class="card" style="margin-bottom:10px;">
-          <div style="font-size:13px;font-weight:500;margin-bottom:8px;">${month}</div>
-          <div style="font-size:13px;line-height:1.7;color:var(--text);">${r.prayer_requests}</div>
+        const mr = reportIds.find(x => x.id === r.report_id);
+        const month = mr ? new Date(mr.report_year, mr.report_month-1, 1).toLocaleString('default',{month:'long',year:'numeric'}) : '—';
+        const langName = {es:'Spanish',fr:'French',en:'English',pt:'Portuguese'}[r.original_language] || r.original_language || 'English';
+        return `<div class="card" style="margin-bottom:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div style="font-size:14px;font-weight:600;">${month}</div>
+            <span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--surface2);color:var(--text2);">${langName}</span>
+          </div>
+          <div style="font-size:13px;line-height:1.8;color:var(--text);white-space:pre-wrap;">${r.prayer_requests}</div>
         </div>`;
       }).join('');
   } catch(e) {
