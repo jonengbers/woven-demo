@@ -233,7 +233,7 @@ button:hover{background:var(--surface2);}
       <button class="tnav active" onclick="showScreen('dashboard',this)">Dashboard</button>
       <button class="tnav" onclick="showScreen('ministries',this)">Ministries</button>
       <button class="tnav" onclick="showScreen('compare',this)">Compare</button>
-      <button class="tnav" id="nav-submit" onclick="showScreen('submit',this)">Submit report</button>
+      <button class="tnav hidden" id="nav-submit" onclick="showScreen('submit',this)">Submit report</button>
       <button class="tnav" onclick="showScreen('map',this)">World map</button>
       <button class="tnav" onclick="showScreen('messages',this)">Messages</button>
     </div>
@@ -496,7 +496,9 @@ function enterApp(profile) {
   document.getElementById('user-av').textContent = initials;
   document.getElementById('user-name').textContent = profile.full_name || profile.name || '';
   document.getElementById('user-role').textContent = (profile.role||'').replace('_',' ');
-  if (profile.role === 'director') document.getElementById('nav-submit').classList.remove('hidden');
+  if (profile.role === 'director' || profile.role === 'admin') {
+    document.getElementById('nav-submit').classList.remove('hidden');
+  }
   loadDashboard();
   loadCompareSelects();
   loadConversations();
@@ -803,9 +805,12 @@ const FORM_CONTENT = {
     const now = new Date();
     const monthName = now.toLocaleString('default', {month:'long'});
     const year = now.getFullYear();
-    const ministry = userProfile?.ministry_id
-      ? (ministriesData.find(m => m.ministry_id === userProfile.ministry_id)?.ministry_name || 'Your ministry')
-      : 'All ministries (admin)';
+    const role = userProfile?.role || '';
+    const ministryRow = userProfile?.ministry_id
+      ? ministriesData.find(m => m.ministry_id === userProfile.ministry_id)
+      : null;
+    const ministry = ministryRow?.ministry_name
+      || (role === 'director' ? 'Ministry not yet assigned — contact Sioux Falls admin' : 'Not applicable for your role');
     return `<div class="form-section">
       <div class="form-section-title">Report details</div>
       <div class="form-row-1">
