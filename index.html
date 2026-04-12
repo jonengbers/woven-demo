@@ -1680,11 +1680,14 @@ function renderLiveMessages(msgs, convoId) {
       ? `<div style="margin-top:6px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:var(--r-md);border:0.5px solid var(--border);cursor:pointer;" onclick="window.open('${m.image_url}','_blank')"/></div>`
       : '';
     const bodyHtml = m.body ? `<div>${m.body}</div>` : '';
-    const msgLang = m.original_language || m.language || 'en';
+    const msgLang = m.language || m.original_language || 'en';
+    const langBadge = msgLang && msgLang !== 'en'
+      ? `<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:var(--surface2);color:var(--text2);margin-left:4px;">${msgLang.toUpperCase()}</span>`
+      : '';
     return `<div class="msg" data-lang="${msgLang}" data-body="${encodeURIComponent(m.body||'')}">
       <div class="msg-header">
         <div class="msg-av" style="background:${bg};color:${color};">${initials}</div>
-        <span class="msg-name">${name}</span>
+        <span class="msg-name">${name}</span>${langBadge}
         <span class="msg-time">${time}</span>
       </div>
       <div class="msg-bubble${isOwn?' own':''}">${bodyHtml}${imageHtml}</div>
@@ -1699,8 +1702,12 @@ function renderLiveMessages(msgs, convoId) {
       for (const msgNode of msgNodes) {
         const lang = msgNode.dataset.lang;
         const body = decodeURIComponent(msgNode.dataset.body || '');
-        if (body && lang && lang !== userLang) {
+        // Translate if message lang differs from user's preferred lang
+        // and lang is not 'und' (undetermined) or empty
+        if (body && lang && lang !== 'en' && lang !== userLang && lang !== 'und') {
           await translateMessage(msgNode, body, lang);
+        } else if (body && lang === 'en' && userLang !== 'en') {
+          await translateMessage(msgNode, body, 'en');
         }
       }
     }, 100);
@@ -1888,9 +1895,15 @@ async function loadNarrativeReports(ministryId) {
       return;
     }
 
-    // Join with report metadata
-    container.innerHTML = data.map(r => {
-      const mr = reportIds.find(x => x.id === r.report_id);
+    // Join with report metadata and sort newest first
+    const sorted = data
+      .map(r => ({ r, mr: reportIds.find(x => x.id === r.report_id) }))
+      .sort((a, b) => {
+        if (!a.mr || !b.mr) return 0;
+        if (a.mr.report_year !== b.mr.report_year) return b.mr.report_year - a.mr.report_year;
+        return b.mr.report_month - a.mr.report_month;
+      });
+    container.innerHTML = sorted.map(({r, mr}) => {
       const month = mr ? new Date(mr.report_year, mr.report_month-1, 1).toLocaleString('default',{month:'long',year:'numeric'}) : 'Unknown period';
       return renderNarrativeCard({
         month, lang: r.original_language, original: r.body_original,
@@ -1988,12 +2001,21 @@ async function loadPrayerRequests(ministryId) {
       return;
     }
 
+    // Sort newest first
+    const sortedPrayer = data
+      .map(r => ({ r, mr: reportIds.find(x => x.id === r.report_id) }))
+      .sort((a, b) => {
+        if (!a.mr || !b.mr) return 0;
+        if (a.mr.report_year !== b.mr.report_year) return b.mr.report_year - a.mr.report_year;
+        return b.mr.report_month - a.mr.report_month;
+      });
+
     container.innerHTML = `
       <div style="background:var(--purple-l);border-radius:var(--r-md);padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--purple-d);line-height:1.6;">
         These prayer requests are shared with the Woven network.
       </div>` +
-      data.map(r => {
-        const mr = reportIds.find(x => x.id === r.report_id);
+      sortedPrayer.map(({r, mr}) => {
+        const reportId = r.report_id;
         const month = mr ? new Date(mr.report_year, mr.report_month-1, 1).toLocaleString('default',{month:'long',year:'numeric'}) : '—';
         const langName = {es:'Spanish',fr:'French',en:'English',pt:'Portuguese'}[r.original_language] || r.original_language || 'English';
         return `<div class="card" style="margin-bottom:12px;">
