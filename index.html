@@ -172,18 +172,10 @@ button:hover{background:var(--surface2);}
 <!-- ── AUTH SCREEN ── -->
 <div id="auth-screen">
   <div class="auth-card card">
-    <div class="auth-logo">
-      <svg viewBox="0 0 40 40" fill="none">
-        <rect width="40" height="40" rx="10" fill="#EEEDFE"/>
-        <path d="M6 12 Q13 7 20 12 Q27 17 34 12" stroke="#534AB7" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-        <path d="M6 20 Q13 15 20 20 Q27 25 34 20" stroke="#7F77DD" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-        <path d="M6 28 Q13 23 20 28 Q27 33 34 28" stroke="#AFA9EC" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-      </svg>
-      <div>
-        <div class="auth-title">Woven</div>
-        <div class="auth-sub">Luke Society Global Hub</div>
-      </div>
-    </div>
+    <div class="logo-area">
+  <img src="Luke_logo.png" style="height:36px;width:auto;" alt="Luke Society"/>
+  <div><div class="logo-name">Woven</div><div class="logo-tag">Luke Society Global Hub</div></div>
+</div>
     <div class="auth-tabs">
       <button class="auth-tab active" onclick="switchAuthTab('login',this)">Sign in</button>
       <button class="auth-tab" onclick="switchAuthTab('signup',this)">Create account</button>
