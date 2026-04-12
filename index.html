@@ -1100,22 +1100,51 @@ async function seedConversations() {
 }
 
 function renderConvoList() {
+  const active = demoConvos.filter(c => !c.archived);
+  const archived = demoConvos.filter(c => c.archived);
   const header = `<div style="padding:10px 12px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
     <span style="font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Conversations</span>
     <button onclick="openNewConvoModal()" style="font-size:11px;padding:3px 9px;border-radius:var(--r-md);">+ New</button>
   </div>`;
+  const archivedSection = archived.length > 0 ? `
+    <div style="padding:8px 12px;border-top:0.5px solid var(--border);margin-top:4px;">
+      <button onclick="toggleArchivedSection()" style="font-size:11px;color:var(--text2);border:none;background:none;cursor:pointer;padding:0;" id="archived-toggle">
+        ▸ Archived (${archived.length})
+      </button>
+      <div id="archived-section" style="display:none;">
+        ${archived.map(c => renderConvoItem(c)).join('')}
+      </div>
+    </div>` : '';
   document.getElementById('convo-list').innerHTML = header +
-    demoConvos.map(c => `
-      <div class="convo-item ${c.id===activeConvoId?'active-c':''}" onclick="openConvo(${c.id})">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div style="width:32px;height:32px;border-radius:50%;background:${c.bg};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:${c.color};flex-shrink:0;">${c.initials}</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.title}</div>
-            <div style="font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.messages?.length ? c.messages[c.messages.length-1].text.slice(0,40)+'…' : 'No messages yet'}</div>
-          </div>
-          ${c.unread>0?`<span style="background:var(--purple);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;">${c.unread}</span>`:''}
-        </div>
-      </div>`).join('');
+    active.map(c => renderConvoItem(c)).join('') +
+    archivedSection;
+}
+
+function toggleArchivedSection() {
+  const section = document.getElementById('archived-section');
+  const btn = document.getElementById('archived-toggle');
+  if (section.style.display === 'none') {
+    section.style.display = 'block';
+    btn.textContent = `▾ Archived (${demoConvos.filter(c=>c.archived).length})`;
+  } else {
+    section.style.display = 'none';
+    btn.textContent = `▸ Archived (${demoConvos.filter(c=>c.archived).length})`;
+  }
+}
+
+function renderConvoItem(c) {
+  const lastMsg = c.messages?.length ? c.messages[c.messages.length-1].text?.slice(0,40)+'…' : 'No messages yet';
+  const archivedStyle = c.archived ? 'opacity:0.6;' : '';
+  return `<div class="convo-item ${c.id===activeConvoId?'active-c':''}" onclick="openConvo(${c.id})" style="${archivedStyle}">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="width:32px;height:32px;border-radius:50%;background:${c.bg};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:${c.color};flex-shrink:0;">${c.initials}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.title}</div>
+        <div style="font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${lastMsg}</div>
+      </div>
+      ${c.unread>0?`<span style="background:var(--purple);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;">${c.unread}</span>`:''}
+    </div>
+  </div>`;
 }
 
 function openConvo(id) {
@@ -1132,7 +1161,16 @@ function openConvo(id) {
         <div style="font-size:14px;font-weight:600;">${c.title}</div>
         <div id="member-count-${id}" style="font-size:11px;color:var(--text2);">Loading members...</div>
       </div>
-      <button onclick="openAddMembersModal(${id})" style="font-size:12px;padding:5px 11px;border-radius:var(--r-md);">+ Add members</button>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button onclick="openAddMembersModal(${id})" style="font-size:12px;padding:5px 11px;border-radius:var(--r-md);">+ Add members</button>
+        <div style="position:relative;">
+          <button id="convo-menu-btn-${id}" onclick="toggleConvoMenu(${id})" style="font-size:18px;padding:4px 8px;border-radius:var(--r-md);line-height:1;color:var(--text2);">⋯</button>
+          <div id="convo-menu-${id}" style="display:none;position:absolute;right:0;top:100%;background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--r-md);min-width:160px;z-index:50;margin-top:4px;overflow:hidden;">
+            <div onclick="archiveConvo(${id})" style="padding:10px 14px;font-size:13px;cursor:pointer;color:var(--text);" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">Archive conversation</div>
+            <div onclick="confirmDeleteConvo(${id},'${c.title.replace(/'/g, String.fromCharCode(39))}')" style="padding:10px 14px;font-size:13px;cursor:pointer;color:var(--red);border-top:0.5px solid var(--border);" onmouseover="this.style.background='var(--red-l)'" onmouseout="this.style.background=''">Delete conversation</div>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="chat-messages" id="chat-msgs">
       ${(c.messages||[]).map(m=>{
@@ -1623,6 +1661,95 @@ function initMap() {
   });
 }
 
+
+
+// ── CONVERSATION MANAGEMENT ──
+function toggleConvoMenu(id) {
+  const menu = document.getElementById('convo-menu-'+id);
+  if (!menu) return;
+  const isVisible = menu.style.display !== 'none';
+  // Close all other menus first
+  document.querySelectorAll('[id^="convo-menu-"]').forEach(m => m.style.display = 'none');
+  menu.style.display = isVisible ? 'none' : 'block';
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('[id^="convo-menu-btn-"]') && !e.target.closest('[id^="convo-menu-"]')) {
+    document.querySelectorAll('[id^="convo-menu-"]').forEach(m => m.style.display = 'none');
+  }
+});
+
+async function archiveConvo(id) {
+  document.querySelectorAll('[id^="convo-menu-"]').forEach(m => m.style.display = 'none');
+  const c = demoConvos.find(x => x.id === id);
+  if (!c) return;
+
+  c.archived = true;
+
+  if (!DEMO_MODE && sb) {
+    try {
+      // Store archived state in conversation_members metadata
+      await sb.from('conversation_members')
+        .update({ archived: true })
+        .eq('conversation_id', id)
+        .eq('user_id', currentUser.id);
+    } catch(e) {
+      console.error('Archive error:', e);
+    }
+  }
+
+  // Clear chat panel if this was the active convo
+  if (activeConvoId === id) {
+    activeConvoId = null;
+    document.getElementById('chat-panel').innerHTML =
+      '<div style="padding:40px;text-align:center;color:var(--text2);">Select a conversation</div>';
+  }
+
+  renderConvoList();
+  toast('Conversation archived', 'success');
+}
+
+function confirmDeleteConvo(id, title) {
+  document.querySelectorAll('[id^="convo-menu-"]').forEach(m => m.style.display = 'none');
+
+  // Inline confirmation in chat panel
+  const panel = document.getElementById('chat-panel');
+  panel.innerHTML = `
+    <div style="padding:40px;text-align:center;">
+      <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px;">Delete this conversation?</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:20px;">"${title}" and all its messages will be permanently deleted. This cannot be undone.</div>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button onclick="deleteConvo(${id})" style="background:var(--red);color:#fff;border-color:var(--red);padding:8px 20px;border-radius:var(--r-md);font-weight:500;">Delete permanently</button>
+        <button onclick="openConvo(${id})" style="padding:8px 20px;">Cancel</button>
+      </div>
+    </div>`;
+}
+
+async function deleteConvo(id) {
+  if (!DEMO_MODE && sb) {
+    try {
+      // Delete messages first, then conversation
+      await sb.from('messages').delete().eq('conversation_id', id);
+      await sb.from('conversation_members').delete().eq('conversation_id', id);
+      await sb.from('conversations').delete().eq('id', id);
+    } catch(e) {
+      toast('Error deleting: ' + e.message, 'error');
+      return;
+    }
+  }
+
+  // Remove from local list
+  const idx = demoConvos.findIndex(c => c.id === id);
+  if (idx > -1) demoConvos.splice(idx, 1);
+
+  activeConvoId = null;
+  document.getElementById('chat-panel').innerHTML =
+    '<div style="padding:40px;text-align:center;color:var(--text2);">Select a conversation</div>';
+
+  renderConvoList();
+  toast('Conversation deleted', 'success');
+}
 
 // ── ADD MEMBERS ──
 let addMembersConvoId = null;
