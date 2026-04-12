@@ -346,6 +346,23 @@ button:hover{background:var(--surface2);}
   <!-- MESSAGES -->
   <div class="screen" id="screen-messages">
 
+    <!-- Add members modal -->
+    <div id="add-members-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:200;">
+      <div class="card" style="width:100%;max-width:420px;margin:20px;">
+        <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Add members</div>
+        <div id="add-members-convo-title" style="font-size:12px;color:var(--text2);margin-bottom:16px;"></div>
+        <div class="form-row-1">
+          <div class="flabel">Search users</div>
+          <input type="text" id="member-search" placeholder="Name or email..." oninput="filterUserList(this.value)" style="margin-bottom:10px;"/>
+        </div>
+        <div id="user-list" style="max-height:240px;overflow-y:auto;border:0.5px solid var(--border);border-radius:var(--r-md);"></div>
+        <div id="add-members-error" style="font-size:12px;color:var(--red);margin-top:8px;"></div>
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <button onclick="closeAddMembersModal()">Done</button>
+        </div>
+      </div>
+    </div>
+
     <!-- New conversation modal -->
     <div id="new-convo-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:200;">
       <div class="card" style="width:100%;max-width:420px;margin:20px;">
@@ -1111,7 +1128,11 @@ function openConvo(id) {
   panel.innerHTML = `
     <div class="chat-header">
       <div style="width:34px;height:34px;border-radius:50%;background:${c.bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:${c.color};">${c.initials}</div>
-      <div style="font-size:14px;font-weight:600;">${c.title}</div>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:600;">${c.title}</div>
+        <div id="member-count-${id}" style="font-size:11px;color:var(--text2);">Loading members...</div>
+      </div>
+      <button onclick="openAddMembersModal(${id},'${c.title.replace(/'/g,\'')}')" style="font-size:12px;padding:5px 11px;border-radius:var(--r-md);">+ Add members</button>
     </div>
     <div class="chat-messages" id="chat-msgs">
       ${(c.messages||[]).map(m=>`
@@ -1131,6 +1152,12 @@ function openConvo(id) {
   document.getElementById('chat-msgs').scrollTop = 99999;
 
   if (!DEMO_MODE && sb) {
+    // Load member count
+    sb.from('conversation_members').select('user_id', {count:'exact'}).eq('conversation_id', id).then(({count}) => {
+      const el = document.getElementById('member-count-'+id);
+      if (el) el.textContent = `${count || 1} member${(count||1)===1?'':'s'}`;
+    });
+
     sb.from('messages_with_sender').select('*').eq('conversation_id', id).order('created_at').then(({data, error}) => {
       if (data && data.length > 0) renderLiveMessages(data, id);
       else if (error) console.error('Message fetch error:', error);
@@ -1496,6 +1523,138 @@ function initMap() {
     });
   });
 }
+
+
+// ── ADD MEMBERS ──
+let addMembersConvoId = null;
+let allUsers = [];
+let currentMembers = [];
+
+async function openAddMembersModal(convoId, convoTitle) {
+  addMembersConvoId = convoId;
+  document.getElementById('add-members-convo-title').textContent = convoTitle;
+  document.getElementById('member-search').value = '';
+  document.getElementById('add-members-error').textContent = '';
+  document.getElementById('add-members-modal').classList.remove('hidden');
+  document.getElementById('add-members-modal').style.display = 'flex';
+
+  if (DEMO_MODE) {
+    allUsers = [
+      {id:'demo-1', full_name:'Dr. Sarah Mitchell', role:'pmt_member', email:'sarah@example.com'},
+      {id:'demo-2', full_name:'Dr. James Okonkwo',  role:'pmt_member', email:'james@example.com'},
+      {id:'demo-3', full_name:'Dr. Maria Santos',   role:'director',   email:'maria@example.com'},
+      {id:'demo-4', full_name:'Nathan Stob',         role:'admin',      email:'nathan@lukesociety.org'},
+      {id:'demo-5', full_name:'Dr. Troy Tompkins',  role:'admin',      email:'troy@lukesociety.org'},
+    ];
+    currentMembers = [currentUser?.id || 'me'];
+    renderUserList();
+    return;
+  }
+
+  try {
+    // Fetch all users
+    const { data: users } = await sb
+      .from('user_profiles')
+      .select('id, full_name, role')
+      .order('full_name');
+    allUsers = users || [];
+
+    // Fetch current members of this conversation
+    const { data: members } = await sb
+      .from('conversation_members')
+      .select('user_id')
+      .eq('conversation_id', convoId);
+    currentMembers = (members || []).map(m => m.user_id);
+
+    renderUserList();
+  } catch(e) {
+    document.getElementById('add-members-error').textContent = 'Error loading users: ' + e.message;
+  }
+}
+
+function closeAddMembersModal() {
+  document.getElementById('add-members-modal').classList.add('hidden');
+  document.getElementById('add-members-modal').style.display = 'none';
+  addMembersConvoId = null;
+  // Refresh member count display
+  if (activeConvoId) {
+    const el = document.getElementById('member-count-' + activeConvoId);
+    if (el && !DEMO_MODE && sb) {
+      sb.from('conversation_members').select('user_id', {count:'exact'}).eq('conversation_id', activeConvoId).then(({count}) => {
+        if (el) el.textContent = `${count || 1} member${(count||1)===1?'':'s'}`;
+      });
+    }
+  }
+}
+
+function filterUserList(q) {
+  renderUserList(q);
+}
+
+function renderUserList(filter = '') {
+  const list = document.getElementById('user-list');
+  const filtered = allUsers.filter(u =>
+    !filter ||
+    (u.full_name||'').toLowerCase().includes(filter.toLowerCase())
+  );
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text2);font-size:13px;">No users found</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(u => {
+    const isMember = currentMembers.includes(u.id);
+    const initials = (u.full_name||'?').split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const roleLabel = (u.role||'').replace('_',' ');
+    const roleColor = u.role === 'director' ? 'var(--teal-d)' : u.role === 'admin' ? 'var(--amber)' : 'var(--purple-d)';
+    const roleBg = u.role === 'director' ? 'var(--teal-l)' : u.role === 'admin' ? 'var(--amber-l)' : 'var(--purple-l)';
+
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:0.5px solid var(--border);${isMember?'opacity:0.6':''}">
+      <div style="width:34px;height:34px;border-radius:50%;background:var(--purple-l);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--purple-d);flex-shrink:0;">${initials}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:500;color:var(--text);">${u.full_name || 'Unknown'}</div>
+        <span style="font-size:10px;padding:1px 6px;border-radius:3px;background:${roleBg};color:${roleColor};">${roleLabel}</span>
+      </div>
+      ${isMember
+        ? '<span style="font-size:11px;color:var(--text2);flex-shrink:0;">Already a member</span>'
+        : `<button onclick="addMember('${u.id}','${(u.full_name||'').replace(/'/g,"\'")}') " style="font-size:11px;padding:4px 10px;border-radius:var(--r-md);" id="add-btn-${u.id}">Add</button>`
+      }
+    </div>`;
+  }).join('');
+}
+
+async function addMember(userId, userName) {
+  const btn = document.getElementById('add-btn-' + userId);
+  if (btn) { btn.textContent = 'Adding...'; btn.disabled = true; }
+
+  if (DEMO_MODE) {
+    currentMembers.push(userId);
+    toast(`${userName} added to conversation`, 'success');
+    renderUserList(document.getElementById('member-search').value);
+    return;
+  }
+
+  try {
+    const { error } = await sb.from('conversation_members')
+      .insert({ conversation_id: addMembersConvoId, user_id: userId });
+
+    if (error && error.code !== '23505') throw error; // ignore duplicate
+
+    currentMembers.push(userId);
+    toast(`${userName} added to the conversation`, 'success');
+    renderUserList(document.getElementById('member-search').value);
+  } catch(e) {
+    document.getElementById('add-members-error').textContent = 'Error adding member: ' + e.message;
+    if (btn) { btn.textContent = 'Add'; btn.disabled = false; }
+  }
+}
+
+// Close modal on backdrop click
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('add-members-modal');
+  if (modal && e.target === modal) closeAddMembersModal();
+});
 
 // ── NEW CONVERSATION MODAL ──
 function openNewConvoModal() {
