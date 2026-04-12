@@ -224,6 +224,7 @@ button:hover{background:var(--surface2);}
       <button class="tnav" onclick="showScreen('ministries',this)">Ministries</button>
       <button class="tnav" onclick="showScreen('compare',this)">Compare</button>
       <button class="tnav hidden" id="nav-submit" onclick="showScreen('submit',this)">Submit report</button>
+      <button class="tnav" onclick="showScreen('settings',this)">Settings</button>
       <button class="tnav" onclick="showScreen('map',this)">World map</button>
       <button class="tnav" onclick="showScreen('messages',this)">Messages</button>
     </div>
@@ -414,6 +415,69 @@ button:hover{background:var(--surface2);}
   </div>
 </div>
 
+  <!-- SETTINGS -->
+  <div class="screen" id="screen-settings">
+    <div style="max-width:500px;">
+      <div style="font-size:18px;font-weight:600;margin-bottom:20px;">Settings</div>
+
+      <div class="card" style="margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:500;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">Language preferences</div>
+        <div class="form-row-1">
+          <div class="flabel">My primary language</div>
+          <select id="pref-language" style="max-width:280px;" onchange="saveLanguagePref()">
+            <option value="en">English</option>
+            <option value="es">Spanish (Español)</option>
+            <option value="fr">French (Français)</option>
+            <option value="pt">Portuguese (Português)</option>
+            <option value="ar">Arabic (العربية)</option>
+            <option value="hi">Hindi (हिन्दी)</option>
+            <option value="bn">Bengali (বাংলা)</option>
+            <option value="ne">Nepali (नेपाली)</option>
+            <option value="si">Sinhala (සිංහල)</option>
+            <option value="my">Burmese (မြန်မာ)</option>
+            <option value="id">Indonesian (Bahasa Indonesia)</option>
+            <option value="uk">Ukrainian (Українська)</option>
+            <option value="ky">Kyrgyz (Кыргызча)</option>
+          </select>
+        </div>
+        <div class="form-row-1" style="margin-top:14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div style="font-size:13px;font-weight:500;color:var(--text);">Auto-translate messages</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:2px;">Translate messages written in other languages into your preferred language</div>
+            </div>
+            <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;margin-left:16px;">
+              <input type="checkbox" id="auto-translate-toggle" style="opacity:0;width:0;height:0;" onchange="saveTranslatePref()"/>
+              <span id="translate-slider" style="position:absolute;cursor:pointer;inset:0;background:var(--border2);border-radius:24px;transition:.3s;"></span>
+            </label>
+          </div>
+        </div>
+        <div id="translate-status" style="font-size:12px;color:var(--text2);margin-top:10px;padding:8px 10px;background:var(--surface2);border-radius:var(--r-md);display:none;">
+          Auto-translation is active. Messages in other languages will be translated to <strong id="translate-to-lang">English</strong>.
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:500;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">Account</div>
+        <div class="form-row-1">
+          <div class="flabel">Full name</div>
+          <input type="text" id="settings-name" style="max-width:280px;" placeholder="Your name"/>
+        </div>
+        <div class="form-row-1" style="margin-top:10px;">
+          <div class="flabel">Role</div>
+          <div style="padding:7px 10px;background:var(--surface2);border-radius:var(--r-md);font-size:13px;color:var(--text2);max-width:280px;" id="settings-role"></div>
+        </div>
+        <button class="btn-primary" style="margin-top:14px;" onclick="saveAccountSettings()">Save changes</button>
+        <div id="settings-saved" style="font-size:12px;color:var(--green);margin-top:8px;display:none;">Saved successfully</div>
+      </div>
+
+      <div class="card">
+        <div style="font-size:13px;font-weight:500;margin-bottom:8px;">Translation powered by</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.6;">MyMemory free translation API. Translation quality is excellent for Spanish and French. Other languages may vary. Translated content is marked with a label so readers know it has been auto-translated.</div>
+      </div>
+    </div>
+  </div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -464,20 +528,23 @@ let detailCharts = [];
 let realtimeSub = null;
 let demoConvos = [
   {id:1,title:'Clínica Jehová Rafa',ministry_id:1,initials:'JR',color:'#534AB7',bg:'#EEEDFE',unread:0,messages:[
-    {sender:'Dr. E. Vargas',initials:'EV',color:'#534AB7',bg:'#EEEDFE',time:'Apr 7',text:'Hola, hemos enviado el reporte de marzo. Este mes fue difícil financieramente con la compra del vehículo.',own:false},
-    {sender:'Dr. Jon Vander Laan',initials:'JV',color:'#0F6E56',bg:'#E1F5EE',time:'Apr 8',text:'Dr. Vargas, thank you — we noticed the ending balance is very tight at $410. Can you walk us through the vehicle purchase timing?',own:true},
-    {sender:'Dr. E. Vargas',initials:'EV',color:'#534AB7',bg:'#EEEDFE',time:'Apr 8',text:'El vehículo es necesario para las visitas comunitarias. Esperamos recuperar el balance en abril.',own:false},
+    {sender:'Dr. E. Vargas',initials:'EV',color:'#534AB7',bg:'#EEEDFE',time:'Apr 7',text:'Hola, hemos enviado el reporte de marzo. Este mes fue muy difícil financieramente debido a la compra del vehículo ministerial.',own:false,lang:'es'},
+    {sender:'Dr. Jon Vander Laan',initials:'JV',color:'#0F6E56',bg:'#E1F5EE',time:'Apr 8',text:'Dr. Vargas, thank you — we noticed the ending balance is very tight at $410. Can you walk us through the vehicle purchase timing?',own:true,lang:'en'},
+    {sender:'Dr. E. Vargas',initials:'EV',color:'#534AB7',bg:'#EEEDFE',time:'Apr 8',text:'El vehículo es absolutamente necesario para las visitas comunitarias en zonas rurales. Esperamos recuperar el balance en abril con los ingresos de la clínica y las ofrendas esperadas.',own:false,lang:'es'},
+    {sender:'Dr. E. Vargas',initials:'EV',color:'#534AB7',bg:'#EEEDFE',time:'Apr 9',text:'También queremos compartir una petición de oración: uno de nuestros pacientes de la comunidad fue diagnosticado con tuberculosis esta semana. Necesitamos sabiduría y recursos para atenderle.',own:false,lang:'es'},
   ]},
-  {id:2,title:'Chennai Community Clinic',ministry_id:2,initials:'CC',color:'#0F6E56',bg:'#E1F5EE',unread:2,messages:[
-    {sender:'Dr. P. Krishnan',initials:'PK',color:'#0F6E56',bg:'#E1F5EE',time:'Apr 9',text:'Good morning. We need guidance on our lab reagent supplier — costs are 22% higher this quarter.',own:false},
-    {sender:'Dr. P. Krishnan',initials:'PK',color:'#0F6E56',bg:'#E1F5EE',time:'Apr 9',text:'Do other ministries in the network have supplier recommendations?',own:false},
+  {id:2,title:'Moundou Medical Center',ministry_id:31,initials:'MM',color:'#1D9E75',bg:'#E1F5EE',unread:2,messages:[
+    {sender:'Dr. A. Mbainadji',initials:'AM',color:'#1D9E75',bg:'#E1F5EE',time:'Apr 9',text:"Bonjour, nous avons soumis le rapport de mars. Ce mois a été très productif avec 340 consultations et 12 accouchements assistés.",own:false,lang:'fr'},
+    {sender:'Dr. A. Mbainadji',initials:'AM',color:'#1D9E75',bg:'#E1F5EE',time:'Apr 9',text:"Nous avons également organisé deux sessions d'éducation sanitaire dans les villages voisins. Les besoins sont immenses mais nous voyons la grâce de Dieu chaque jour.",own:false,lang:'fr'},
   ]},
-  {id:3,title:'PMT Guatemala / Nicaragua',initials:'GT',color:'#854F0B',bg:'#FAEEDA',unread:1,messages:[
-    {sender:'Sarah M. (PMT Lead)',initials:'SM',color:'#854F0B',bg:'#FAEEDA',time:'Apr 6',text:'Team — PMT meeting confirmed Tuesday April 14 at 7pm CST. Agenda: Nicaragua Q1 review, Haiti late report follow-up.',own:false},
-    {sender:'Dr. Jon Vander Laan',initials:'JV',color:'#0F6E56',bg:'#E1F5EE',time:'Apr 6',text:"I'll be there. Should we also discuss the Clínica Jehová Rafa balance situation?",own:true},
+  {id:3,title:'PMT Network — All Teams',initials:'PN',color:'#854F0B',bg:'#FAEEDA',unread:1,messages:[
+    {sender:'Nathan Stob (Admin)',initials:'NS',color:'#854F0B',bg:'#FAEEDA',time:'Apr 6',text:'All PMT teams — reminder that March reports are due by April 30. Six ministries are still pending. Please follow up with your directors.',own:false,lang:'en'},
+    {sender:'Dr. Jon Vander Laan',initials:'JV',color:'#0F6E56',bg:'#E1F5EE',time:'Apr 6',text:"I'll reach out to the Nicaragua team today. The Haiti situation may need extra attention given their current challenges.",own:true,lang:'en'},
   ]},
-  {id:4,title:'Nairobi Rural Health',ministry_id:3,initials:'NR',color:'#185FA5',bg:'#E6F1FB',unread:0,messages:[
-    {sender:'Dr. A. Wanjiku',initials:'AW',color:'#185FA5',bg:'#E6F1FB',time:'Apr 5',text:'March report submitted! Good month — 2 community health education sessions and 1 health worker trained. Grateful for your support.',own:false},
+  {id:4,title:'Prayer & Encouragement',initials:'PE',color:'#534AB7',bg:'#EEEDFE',unread:0,messages:[
+    {sender:'Dr. E. Vargas',initials:'EV',color:'#534AB7',bg:'#EEEDFE',time:'Apr 5',text:'Por favor oren por nuestra comunidad en Managua. Hemos visto muchos pacientes con necesidades espirituales profundas esta semana. Dios está obrando de maneras maravillosas.',own:false,lang:'es'},
+    {sender:'Dr. A. Mbainadji',initials:'AM',color:'#1D9E75',bg:'#E1F5EE',time:'Apr 5',text:"Priez pour notre équipe au Tchad. Nous faisons face à des défis logistiques mais nous restons confiants dans la provision de Dieu. Merci pour votre soutien.",own:false,lang:'fr'},
+    {sender:'Dr. A. Wanjiku',initials:'AW',color:'#185FA5',bg:'#E6F1FB',time:'Apr 5',text:'Praising God for a healthy delivery this week — mother and baby doing well. The community is so grateful for our presence.',own:false,lang:'en'},
   ]},
 ];
 
@@ -571,6 +638,7 @@ function showScreen(id, btn) {
   if (id === 'messages') { loadConversations(); }
   if (id === 'map') { initMap(); }
   if (id === 'submit') { formStep = 1; renderForm(); }
+  if (id === 'settings') { initSettingsScreen(); }
 }
 
 // ── REGION TOGGLES ──
@@ -1260,22 +1328,40 @@ function openConvo(id) {
   msgsDiv.className = 'chat-messages';
   msgsDiv.id = 'chat-msgs';
 
+  const msgNodes = [];
   (c.messages || []).forEach(m => {
     const msgEl = document.createElement('div');
     msgEl.className = 'msg';
+    msgEl.dataset.lang = m.lang || 'en';
+    msgEl.dataset.body = encodeURIComponent(m.text || '');
     const imgHtml = m.image_url
       ? `<div style="margin-top:6px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:var(--r-md);border:0.5px solid var(--border);cursor:pointer;" onclick="window.open('${m.image_url}','_blank')"/></div>`
       : '';
     const bodyHtml = m.text ? `<div>${m.text}</div>` : '';
+    const langBadge = m.lang && m.lang !== 'en'
+      ? `<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:var(--surface2);color:var(--text2);margin-left:4px;">${m.lang.toUpperCase()}</span>`
+      : '';
     msgEl.innerHTML = `
       <div class="msg-header">
         <div class="msg-av" style="background:${m.bg};color:${m.color};">${m.initials}</div>
-        <span class="msg-name">${m.sender}</span>
+        <span class="msg-name">${m.sender}</span>${langBadge}
         <span class="msg-time">${m.time}</span>
       </div>
       <div class="msg-bubble${m.own ? ' own' : ''}">${bodyHtml}${imgHtml}</div>`;
     msgsDiv.appendChild(msgEl);
+    msgNodes.push({el:msgEl, text:m.text, lang:m.lang||'en'});
   });
+
+  // Auto-translate demo messages
+  if (autoTranslate) {
+    setTimeout(async () => {
+      for (const {el, text, lang} of msgNodes) {
+        if (text && lang !== userLang) {
+          await translateMessage(el, text, lang);
+        }
+      }
+    }, 200);
+  }
 
   const inputRow = document.createElement('div');
   inputRow.className = 'chat-input-row';
@@ -1327,6 +1413,7 @@ function renderLiveMessages(msgs, convoId) {
     container.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;font-size:13px;">No messages yet — be the first to say something.</div>';
     return;
   }
+  const msgEls = [];
   container.innerHTML = msgs.map(m => {
     const isOwn = m.sender_id === currentUser?.id;
     const name = m.sender_name || (isOwn ? (userProfile?.full_name || 'You') : 'Team member');
@@ -1338,7 +1425,8 @@ function renderLiveMessages(msgs, convoId) {
       ? `<div style="margin-top:6px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:var(--r-md);border:0.5px solid var(--border);cursor:pointer;" onclick="window.open('${m.image_url}','_blank')"/></div>`
       : '';
     const bodyHtml = m.body ? `<div>${m.body}</div>` : '';
-    return `<div class="msg">
+    const msgLang = m.original_language || m.language || 'en';
+    return `<div class="msg" data-lang="${msgLang}" data-body="${encodeURIComponent(m.body||'')}">
       <div class="msg-header">
         <div class="msg-av" style="background:${bg};color:${color};">${initials}</div>
         <span class="msg-name">${name}</span>
@@ -1348,6 +1436,20 @@ function renderLiveMessages(msgs, convoId) {
     </div>`;
   }).join('');
   container.scrollTop = 99999;
+
+  // Apply auto-translation after render
+  if (autoTranslate) {
+    setTimeout(async () => {
+      const msgNodes = container.querySelectorAll('.msg[data-lang]');
+      for (const msgNode of msgNodes) {
+        const lang = msgNode.dataset.lang;
+        const body = decodeURIComponent(msgNode.dataset.body || '');
+        if (body && lang && lang !== userLang) {
+          await translateMessage(msgNode, body, lang);
+        }
+      }
+    }, 100);
+  }
 }
 
 function appendLiveMsg(msg) {
@@ -2114,8 +2216,181 @@ document.addEventListener('click', function(e) {
   if (modal && e.target === modal) closeNewConvoModal();
 });
 
+
+// ── LANGUAGE & TRANSLATION ──
+
+// User preferences stored in localStorage for persistence
+let userLang = localStorage.getItem('woven_lang') || 'en';
+let autoTranslate = localStorage.getItem('woven_translate') === 'true';
+
+const LANG_NAMES = {
+  en:'English', es:'Spanish', fr:'French', pt:'Portuguese',
+  ar:'Arabic', hi:'Hindi', bn:'Bengali', ne:'Nepali',
+  si:'Sinhala', my:'Burmese', id:'Indonesian', uk:'Ukrainian', ky:'Kyrgyz'
+};
+
+// Translation cache to avoid repeated API calls
+const translationCache = {};
+
+async function translateText(text, fromLang, toLang) {
+  if (!text || !text.trim()) return text;
+  if (fromLang === toLang) return text;
+
+  const cacheKey = `${fromLang}|${toLang}|${text.slice(0,100)}`;
+  if (translationCache[cacheKey]) return translationCache[cacheKey];
+
+  try {
+    const langPair = `${fromLang}|${toLang}`;
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.responseStatus === 200 && data.responseData?.translatedText) {
+      const translated = data.responseData.translatedText;
+      translationCache[cacheKey] = translated;
+      return translated;
+    }
+  } catch(e) {
+    console.error('Translation error:', e);
+  }
+  return text; // fallback to original
+}
+
+async function translateMessage(msgEl, originalText, originalLang) {
+  if (!autoTranslate || !originalText || originalLang === userLang) return;
+  if (originalLang === 'en' && userLang === 'en') return;
+
+  const translated = await translateText(originalText, originalLang, userLang);
+  if (translated === originalText) return; // no change
+
+  // Add translation below original
+  const existing = msgEl.querySelector('.auto-translated');
+  if (existing) existing.remove();
+
+  const transDiv = document.createElement('div');
+  transDiv.className = 'auto-translated';
+  transDiv.style.cssText = 'margin-top:6px;padding-top:6px;border-top:0.5px solid rgba(0,0,0,0.1);font-size:12px;';
+  transDiv.innerHTML = `<span style="color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:0.4px;">Auto-translated to ${LANG_NAMES[userLang]||userLang}</span><div style="margin-top:3px;color:var(--text);">${translated}</div>`;
+
+  const bubble = msgEl.querySelector('.msg-bubble');
+  if (bubble) bubble.appendChild(transDiv);
+}
+
+// Apply translation to all visible messages
+async function translateVisibleMessages() {
+  if (!autoTranslate) return;
+  const msgs = document.querySelectorAll('.msg');
+  for (const msg of msgs) {
+    const bubble = msg.querySelector('.msg-bubble');
+    if (!bubble) continue;
+    const bodyDiv = bubble.querySelector('div:first-child');
+    if (!bodyDiv) continue;
+    const text = bodyDiv.textContent.trim();
+    if (!text) continue;
+    // Detect if already has translation
+    if (bubble.querySelector('.auto-translated')) continue;
+    // Use stored lang from data attribute if available
+    const lang = msg.dataset.lang || 'en';
+    await translateMessage(msg, text, lang);
+  }
+}
+
+// Settings screen
+function initSettingsScreen() {
+  // Set language dropdown
+  const langSel = document.getElementById('pref-language');
+  if (langSel) langSel.value = userLang;
+
+  // Set toggle
+  const toggle = document.getElementById('auto-translate-toggle');
+  const slider = document.getElementById('translate-slider');
+  if (toggle) toggle.checked = autoTranslate;
+  if (slider) {
+    slider.style.background = autoTranslate ? '#534AB7' : 'var(--border2)';
+    slider.innerHTML = `<span style="position:absolute;content:'';height:18px;width:18px;left:${autoTranslate?'22px':'3px'};bottom:3px;background:white;border-radius:50%;transition:.3s;display:block;"></span>`;
+  }
+  updateTranslateStatus();
+
+  // Set account info
+  const nameEl = document.getElementById('settings-name');
+  const roleEl = document.getElementById('settings-role');
+  if (nameEl && userProfile) nameEl.value = userProfile.full_name || userProfile.name || '';
+  if (roleEl && userProfile) roleEl.textContent = (userProfile.role||'').replace('_',' ');
+}
+
+function saveLanguagePref() {
+  const sel = document.getElementById('pref-language');
+  if (!sel) return;
+  userLang = sel.value;
+  localStorage.setItem('woven_lang', userLang);
+  updateTranslateStatus();
+  // Clear cache when language changes
+  Object.keys(translationCache).forEach(k => delete translationCache[k]);
+}
+
+function saveTranslatePref() {
+  const toggle = document.getElementById('auto-translate-toggle');
+  const slider = document.getElementById('translate-slider');
+  if (!toggle) return;
+  autoTranslate = toggle.checked;
+  localStorage.setItem('woven_translate', autoTranslate);
+  if (slider) {
+    slider.style.background = autoTranslate ? '#534AB7' : 'var(--border2)';
+    slider.innerHTML = `<span style="position:absolute;height:18px;width:18px;left:${autoTranslate?'22px':'3px'};bottom:3px;background:white;border-radius:50%;transition:.3s;display:block;"></span>`;
+  }
+  updateTranslateStatus();
+}
+
+function updateTranslateStatus() {
+  const status = document.getElementById('translate-status');
+  const toLang = document.getElementById('translate-to-lang');
+  if (!status) return;
+  if (autoTranslate) {
+    status.style.display = 'block';
+    if (toLang) toLang.textContent = LANG_NAMES[userLang] || userLang;
+  } else {
+    status.style.display = 'none';
+  }
+}
+
+async function saveAccountSettings() {
+  const name = document.getElementById('settings-name')?.value?.trim();
+  if (!name) return;
+
+  if (!DEMO_MODE && sb && currentUser) {
+    await sb.from('user_profiles').update({ full_name: name }).eq('id', currentUser.id);
+  }
+  if (userProfile) { userProfile.full_name = name; userProfile.name = name; }
+
+  // Update topbar name
+  const nameEl = document.getElementById('user-name');
+  if (nameEl) nameEl.textContent = name;
+
+  const saved = document.getElementById('settings-saved');
+  if (saved) { saved.style.display = 'block'; setTimeout(() => saved.style.display = 'none', 2500); }
+}
+
+// Demo translation test — add lang data to demo messages
+function tagDemoMessageLangs() {
+  demoConvos.forEach(c => {
+    (c.messages || []).forEach(m => {
+      // Tag known Spanish/French demo messages
+      if (m.text && (
+        m.text.includes('Hola') || m.text.includes('reporte') ||
+        m.text.includes('vehículo') || m.text.includes('ministerio') ||
+        m.text.includes('balance') || m.text.includes('atendimos')
+      )) m.lang = 'es';
+      else if (m.text && (
+        m.text.includes('mois') || m.text.includes('Priez') ||
+        m.text.includes('notre') || m.text.includes('nous')
+      )) m.lang = 'fr';
+      else m.lang = 'en';
+    });
+  });
+}
+
 // ── INIT FORM ──
 renderForm();
+tagDemoMessageLangs();
 </script>
 </body>
 </html>
