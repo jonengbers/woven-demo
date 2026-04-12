@@ -160,6 +160,11 @@ button:hover{background:var(--surface2);}
 </head>
 <body>
 
+<!-- ── CONFIG BANNER (shown until keys are added) ── -->
+<div id="config-banner" style="background:#FAEEDA;border-bottom:1px solid #EF9F27;padding:10px 20px;font-size:13px;color:#633806;display:flex;align-items:center;gap:12px;">
+  <strong>Setup required:</strong> Open this file in a text editor and replace <code>YOUR_SUPABASE_URL</code> and <code>YOUR_SUPABASE_ANON_KEY</code> with your project values. See instructions below.
+  <button onclick="document.getElementById('config-banner').remove()" style="margin-left:auto;padding:3px 8px;font-size:12px;">Dismiss</button>
+</div>
 
 <!-- ── AUTH SCREEN ── -->
 <div id="auth-screen">
@@ -202,6 +207,9 @@ button:hover{background:var(--surface2);}
       <button class="btn-primary" style="width:100%;margin-top:12px;" onclick="handleSignup()">Create account</button>
       <div id="signup-error" style="font-size:12px;color:var(--red);margin-top:8px;"></div>
       <div id="signup-success" style="font-size:12px;color:var(--green);margin-top:8px;"></div>
+    </div>
+    <div style="margin-top:16px;padding-top:14px;border-top:0.5px solid var(--border);font-size:12px;color:var(--text2);">
+      <strong style="color:var(--text);">Demo mode:</strong> Enter any email + password to explore with sample data if Supabase is not yet configured.
     </div>
   </div>
 </div>
@@ -346,8 +354,8 @@ button:hover{background:var(--surface2);}
 // ─────────────────────────────────────────────
 // CONFIGURATION — replace these two values
 // ─────────────────────────────────────────────
-const SUPABASE_URL  = 'https://weptedvdrzfaulbnimmf.supabase.co';
-const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlcHRlZHZkcnpmYXVsYm5pbW1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MzAyNTIsImV4cCI6MjA5MTUwNjI1Mn0.j64AZCtUBKjT2ySMlHZqbaal1rWwL7jCSX_BNqNNphI';
+const SUPABASE_URL  = 'YOUR_SUPABASE_URL';
+const SUPABASE_KEY  = 'YOUR_SUPABASE_ANON_KEY';
 // ─────────────────────────────────────────────
 
 const DEMO_MODE = SUPABASE_URL === 'YOUR_SUPABASE_URL';
@@ -480,8 +488,8 @@ function showScreen(id, btn) {
   document.querySelectorAll('.tnav').forEach(b => b.classList.remove('active'));
   document.getElementById('screen-'+id).classList.add('active');
   if (btn) btn.classList.add('active');
-  if (id === 'compare') { setTimeout(renderCompare, 50); }
-  if (id === 'messages') renderConvoList();
+  if (id === 'compare') { loadCompareSelects(); }
+  if (id === 'messages') { loadConversations(); }
 }
 
 // ── DASHBOARD ──
@@ -630,7 +638,17 @@ function showMinistryDetail(id) {
 
 // ── COMPARE ──
 async function loadCompareSelects() {
-  const items = DEMO_MODE ? DEMO_MINISTRIES : ministriesData;
+  let items = [];
+  if (DEMO_MODE) {
+    items = DEMO_MINISTRIES;
+  } else {
+    if (ministriesData.length > 0) {
+      items = ministriesData;
+    } else {
+      const { data } = await sb.from('ministry_dashboard').select('ministry_id, ministry_name, country').order('ministry_name');
+      items = data || [];
+    }
+  }
   const opts = items.map(m => `<option value="${m.ministry_id}">${m.ministry_name} (${m.country})</option>`).join('');
   document.getElementById('cmp1').innerHTML = '<option value="">Select ministry...</option>' + opts;
   document.getElementById('cmp2').innerHTML = '<option value="">Select ministry...</option>' + opts;
@@ -638,12 +656,24 @@ async function loadCompareSelects() {
     document.getElementById('cmp1').value = items[0].ministry_id;
     document.getElementById('cmp2').value = items[1].ministry_id;
   }
+  renderCompare();
 }
 
-function renderCompare() {
+async function renderCompare() {
   const id1 = parseInt(document.getElementById('cmp1').value);
   const id2 = parseInt(document.getElementById('cmp2').value);
-  const data = DEMO_MODE ? DEMO_MINISTRIES : ministriesData;
+  let data = [];
+  if (DEMO_MODE) {
+    data = DEMO_MINISTRIES;
+  } else {
+    if (ministriesData.length > 0) {
+      data = ministriesData;
+    } else {
+      const { data: fetched } = await sb.from('ministry_dashboard').select('*');
+      data = fetched || [];
+      ministriesData = data;
+    }
+  }
   const a = data.find(m=>m.ministry_id===id1);
   const b = data.find(m=>m.ministry_id===id2);
   if (!a || !b || id1 === id2) {
@@ -795,11 +825,71 @@ async function submitReport() {
 function saveFormDraft() { toast('Draft saved.', 'success'); }
 
 // ── MESSAGES ──
+const CONVO_COLORS = ['#534AB7','#0F6E56','#854F0B','#185FA5','#A32D2D','#1D9E75'];
+const CONVO_BGS    = ['#EEEDFE','#E1F5EE','#FAEEDA','#E6F1FB','#FCEBEB','#E1F5EE'];
+
 async function loadConversations() {
   if (DEMO_MODE) { renderConvoList(); return; }
-  const { data } = await sb.from('conversations').select('*, conversation_members!inner(user_id)').eq('conversation_members.user_id', currentUser.id);
-  if (data) {
-    demoConvos = data.map(c => ({id:c.id, title:c.title, initials:(c.title||'?').slice(0,2).toUpperCase(), color:'#534AB7', bg:'#EEEDFE', unread:0, messages:[]}));
+  try {
+    // Get conversation IDs this user belongs to
+    const { data: memberRows } = await sb
+      .from('conversation_members')
+      .select('conversation_id')
+      .eq('user_id', currentUser.id);
+
+    if (!memberRows || memberRows.length === 0) {
+      await seedConversations();
+      return;
+    }
+    const ids = memberRows.map(r => r.conversation_id);
+    const { data: convos } = await sb
+      .from('conversations')
+      .select('*')
+      .in('id', ids)
+      .order('created_at', { ascending: false });
+
+    demoConvos = (convos || []).map((c, i) => ({
+      id: c.id,
+      title: c.title || 'Conversation',
+      initials: (c.title||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
+      color: CONVO_COLORS[i % CONVO_COLORS.length],
+      bg:    CONVO_BGS[i % CONVO_BGS.length],
+      unread: 0,
+      messages: []
+    }));
+    renderConvoList();
+  } catch(e) {
+    console.error('loadConversations error:', e);
+    renderConvoList();
+  }
+}
+
+async function seedConversations() {
+  const starters = [
+    { title: 'Clínica Jehová Rafa',  ministry_id: 1 },
+    { title: 'PMT Team Channel',     ministry_id: null },
+    { title: 'Nairobi Rural Health', ministry_id: 3 },
+  ];
+  demoConvos = [];
+  for (let i = 0; i < starters.length; i++) {
+    const s = starters[i];
+    try {
+      const { data: convo } = await sb.from('conversations')
+        .insert({ title: s.title, ministry_id: s.ministry_id, created_by: currentUser.id })
+        .select().single();
+      if (!convo) continue;
+      await sb.from('conversation_members')
+        .insert({ conversation_id: convo.id, user_id: currentUser.id });
+      await sb.from('messages')
+        .insert({ conversation_id: convo.id, sender_id: currentUser.id,
+          body: `Welcome to the ${s.title} channel. Use this space to share updates, ask questions, and coordinate with your team.`,
+          language: 'en' });
+      demoConvos.push({
+        id: convo.id, title: s.title,
+        initials: s.title.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
+        color: CONVO_COLORS[i], bg: CONVO_BGS[i], unread: 0, messages: []
+      });
+    } catch(e) { console.error('seed convo error:', e); }
   }
   renderConvoList();
 }
