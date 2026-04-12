@@ -1163,16 +1163,14 @@ function openConvo(id) {
       </div>
       <div style="display:flex;gap:6px;align-items:center;">
         <button onclick="openAddMembersModal(${id})" style="font-size:12px;padding:5px 11px;border-radius:var(--r-md);">+ Add members</button>
-        <div style="position:relative;">
-          <button id="convo-menu-btn-${id}" onclick="toggleConvoMenu(${id})" style="font-size:12px;padding:5px 10px;border-radius:var(--r-md);color:var(--text2);">Options ▾</button>
-          <div id="convo-menu-${id}" style="display:none;position:absolute;right:0;top:100%;background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--r-md);min-width:160px;z-index:200;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
-            <div onclick="archiveConvo(${id})" style="padding:10px 14px;font-size:13px;cursor:pointer;color:var(--text);" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">Archive conversation</div>
-            <div onclick="confirmDeleteConvo(${id},'${c.title.replace(/'/g, String.fromCharCode(39))}')" style="padding:10px 14px;font-size:13px;cursor:pointer;color:var(--red);border-top:0.5px solid var(--border);" onmouseover="this.style.background='var(--red-l)'" onmouseout="this.style.background=''">Delete conversation</div>
-          </div>
-        </div>
+        <button onclick="toggleConvoMenu(${id})" style="font-size:12px;padding:5px 10px;border-radius:var(--r-md);color:var(--text2);" id="convo-menu-btn-${id}">Options</button>
       </div>
     </div>
-    <div class="chat-messages" id="chat-msgs">
+    <div id="convo-menu-${id}" style="display:none;background:var(--surface);border-bottom:0.5px solid var(--border);padding:4px 0;">
+      <div onclick="archiveConvo(${id})" style="padding:10px 16px;font-size:13px;cursor:pointer;color:var(--text);border-bottom:0.5px solid var(--border);" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">Archive conversation</div>
+      <div id="delete-convo-${id}" style="padding:10px 16px;font-size:13px;cursor:pointer;color:var(--red);" onmouseover="this.style.background='var(--red-l)'" onmouseout="this.style.background=''">Delete conversation</div>
+    </div>
+        <div class="chat-messages" id="chat-msgs">
       ${(c.messages||[]).map(m=>{
         const imgHtml = m.image_url ? `<div style="margin-top:6px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:8px;border:0.5px solid var(--border);cursor:pointer;" onclick="window.open('${m.image_url}','_blank')"/></div>` : '';
         const bodyHtml = m.text ? `<div>${m.text}</div>` : '';
@@ -1668,9 +1666,14 @@ function toggleConvoMenu(id) {
   const menu = document.getElementById('convo-menu-'+id);
   if (!menu) return;
   const isVisible = menu.style.display !== 'none';
-  // Close all other menus first
-  document.querySelectorAll('[id^="convo-menu-"]').forEach(m => m.style.display = 'none');
   menu.style.display = isVisible ? 'none' : 'block';
+  // Wire up delete button here to avoid string escaping issues
+  const delBtn = document.getElementById('delete-convo-'+id);
+  if (delBtn && !delBtn._wired) {
+    const c = demoConvos.find(x=>x.id===id);
+    delBtn.onclick = () => confirmDeleteConvo(id, c ? c.title : 'this conversation');
+    delBtn._wired = true;
+  }
 }
 
 // Close menu when clicking outside
