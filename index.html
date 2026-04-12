@@ -2782,16 +2782,13 @@ const LANG_NAMES = {
 // Translation cache to avoid repeated API calls
 const translationCache = {};
 
-async function translateText(text, fromLang, toLang) {
+async function translateChunk(text, fromLang, toLang) {
+  // Translate a single chunk under 400 chars
   if (!text || !text.trim()) return text;
-  if (fromLang === toLang) return text;
-
-  const cacheKey = `${fromLang}|${toLang}|${text.slice(0,100)}`;
+  const cacheKey = `${fromLang}|${toLang}|${text.slice(0,80)}`;
   if (translationCache[cacheKey]) return translationCache[cacheKey];
-
   try {
-    const langPair = `${fromLang}|${toLang}`;
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`;
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`;
     const res = await fetch(url);
     const data = await res.json();
     if (data.responseStatus === 200 && data.responseData?.translatedText) {
@@ -2800,9 +2797,62 @@ async function translateText(text, fromLang, toLang) {
       return translated;
     }
   } catch(e) {
-    console.error('Translation error:', e);
+    console.error('Translation chunk error:', e);
   }
-  return text; // fallback to original
+  return text;
+}
+
+async function translateText(text, fromLang, toLang) {
+  if (!text || !text.trim()) return text;
+  if (fromLang === toLang) return text;
+
+  const MAX_CHUNK = 400;
+
+  // If short enough, translate directly
+  if (text.length <= MAX_CHUNK) {
+    return await translateChunk(text, fromLang, toLang);
+  }
+
+  // Split on sentence boundaries to keep meaning intact
+  const sentences = text.split(/(?<=[.!?])\s+|(?<=
+)\s*/);
+  const chunks = [];
+  let current = '';
+
+  for (const sentence of sentences) {
+    if ((current + ' ' + sentence).trim().length <= MAX_CHUNK) {
+      current = (current + ' ' + sentence).trim();
+    } else {
+      if (current) chunks.push(current);
+      // If a single sentence is too long, split on commas
+      if (sentence.length > MAX_CHUNK) {
+        const parts = sentence.split(/,\s*/);
+        let partial = '';
+        for (const part of parts) {
+          if ((partial + ', ' + part).length <= MAX_CHUNK) {
+            partial = partial ? partial + ', ' + part : part;
+          } else {
+            if (partial) chunks.push(partial);
+            partial = part;
+          }
+        }
+        if (partial) current = partial;
+        else current = '';
+      } else {
+        current = sentence;
+      }
+    }
+  }
+  if (current) chunks.push(current);
+
+  // Translate each chunk with a small delay to avoid rate limiting
+  const translated = [];
+  for (let i = 0; i < chunks.length; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, 150));
+    translated.push(await translateChunk(chunks[i], fromLang, toLang));
+  }
+
+  return translated.join(' ');
 }
 
 async function translateMessage(msgEl, originalText, originalLang) {
