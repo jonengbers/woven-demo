@@ -237,25 +237,30 @@ button:hover{background:var(--surface2);}
 
   <!-- DASHBOARD -->
   <div class="screen active" id="screen-dashboard">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-      <select id="year-filter" style="width:auto;" onchange="loadDashboard()">
-        <option value="">Latest month</option>
-        <option value="2026">2026 year view</option>
-        <option value="2025">2025 year view</option>
-      </select>
-      <select id="region-filter" style="width:auto;" onchange="loadDashboard()">
-        <option value="">All ministries (40)</option>
-        <option value="Latin America">Latin America</option>
-        <option value="Sub-Saharan Africa">Sub-Saharan Africa</option>
-        <option value="South Asia">South Asia</option>
-        <option value="Southeast Asia">Southeast Asia</option>
-        <option value="Eastern Europe">Eastern Europe</option>
-        <option value="Caribbean">Caribbean</option>
-        <option value="Central Asia">Central Asia</option>
-        <option value="Middle East & North Africa">Middle East & North Africa</option>
-      </select>
-      <div id="dash-loading" class="hidden"><span class="spinner"></span></div>
+    <div style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;" id="region-toggles">
+          <button onclick="setRegion('')" id="rtog-all" class="rtog active-rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid var(--border2);background:var(--text);color:var(--surface);font-weight:500;">All (40)</button>
+          <button onclick="setRegion('Latin America')" id="rtog-latin" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #534AB7;color:#534AB7;background:transparent;">Latin America</button>
+          <button onclick="setRegion('Sub-Saharan Africa')" id="rtog-africa" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #1D9E75;color:#1D9E75;background:transparent;">Sub-Saharan Africa</button>
+          <button onclick="setRegion('South Asia')" id="rtog-southasia" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #BA7517;color:#BA7517;background:transparent;">South Asia</button>
+          <button onclick="setRegion('Southeast Asia')" id="rtog-seasia" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #185FA5;color:#185FA5;background:transparent;">Southeast Asia</button>
+          <button onclick="setRegion('Eastern Europe')" id="rtog-europe" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #854F0B;color:#854F0B;background:transparent;">Eastern Europe</button>
+          <button onclick="setRegion('Caribbean')" id="rtog-carib" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #D4537E;color:#D4537E;background:transparent;">Caribbean</button>
+          <button onclick="setRegion('Central Asia')" id="rtog-central" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #639922;color:#639922;background:transparent;">Central Asia</button>
+          <button onclick="setRegion('Middle East & North Africa')" id="rtog-mena" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #A32D2D;color:#A32D2D;background:transparent;">M. East & N. Africa</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <select id="year-filter" style="width:auto;font-size:12px;" onchange="loadDashboard()">
+            <option value="">Latest month</option>
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+          </select>
+          <div id="dash-loading" class="hidden"><span class="spinner"></span></div>
+        </div>
+      </div>
     </div>
+    <input type="hidden" id="region-filter" value=""/>
     <div class="metrics-row" id="metrics-row">
       <div class="mc"><div class="mc-label">Loading...</div><div class="mc-val">—</div></div>
       <div class="mc"><div class="mc-label">Loading...</div><div class="mc-val">—</div></div>
@@ -568,10 +573,77 @@ function showScreen(id, btn) {
   if (id === 'submit') { formStep = 1; renderForm(); }
 }
 
+// ── REGION TOGGLES ──
+const REGION_TOGGLE_COLORS = {
+  '':                       {bg:'var(--text)',    color:'var(--surface)', border:'var(--text)'},
+  'Latin America':          {bg:'#534AB7',        color:'#fff',           border:'#534AB7'},
+  'Sub-Saharan Africa':     {bg:'#1D9E75',        color:'#fff',           border:'#1D9E75'},
+  'South Asia':             {bg:'#BA7517',        color:'#fff',           border:'#BA7517'},
+  'Southeast Asia':         {bg:'#185FA5',        color:'#fff',           border:'#185FA5'},
+  'Eastern Europe':         {bg:'#854F0B',        color:'#fff',           border:'#854F0B'},
+  'Caribbean':              {bg:'#D4537E',        color:'#fff',           border:'#D4537E'},
+  'Central Asia':           {bg:'#639922',        color:'#fff',           border:'#639922'},
+  'Middle East & North Africa': {bg:'#A32D2D',   color:'#fff',           border:'#A32D2D'},
+};
+
+const REGION_TOGGLE_IDS = {
+  '':                           'rtog-all',
+  'Latin America':              'rtog-latin',
+  'Sub-Saharan Africa':         'rtog-africa',
+  'South Asia':                 'rtog-southasia',
+  'Southeast Asia':             'rtog-seasia',
+  'Eastern Europe':             'rtog-europe',
+  'Caribbean':                  'rtog-carib',
+  'Central Asia':               'rtog-central',
+  'Middle East & North Africa': 'rtog-mena',
+};
+
+function setRegion(region) {
+  // Update hidden input
+  const input = document.getElementById('region-filter');
+  if (input) input.value = region;
+
+  // Reset all toggles to their outline style
+  Object.entries(REGION_TOGGLE_IDS).forEach(([r, btnId]) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    const c = REGION_TOGGLE_COLORS[r];
+    if (r === '') {
+      // "All" button
+      if (region === '') {
+        btn.style.background = 'var(--text)';
+        btn.style.color = 'var(--surface)';
+        btn.style.borderColor = 'var(--text)';
+        btn.style.fontWeight = '500';
+      } else {
+        btn.style.background = 'transparent';
+        btn.style.color = 'var(--text2)';
+        btn.style.borderColor = 'var(--border2)';
+        btn.style.fontWeight = '400';
+      }
+    } else {
+      if (r === region) {
+        btn.style.background = c.bg;
+        btn.style.color = c.color;
+        btn.style.borderColor = c.border;
+        btn.style.fontWeight = '500';
+      } else {
+        btn.style.background = 'transparent';
+        btn.style.color = c.border;
+        btn.style.borderColor = c.border;
+        btn.style.fontWeight = '400';
+      }
+    }
+  });
+
+  loadDashboard();
+}
+
 // ── DASHBOARD ──
 async function loadDashboard() {
   document.getElementById('dash-loading').classList.remove('hidden');
-  const region = document.getElementById('region-filter').value;
+  const regionInput = document.getElementById('region-filter');
+  const region = regionInput ? regionInput.value : '';
   const year = document.getElementById('year-filter')?.value || '';
   if (DEMO_MODE) {
     ministriesData = region ? DEMO_MINISTRIES.filter(m => m.region === region) : [...DEMO_MINISTRIES];
@@ -596,7 +668,7 @@ function renderMetrics() {
   const total_charity  = ministriesData.reduce((s,m) => s + (m.pay_charity||0), 0);
   const filed = ministriesData.filter(m => m.report_status === 'submitted' || m.report_status === 'approved').length;
   document.getElementById('metrics-row').innerHTML = `
-    <div class="mc"><div class="mc-label">Total consultations (latest month)</div><div class="mc-val">${total_consults.toLocaleString()}</div><div class="mc-delta up">↑ across ${ministriesData.length} ministries</div></div>
+    <div class="mc"><div class="mc-label">Total consultations (latest month)</div><div class="mc-val">${total_consults.toLocaleString()}</div><div class="mc-delta up">${ministriesData.length} ministr${ministriesData.length===1?'y':'ies'} shown</div></div>
     <div class="mc"><div class="mc-label">Pharmacy patients served</div><div class="mc-val">${total_pharmacy.toLocaleString()}</div><div class="mc-delta up">↑ 8% vs prior month</div></div>
     <div class="mc"><div class="mc-label">Charity patients (no cost)</div><div class="mc-val">${total_charity.toLocaleString()}</div><div class="mc-delta" style="color:var(--purple-d);">Serving the poorest</div></div>
     <div class="mc"><div class="mc-label">Reports filed this month</div><div class="mc-val">${filed} / ${ministriesData.length}</div><div class="mc-delta ${filed < ministriesData.length ? 'warn' : 'up'}">${filed < ministriesData.length ? (ministriesData.length - filed) + ' pending or late' : 'All filed'}</div></div>`;
