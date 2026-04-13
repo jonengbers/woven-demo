@@ -616,13 +616,17 @@ let currentUser = null;
 let userProfile = null;
 let ministriesData = [];
 let activeConvoId = null;
+const MSG_PAGE_SIZE = 50;       // messages per page
+let msgOffset = 0;              // current pagination offset
+let msgTotalCount = 0;          // total messages in current conversation
+let loadingMoreMsgs = false;    // prevent double-loads
 let formStep = 1;
 let formData = {};
 let trendChart = null, budgetChart = null, cmpChart = null;
 let detailCharts = [];
 let realtimeSub = null;
 let demoConvos = [
-  {id:1,title:'Clínica Jehová Rafa',ministry_id:1,initials:'JR',color:'#534AB7',bg:'#EEEDFE',unread:0,messages:[
+  {id:1,title:'Clínica Jehová Rafa',ministry_id:1,initials:'JR',color:'#534AB7',bg:'#EEEDFE',unread:0,created_by:'demo-director',messages:[
     {sender:'Dr. E. Vargas',initials:'EV',color:'#534AB7',bg:'#EEEDFE',time:'Apr 7',text:'Hola, hemos enviado el reporte de marzo. Este mes fue muy difícil financieramente debido a la compra del vehículo ministerial.',own:false,lang:'es'},
     {sender:'Dr. Jon Vander Laan',initials:'JV',color:'#0F6E56',bg:'#E1F5EE',time:'Apr 8',text:'Dr. Vargas, thank you — we noticed the ending balance is very tight at $410. Can you walk us through the vehicle purchase timing?',own:true,lang:'en'},
     {sender:'Dr. E. Vargas',initials:'EV',color:'#534AB7',bg:'#EEEDFE',time:'Apr 8',text:'El vehículo es absolutamente necesario para las visitas comunitarias en zonas rurales. Esperamos recuperar el balance en abril con los ingresos de la clínica y las ofrendas esperadas.',own:false,lang:'es'},
@@ -632,11 +636,11 @@ let demoConvos = [
     {sender:'Dr. A. Mbainadji',initials:'AM',color:'#1D9E75',bg:'#E1F5EE',time:'Apr 9',text:"Bonjour, nous avons soumis le rapport de mars. Ce mois a été très productif avec 340 consultations et 12 accouchements assistés.",own:false,lang:'fr'},
     {sender:'Dr. A. Mbainadji',initials:'AM',color:'#1D9E75',bg:'#E1F5EE',time:'Apr 9',text:"Nous avons également organisé deux sessions d'éducation sanitaire dans les villages voisins. Les besoins sont immenses mais nous voyons la grâce de Dieu chaque jour.",own:false,lang:'fr'},
   ]},
-  {id:3,title:'PMT Network — All Teams',initials:'PN',color:'#854F0B',bg:'#FAEEDA',unread:1,messages:[
+  {id:3,title:'PMT Network — All Teams',initials:'PN',color:'#854F0B',bg:'#FAEEDA',unread:1,created_by:'current',messages:[
     {sender:'Nathan Stob (Admin)',initials:'NS',color:'#854F0B',bg:'#FAEEDA',time:'Apr 6',text:'All PMT teams — reminder that March reports are due by April 30. Six ministries are still pending. Please follow up with your directors.',own:false,lang:'en'},
     {sender:'Dr. Jon Vander Laan',initials:'JV',color:'#0F6E56',bg:'#E1F5EE',time:'Apr 6',text:"I'll reach out to the Nicaragua team today. The Haiti situation may need extra attention given their current challenges.",own:true,lang:'en'},
   ]},
-  {id:4,title:'Prayer & Encouragement',initials:'PE',color:'#534AB7',bg:'#EEEDFE',unread:0,messages:[
+  {id:4,title:'Prayer & Encouragement',initials:'PE',color:'#534AB7',bg:'#EEEDFE',unread:0,created_by:'current',messages:[
     {sender:'Dr. E. Vargas',initials:'EV',color:'#534AB7',bg:'#EEEDFE',time:'Apr 5',text:'Por favor oren por nuestra comunidad en Managua. Hemos visto muchos pacientes con necesidades espirituales profundas esta semana. Dios está obrando de maneras maravillosas.',own:false,lang:'es'},
     {sender:'Dr. A. Mbainadji',initials:'AM',color:'#1D9E75',bg:'#E1F5EE',time:'Apr 5',text:"Priez pour notre équipe au Tchad. Nous faisons face à des défis logistiques mais nous restons confiants dans la provision de Dieu. Merci pour votre soutien.",own:false,lang:'fr'},
     {sender:'Dr. A. Wanjiku',initials:'AW',color:'#185FA5',bg:'#E6F1FB',time:'Apr 5',text:'Praising God for a healthy delivery this week — mother and baby doing well. The community is so grateful for our presence.',own:false,lang:'en'},
@@ -1539,7 +1543,8 @@ async function loadConversations() {
         bg:    CONVO_BGS[i % CONVO_BGS.length],
         unread: 0,
         messages: [],
-        preview: lastMsgPreview
+        preview: lastMsgPreview,
+        created_by: c.created_by || null
       };
     }));
     demoConvos = convoList;
@@ -1675,17 +1680,22 @@ function openConvo(id) {
   archiveItem.textContent = 'Archive conversation';
   archiveItem.dataset.action = 'archive-convo';
   archiveItem.dataset.convoId = id;
-  archiveItem.style.cssText = 'padding:11px 16px;font-size:13px;cursor:pointer;color:var(--text);border-bottom:0.5px solid var(--border);';
-
-  const deleteItem = document.createElement('div');
-  deleteItem.textContent = 'Delete conversation';
-  deleteItem.dataset.action = 'delete-convo';
-  deleteItem.dataset.convoId = id;
-  deleteItem.dataset.convoTitle = c.title;
-  deleteItem.style.cssText = 'padding:11px 16px;font-size:13px;cursor:pointer;color:var(--red);';
-
+  archiveItem.style.cssText = 'padding:11px 16px;font-size:13px;cursor:pointer;color:var(--text);';
   dropdown.appendChild(archiveItem);
-  dropdown.appendChild(deleteItem);
+
+  // Only show delete to conversation creator or admin/board
+  const isCreator = c.created_by === (currentUser?.id || 'current') || c.created_by === 'current';
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'board';
+  if (isCreator || isAdmin) {
+    archiveItem.style.borderBottom = '0.5px solid var(--border)';
+    const deleteItem = document.createElement('div');
+    deleteItem.textContent = 'Delete conversation';
+    deleteItem.dataset.action = 'delete-convo';
+    deleteItem.dataset.convoId = id;
+    deleteItem.dataset.convoTitle = c.title;
+    deleteItem.style.cssText = 'padding:11px 16px;font-size:13px;cursor:pointer;color:var(--red);';
+    dropdown.appendChild(deleteItem);
+  }
   optionsWrap.appendChild(optBtn);
   optionsWrap.appendChild(dropdown);
 
@@ -1767,19 +1777,41 @@ function openConvo(id) {
       const el = document.getElementById('member-count-' + id);
       if (el) el.textContent = `${count || 1} member${(count||1)===1?'':'s'}`;
     });
-    sb.from('messages_with_sender').select('*').eq('conversation_id', id).order('created_at').then(({data, error}) => {
-      if (data && data.length > 0) {
-        renderLiveMessages(data, id);
-        // Update preview in convo list
-        const c = demoConvos.find(x => x.id === id);
-        if (c && data.length > 0) {
-          const last = data[data.length-1];
-          c.preview = (last.sender_name || 'Someone') + ': ' + (last.body||'').slice(0,35) + ((last.body||'').length > 35 ? '…' : '');
-          renderConvoList();
+    // Reset pagination for new conversation
+    msgOffset = 0;
+    msgTotalCount = 0;
+
+    // Get total count first
+    sb.from('messages_with_sender')
+      .select('id', {count: 'exact', head: true})
+      .eq('conversation_id', id)
+      .then(({count}) => {
+        msgTotalCount = count || 0;
+        // Fetch most recent MSG_PAGE_SIZE messages
+        return sb.from('messages_with_sender')
+          .select('*')
+          .eq('conversation_id', id)
+          .order('created_at', {ascending: false})
+          .limit(MSG_PAGE_SIZE);
+      })
+      .then(({data, error}) => {
+        if (error) { console.error('Message fetch error:', error); return; }
+        const msgs = (data || []).reverse(); // show oldest first
+        if (msgs.length > 0) {
+          renderLiveMessages(msgs, id);
+          // Add load-more button if there are older messages
+          if (msgTotalCount > MSG_PAGE_SIZE) {
+            addLoadMoreButton(id, msgs.length);
+          }
+          // Update preview
+          const c = demoConvos.find(x => x.id === id);
+          if (c && msgs.length > 0) {
+            const last = msgs[msgs.length-1];
+            c.preview = (last.sender_name || 'Someone') + ': ' + (last.body||'').slice(0,35) + ((last.body||'').length > 35 ? '…' : '');
+            renderConvoList();
+          }
         }
-      }
-      else if (error) console.error('Message fetch error:', error);
-    });
+      });
     if (realtimeSub) realtimeSub.unsubscribe();
     realtimeSub = sb.channel('msgs-'+id).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`conversation_id=eq.${id}`}, payload => appendLiveMsg(payload.new)).subscribe();
   }
@@ -3132,6 +3164,127 @@ document.addEventListener('click', function(e) {
   const modal = document.getElementById('edit-user-modal');
   if (modal && e.target === modal) closeEditModal();
 });
+
+
+// ── MESSAGE PAGINATION ──
+
+function addLoadMoreButton(convoId, loadedCount) {
+  const container = document.getElementById('chat-msgs');
+  if (!container) return;
+
+  const remaining = msgTotalCount - loadedCount;
+  const btn = document.createElement('div');
+  btn.id = 'load-more-msgs';
+  btn.style.cssText = 'text-align:center;padding:12px;border-bottom:0.5px solid var(--border);margin-bottom:8px;';
+  btn.innerHTML = `<button onclick="loadMoreMessages(${convoId})" style="font-size:12px;padding:5px 14px;border-radius:20px;color:var(--text2);">
+    Load ${Math.min(remaining, MSG_PAGE_SIZE)} earlier messages (${remaining} total)
+  </button>`;
+  container.insertBefore(btn, container.firstChild);
+}
+
+async function loadMoreMessages(convoId) {
+  if (loadingMoreMsgs || !sb) return;
+  loadingMoreMsgs = true;
+
+  const btn = document.getElementById('load-more-msgs');
+  if (btn) btn.innerHTML = '<span class="spinner"></span>';
+
+  const currentCount = document.querySelectorAll('.msg').length;
+  const newOffset = msgTotalCount - currentCount - MSG_PAGE_SIZE;
+  const fetchFrom = Math.max(0, newOffset);
+  const fetchCount = msgTotalCount - currentCount - fetchFrom;
+
+  try {
+    const { data, error } = await sb
+      .from('messages_with_sender')
+      .select('*')
+      .eq('conversation_id', convoId)
+      .order('created_at', {ascending: true})
+      .range(fetchFrom, fetchFrom + fetchCount - 1);
+
+    if (error) throw error;
+
+    const container = document.getElementById('chat-msgs');
+    const scrollHeightBefore = container.scrollHeight;
+
+    // Remove load-more button
+    if (btn) btn.remove();
+
+    // Prepend older messages
+    const fragment = document.createDocumentFragment();
+
+    // Add new load-more button if there are still more
+    if (fetchFrom > 0) {
+      const remaining = fetchFrom;
+      const newBtn = document.createElement('div');
+      newBtn.id = 'load-more-msgs';
+      newBtn.style.cssText = 'text-align:center;padding:12px;border-bottom:0.5px solid var(--border);margin-bottom:8px;';
+      newBtn.innerHTML = `<button onclick="loadMoreMessages(${convoId})" style="font-size:12px;padding:5px 14px;border-radius:20px;color:var(--text2);">
+        Load ${Math.min(remaining, MSG_PAGE_SIZE)} earlier messages (${remaining} total)
+      </button>`;
+      fragment.appendChild(newBtn);
+    }
+
+    // Add the fetched messages
+    (data || []).forEach(m => {
+      const el = buildMessageElement(m);
+      fragment.appendChild(el);
+    });
+
+    container.insertBefore(fragment, container.firstChild);
+
+    // Maintain scroll position so user doesn't jump to top
+    container.scrollTop = container.scrollHeight - scrollHeightBefore;
+
+    // Apply translation to new messages if needed
+    if (autoTranslate) {
+      const newMsgs = container.querySelectorAll('.msg[data-lang]:not([data-translated])');
+      for (const msgNode of newMsgs) {
+        const lang = msgNode.dataset.lang;
+        const body = decodeURIComponent(msgNode.dataset.body || '');
+        if (body && lang && lang !== 'en' && lang !== userLang) {
+          await translateMessage(msgNode, body, lang);
+          msgNode.dataset.translated = '1';
+        }
+      }
+    }
+  } catch(e) {
+    console.error('Load more error:', e);
+    toast('Error loading messages: ' + e.message, 'error');
+  } finally {
+    loadingMoreMsgs = false;
+  }
+}
+
+function buildMessageElement(m) {
+  const isOwn = m.sender_id === currentUser?.id;
+  const name = m.sender_name || (isOwn ? (userProfile?.full_name || 'You') : 'Team member');
+  const initials = name.split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase() || '?';
+  const bg = isOwn ? 'var(--purple-l)' : 'var(--surface2)';
+  const color = isOwn ? 'var(--purple-d)' : 'var(--text2)';
+  const time = m.created_at ? new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+  const msgLang = m.language || m.original_language || 'en';
+  const langBadge = msgLang && msgLang !== 'en'
+    ? `<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:var(--surface2);color:var(--text2);margin-left:4px;">${msgLang.toUpperCase()}</span>`
+    : '';
+  const imageHtml = m.image_url
+    ? `<div style="margin-top:6px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:var(--r-md);border:0.5px solid var(--border);cursor:pointer;" onclick="window.open('${m.image_url}','_blank')"/></div>`
+    : '';
+  const bodyHtml = m.body ? `<div>${m.body}</div>` : '';
+
+  const el = document.createElement('div');
+  el.className = 'msg';
+  el.dataset.lang = msgLang;
+  el.dataset.body = encodeURIComponent(m.body || '');
+  el.innerHTML = `
+    <div class="msg-header">
+      <div class="msg-av" style="background:${bg};color:${color};">${initials}</div>
+      <span class="msg-name">${name}</span>${langBadge}
+      <span class="msg-time">${time}</span>
+    </div>
+    <div class="msg-bubble${isOwn?' own':''}">${bodyHtml}${imageHtml}</div>`;
+  return el;
+}
 
 // ── WORLD MAP ──
 const MINISTRY_LOCATIONS = [
