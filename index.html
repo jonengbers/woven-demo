@@ -175,13 +175,13 @@ button:hover{background:var(--surface2);}
     <div class="auth-logo">
       <img src="Luke_logo.png" style="height:48px;width:auto;" alt="Luke Society"/>
       <div>
-        <div class="auth-title">Woven</div>
-        <div class="auth-sub">Luke Society Global Hub</div>
+        <div class="auth-title" data-i18n="auth_welcome">Woven</div>
+        <div class="auth-sub" data-i18n="auth_subtitle">Luke Society Global Hub</div>
       </div>
     </div>
     <div class="auth-tabs">
-      <button class="auth-tab active" onclick="switchAuthTab('login',this)">Sign in</button>
-      <button class="auth-tab" onclick="switchAuthTab('signup',this)">Create account</button>
+      <button class="auth-tab active" onclick="switchAuthTab('login',this)" data-i18n="auth_signin">Sign in</button>
+      <button class="auth-tab" onclick="switchAuthTab('signup',this)" data-i18n="auth_create">Create account</button>
     </div>
     <div id="auth-login">
       <div class="form-row-1"><div class="flabel">Email</div><input type="email" id="login-email" placeholder="you@example.com"/></div>
@@ -190,7 +190,7 @@ button:hover{background:var(--surface2);}
       <div id="login-error" style="font-size:12px;color:var(--red);margin-top:8px;"></div>
     </div>
     <div id="auth-signup" class="hidden">
-      <div class="form-row-1"><div class="flabel">Full name</div><input type="text" id="signup-name" placeholder="Dr. Jane Smith"/></div>
+      <div class="form-row-1"><div class="flabel" data-i18n="settings_full_name">Full name</div><input type="text" id="signup-name" placeholder="Dr. Jane Smith"/></div>
       <div class="form-row-1"><div class="flabel">Email</div><input type="email" id="signup-email" placeholder="you@example.com"/></div>
       <div class="form-row-1"><div class="flabel">Password</div><input type="password" id="signup-password" placeholder="Min. 8 characters"/></div>
       <div class="form-row-1">
@@ -220,12 +220,12 @@ button:hover{background:var(--surface2);}
       <div><div class="logo-name">Woven</div><div class="logo-tag">Luke Society Global Hub</div></div>
     </div>
     <div class="top-nav">
-      <button class="tnav active" onclick="showScreen('dashboard',this)">Dashboard</button>
-      <button class="tnav" onclick="showScreen('ministries',this)">Ministries</button>
-      <button class="tnav" onclick="showScreen('compare',this)">Compare</button>
-      <button class="tnav hidden" id="nav-submit" onclick="showScreen('submit',this)">Submit report</button>
-      <button class="tnav" onclick="showScreen('map',this)">World map</button>
-      <button class="tnav" onclick="showScreen('messages',this)">Messages</button>
+      <button class="tnav active" onclick="showScreen('dashboard',this)" data-i18n="nav_dashboard">Dashboard</button>
+      <button class="tnav" onclick="showScreen('ministries',this)" data-i18n="nav_ministries">Ministries</button>
+      <button class="tnav" onclick="showScreen('compare',this)" data-i18n="nav_compare">Compare</button>
+      <button class="tnav hidden" id="nav-submit" onclick="showScreen('submit',this)" data-i18n="nav_submit">Submit report</button>
+      <button class="tnav" onclick="showScreen('map',this)" data-i18n="nav_map">World map</button>
+      <button class="tnav" onclick="showScreen('messages',this)" data-i18n="nav_messages">Messages</button>
     </div>
     <div class="user-pill" style="position:relative;">
       <div id="user-dropdown-trigger" onclick="toggleUserMenu()" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 8px;border-radius:var(--r-md);transition:background .15s;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
@@ -245,8 +245,7 @@ button:hover{background:var(--surface2);}
         </div>
         <div onclick="handleSignout()" style="padding:11px 16px;font-size:13px;cursor:pointer;color:var(--red);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--red-l)'" onmouseout="this.style.background=''">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Sign out
-        </div>
+          <span data-i18n="nav_signout">Sign out</span></div>
       </div>
     </div>
   </div>
@@ -424,7 +423,7 @@ button:hover{background:var(--surface2);}
         </div>
       </div>
       <div class="chat-panel" id="chat-panel">
-        <div style="padding:40px;text-align:center;color:var(--text2);">Select a conversation</div>
+        <div style="padding:40px;text-align:center;color:var(--text2);" data-i18n="msg_select">Select a conversation</div>
       </div>
     </div>
   </div>
@@ -433,7 +432,7 @@ button:hover{background:var(--surface2);}
   <!-- SETTINGS -->
   <div class="screen" id="screen-settings">
     <div style="max-width:500px;">
-      <div style="font-size:18px;font-weight:600;margin-bottom:20px;">Settings</div>
+      <div style="font-size:18px;font-weight:600;margin-bottom:20px;" data-i18n="nav_settings">Settings</div>
 
       <div class="card" style="margin-bottom:14px;">
         <div style="font-size:13px;font-weight:500;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">Language preferences</div>
@@ -458,7 +457,7 @@ button:hover{background:var(--surface2);}
         <div class="form-row-1" style="margin-top:14px;">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div>
-              <div style="font-size:13px;font-weight:500;color:var(--text);">Auto-translate messages</div>
+              <div style="font-size:13px;font-weight:500;color:var(--text);" data-i18n="settings_auto_trans">Auto-translate messages</div>
               <div style="font-size:12px;color:var(--text2);margin-top:2px;">Translate messages written in other languages into your preferred language</div>
             </div>
             <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;margin-left:16px;">
@@ -473,7 +472,7 @@ button:hover{background:var(--surface2);}
       </div>
 
       <div class="card" style="margin-bottom:14px;">
-        <div style="font-size:13px;font-weight:500;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">Account</div>
+        <div style="font-size:13px;font-weight:500;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);" data-i18n="settings_account">Account</div>
         <div class="form-row-1">
           <div class="flabel">Full name</div>
           <input type="text" id="settings-name" style="max-width:280px;" placeholder="Your name"/>
@@ -482,8 +481,8 @@ button:hover{background:var(--surface2);}
           <div class="flabel">Role</div>
           <div style="padding:7px 10px;background:var(--surface2);border-radius:var(--r-md);font-size:13px;color:var(--text2);max-width:280px;" id="settings-role"></div>
         </div>
-        <button class="btn-primary" style="margin-top:14px;" onclick="saveAccountSettings()">Save changes</button>
-        <div id="settings-saved" style="font-size:12px;color:var(--green);margin-top:8px;display:none;">Saved successfully</div>
+        <button class="btn-primary" style="margin-top:14px;" onclick="saveAccountSettings()" data-i18n="settings_save">Save changes</button>
+        <div id="settings-saved" style="font-size:12px;color:var(--green);margin-top:8px;display:none;" data-i18n="settings_saved">Saved successfully</div>
       </div>
 
       <div class="card">
@@ -2085,6 +2084,574 @@ async function loadPrayerRequests(ministryId) {
   }
 }
 
+
+// ── UI LOCALIZATION ──
+const UI_STRINGS = {
+  en: {
+    // Navigation
+    nav_dashboard:    'Dashboard',
+    nav_ministries:   'Ministries',
+    nav_compare:      'Compare',
+    nav_map:          'World map',
+    nav_messages:     'Messages',
+    nav_submit:       'Submit report',
+    nav_settings:     'Settings',
+    nav_signout:      'Sign out',
+
+    // Dashboard
+    dash_title:             'Network overview',
+    dash_all_ministries:    'All ministries',
+    dash_latest_month:      'Latest month',
+    dash_year_view:         'year view',
+    dash_total_consults:    'Total consultations (latest month)',
+    dash_total_income:      'Total income (USD)',
+    dash_reports_filed:     'Reports filed',
+    dash_active_ministries: 'Active ministries',
+    dash_ministry:          'Ministry',
+    dash_country:           'Country',
+    dash_region:            'Region',
+    dash_director:          'Director',
+    dash_consultations:     'Consultations',
+    dash_status:            'Status',
+    dash_budget:            'Budget utilization by region',
+    dash_trend:             'Network consultation trend',
+
+    // Ministry detail
+    detail_back:          '← Dashboard',
+    detail_stats:         'Statistics',
+    detail_reports:       'Narrative reports',
+    detail_prayer:        'Prayer requests',
+    detail_current:       'Current month',
+    detail_ytd:           'YTD',
+    detail_prev:          'Prior year',
+    detail_all:           'All time',
+    detail_consults:      'Total consultations',
+    detail_pharmacy:      'Pharmacy patients',
+    detail_lab:           'Lab tests',
+    detail_income:        'Total income (USD)',
+    detail_expenses:      'Total expenses (USD)',
+    detail_balance:       'Ending cash balance',
+    detail_trend:         'Consultation trend',
+    detail_payment:       'Payment methods',
+    detail_full_pay:      'Full pay',
+    detail_subsidized:    'Subsidized',
+    detail_charity:       'Charity',
+    detail_no_reports:    'No narrative reports filed yet for this ministry.',
+    detail_no_prayer:     'No prayer requests filed yet for this ministry.',
+    detail_english_trans: 'English translation',
+    detail_auto_trans:    'Auto-translated',
+    detail_filed:         'Filed',
+    detail_draft:         'Draft',
+    detail_loading:       'Loading',
+    detail_data:          'data...',
+
+    // Messages
+    msg_conversations:    'Conversations',
+    msg_new:              '+ New',
+    msg_no_messages:      'No messages yet — be the first to say something.',
+    msg_select:           'Select a conversation',
+    msg_add_members:      '+ Add members',
+    msg_reply:            'Reply to',
+    msg_send:             'Send',
+    msg_new_convo:        'Start a new conversation',
+    msg_type:             'Conversation type',
+    msg_ministry_ch:      'Ministry channel',
+    msg_team_ch:          'Team / PMT channel',
+    msg_network_ch:       'Network-wide channel',
+    msg_select_ministry:  'Select ministry',
+    msg_channel_name:     'Channel name',
+    msg_opening_msg:      'Opening message (optional)',
+    msg_create:           'Create channel',
+    msg_cancel:           'Cancel',
+    msg_attach:           'Attach photo',
+    msg_members:          'member',
+    msg_members_pl:       'members',
+    msg_loading_members:  'Loading members...',
+    msg_search_users:     'Name or email...',
+    msg_already_member:   'Already a member',
+    msg_add:              'Add',
+    msg_adding:           'Adding...',
+    msg_done:             'Done',
+    msg_add_members_title:'Add members',
+
+    // Submit report
+    submit_ministry:      'Ministry',
+    submit_financials:    'Financials',
+    submit_clinical:      'Clinical',
+    submit_narrative:     'Narrative',
+    submit_continue:      'Continue →',
+    submit_back:          '← Back',
+    submit_save_draft:    'Save draft',
+    submit_cancel:        'Cancel',
+    submit_report_month:  'Reporting month',
+    submit_report_year:   'Reporting year',
+    submit_currency:      'Local currency',
+    submit_exchange:      'Exchange rate (local per 1 USD)',
+    submit_opening:       'Beginning cash balance (local currency)',
+
+    // Settings
+    settings_title:       'Settings',
+    settings_language:    'Language preferences',
+    settings_my_lang:     'My primary language',
+    settings_auto_trans:  'Auto-translate messages',
+    settings_auto_desc:   'Translate messages written in other languages into your preferred language',
+    settings_trans_active:'Auto-translation is active. Messages in other languages will be translated to',
+    settings_account:     'Account',
+    settings_full_name:   'Full name',
+    settings_role:        'Role',
+    settings_save:        'Save changes',
+    settings_saved:       'Saved successfully',
+    settings_powered:     'Translation powered by',
+
+    // Auth
+    auth_welcome:         'Welcome to Woven',
+    auth_subtitle:        'Luke Society Global Hub',
+    auth_email:           'Email address',
+    auth_password:        'Password',
+    auth_signin:          'Sign in',
+    auth_create:          'Create account',
+    auth_full_name:       'Full name',
+    auth_no_account:      "Don't have an account?",
+    auth_have_account:    'Already have an account?',
+
+    // Compare
+    compare_title:        'Compare ministries',
+    compare_select_a:     'Select ministry A',
+    compare_select_b:     'Select ministry B',
+    compare_trend:        '6-month consultation trend',
+
+    // General
+    loading:              'Loading...',
+    submitted:            'submitted',
+    approved:             'approved',
+    pending:              'pending',
+    search:               'Search ministries...',
+    ministries_shown:     'ministries shown',
+    ministry_singular:    'ministry shown',
+  },
+
+  es: {
+    nav_dashboard:    'Panel de control',
+    nav_ministries:   'Ministerios',
+    nav_compare:      'Comparar',
+    nav_map:          'Mapa mundial',
+    nav_messages:     'Mensajes',
+    nav_submit:       'Enviar informe',
+    nav_settings:     'Configuración',
+    nav_signout:      'Cerrar sesión',
+
+    dash_title:             'Resumen de la red',
+    dash_all_ministries:    'Todos los ministerios',
+    dash_latest_month:      'Último mes',
+    dash_year_view:         'vista anual',
+    dash_total_consults:    'Total de consultas (último mes)',
+    dash_total_income:      'Ingresos totales (USD)',
+    dash_reports_filed:     'Informes enviados',
+    dash_active_ministries: 'Ministerios activos',
+    dash_ministry:          'Ministerio',
+    dash_country:           'País',
+    dash_region:            'Región',
+    dash_director:          'Director',
+    dash_consultations:     'Consultas',
+    dash_status:            'Estado',
+    dash_budget:            'Utilización del presupuesto por región',
+    dash_trend:             'Tendencia de consultas de la red',
+
+    detail_back:          '← Panel de control',
+    detail_stats:         'Estadísticas',
+    detail_reports:       'Informes narrativos',
+    detail_prayer:        'Peticiones de oración',
+    detail_current:       'Mes actual',
+    detail_ytd:           'Año hasta la fecha',
+    detail_prev:          'Año anterior',
+    detail_all:           'Todo el tiempo',
+    detail_consults:      'Total de consultas',
+    detail_pharmacy:      'Pacientes de farmacia',
+    detail_lab:           'Pruebas de laboratorio',
+    detail_income:        'Ingresos totales (USD)',
+    detail_expenses:      'Gastos totales (USD)',
+    detail_balance:       'Saldo final en efectivo',
+    detail_trend:         'Tendencia de consultas',
+    detail_payment:       'Métodos de pago',
+    detail_full_pay:      'Pago completo',
+    detail_subsidized:    'Subsidiado',
+    detail_charity:       'Caridad',
+    detail_no_reports:    'Aún no se han enviado informes narrativos para este ministerio.',
+    detail_no_prayer:     'Aún no se han enviado peticiones de oración para este ministerio.',
+    detail_english_trans: 'Traducción al inglés',
+    detail_auto_trans:    'Traducido automáticamente',
+    detail_filed:         'Enviado',
+    detail_draft:         'Borrador',
+    detail_loading:       'Cargando',
+    detail_data:          'datos...',
+
+    msg_conversations:    'Conversaciones',
+    msg_new:              '+ Nueva',
+    msg_no_messages:      'Aún no hay mensajes — sé el primero en escribir.',
+    msg_select:           'Selecciona una conversación',
+    msg_add_members:      '+ Agregar miembros',
+    msg_reply:            'Responder a',
+    msg_send:             'Enviar',
+    msg_new_convo:        'Iniciar una nueva conversación',
+    msg_type:             'Tipo de conversación',
+    msg_ministry_ch:      'Canal del ministerio',
+    msg_team_ch:          'Canal del equipo / PMT',
+    msg_network_ch:       'Canal de toda la red',
+    msg_select_ministry:  'Seleccionar ministerio',
+    msg_channel_name:     'Nombre del canal',
+    msg_opening_msg:      'Mensaje inicial (opcional)',
+    msg_create:           'Crear canal',
+    msg_cancel:           'Cancelar',
+    msg_attach:           'Adjuntar foto',
+    msg_members:          'miembro',
+    msg_members_pl:       'miembros',
+    msg_loading_members:  'Cargando miembros...',
+    msg_search_users:     'Nombre o correo...',
+    msg_already_member:   'Ya es miembro',
+    msg_add:              'Agregar',
+    msg_adding:           'Agregando...',
+    msg_done:             'Listo',
+    msg_add_members_title:'Agregar miembros',
+
+    submit_ministry:      'Ministerio',
+    submit_financials:    'Finanzas',
+    submit_clinical:      'Clínico',
+    submit_narrative:     'Narrativa',
+    submit_continue:      'Continuar →',
+    submit_back:          '← Atrás',
+    submit_save_draft:    'Guardar borrador',
+    submit_cancel:        'Cancelar',
+    submit_report_month:  'Mes del informe',
+    submit_report_year:   'Año del informe',
+    submit_currency:      'Moneda local',
+    submit_exchange:      'Tipo de cambio (local por 1 USD)',
+    submit_opening:       'Saldo inicial en efectivo (moneda local)',
+
+    settings_title:       'Configuración',
+    settings_language:    'Preferencias de idioma',
+    settings_my_lang:     'Mi idioma principal',
+    settings_auto_trans:  'Traducción automática de mensajes',
+    settings_auto_desc:   'Traducir mensajes escritos en otros idiomas a tu idioma preferido',
+    settings_trans_active:'La traducción automática está activa. Los mensajes en otros idiomas se traducirán al',
+    settings_account:     'Cuenta',
+    settings_full_name:   'Nombre completo',
+    settings_role:        'Función',
+    settings_save:        'Guardar cambios',
+    settings_saved:       'Guardado correctamente',
+    settings_powered:     'Traducción realizada por',
+
+    auth_welcome:         'Bienvenido a Woven',
+    auth_subtitle:        'Centro Global de la Sociedad Lucas',
+    auth_email:           'Correo electrónico',
+    auth_password:        'Contraseña',
+    auth_signin:          'Iniciar sesión',
+    auth_create:          'Crear cuenta',
+    auth_full_name:       'Nombre completo',
+    auth_no_account:      '¿No tienes una cuenta?',
+    auth_have_account:    '¿Ya tienes una cuenta?',
+
+    compare_title:        'Comparar ministerios',
+    compare_select_a:     'Seleccionar ministerio A',
+    compare_select_b:     'Seleccionar ministerio B',
+    compare_trend:        'Tendencia de consultas (6 meses)',
+
+    loading:              'Cargando...',
+    submitted:            'enviado',
+    approved:             'aprobado',
+    pending:              'pendiente',
+    search:               'Buscar ministerios...',
+    ministries_shown:     'ministerios mostrados',
+    ministry_singular:    'ministerio mostrado',
+  },
+
+  fr: {
+    nav_dashboard:    'Tableau de bord',
+    nav_ministries:   'Ministères',
+    nav_compare:      'Comparer',
+    nav_map:          'Carte mondiale',
+    nav_messages:     'Messages',
+    nav_submit:       'Soumettre rapport',
+    nav_settings:     'Paramètres',
+    nav_signout:      'Se déconnecter',
+
+    dash_title:             'Aperçu du réseau',
+    dash_all_ministries:    'Tous les ministères',
+    dash_latest_month:      'Dernier mois',
+    dash_year_view:         'vue annuelle',
+    dash_total_consults:    'Total des consultations (dernier mois)',
+    dash_total_income:      'Revenus totaux (USD)',
+    dash_reports_filed:     'Rapports soumis',
+    dash_active_ministries: 'Ministères actifs',
+    dash_ministry:          'Ministère',
+    dash_country:           'Pays',
+    dash_region:            'Région',
+    dash_director:          'Directeur',
+    dash_consultations:     'Consultations',
+    dash_status:            'Statut',
+    dash_budget:            'Utilisation du budget par région',
+    dash_trend:             'Tendance des consultations du réseau',
+
+    detail_back:          '← Tableau de bord',
+    detail_stats:         'Statistiques',
+    detail_reports:       'Rapports narratifs',
+    detail_prayer:        'Demandes de prière',
+    detail_current:       'Mois en cours',
+    detail_ytd:           'Depuis début année',
+    detail_prev:          'Année précédente',
+    detail_all:           'Tout le temps',
+    detail_consults:      'Total des consultations',
+    detail_pharmacy:      'Patients en pharmacie',
+    detail_lab:           'Tests de laboratoire',
+    detail_income:        'Revenus totaux (USD)',
+    detail_expenses:      'Dépenses totales (USD)',
+    detail_balance:       'Solde de clôture',
+    detail_trend:         'Tendance des consultations',
+    detail_payment:       'Méthodes de paiement',
+    detail_full_pay:      'Paiement complet',
+    detail_subsidized:    'Subventionné',
+    detail_charity:       'Charité',
+    detail_no_reports:    "Aucun rapport narratif soumis pour ce ministère.",
+    detail_no_prayer:     "Aucune demande de prière soumise pour ce ministère.",
+    detail_english_trans: 'Traduction anglaise',
+    detail_auto_trans:    'Traduit automatiquement',
+    detail_filed:         'Soumis',
+    detail_draft:         'Brouillon',
+    detail_loading:       'Chargement',
+    detail_data:          'données...',
+
+    msg_conversations:    'Conversations',
+    msg_new:              '+ Nouvelle',
+    msg_no_messages:      "Pas encore de messages — soyez le premier à écrire.",
+    msg_select:           'Sélectionnez une conversation',
+    msg_add_members:      '+ Ajouter des membres',
+    msg_reply:            'Répondre à',
+    msg_send:             'Envoyer',
+    msg_new_convo:        'Démarrer une nouvelle conversation',
+    msg_type:             'Type de conversation',
+    msg_ministry_ch:      'Canal du ministère',
+    msg_team_ch:          'Canal équipe / PMT',
+    msg_network_ch:       'Canal réseau général',
+    msg_select_ministry:  'Sélectionner un ministère',
+    msg_channel_name:     'Nom du canal',
+    msg_opening_msg:      'Message d'ouverture (optionnel)',
+    msg_create:           'Créer le canal',
+    msg_cancel:           'Annuler',
+    msg_attach:           'Joindre une photo',
+    msg_members:          'membre',
+    msg_members_pl:       'membres',
+    msg_loading_members:  'Chargement des membres...',
+    msg_search_users:     'Nom ou email...',
+    msg_already_member:   'Déjà membre',
+    msg_add:              'Ajouter',
+    msg_adding:           'Ajout...',
+    msg_done:             'Terminé',
+    msg_add_members_title:'Ajouter des membres',
+
+    submit_ministry:      'Ministère',
+    submit_financials:    'Finances',
+    submit_clinical:      'Clinique',
+    submit_narrative:     'Récit',
+    submit_continue:      'Continuer →',
+    submit_back:          '← Retour',
+    submit_save_draft:    'Enregistrer brouillon',
+    submit_cancel:        'Annuler',
+    submit_report_month:  'Mois du rapport',
+    submit_report_year:   'Année du rapport',
+    submit_currency:      'Monnaie locale',
+    submit_exchange:      'Taux de change (local par 1 USD)',
+    submit_opening:       'Solde de caisse initial (monnaie locale)',
+
+    settings_title:       'Paramètres',
+    settings_language:    'Préférences linguistiques',
+    settings_my_lang:     'Ma langue principale',
+    settings_auto_trans:  'Traduction automatique des messages',
+    settings_auto_desc:   'Traduire les messages écrits dans d'autres langues vers votre langue préférée',
+    settings_trans_active:'La traduction automatique est active. Les messages dans d'autres langues seront traduits en',
+    settings_account:     'Compte',
+    settings_full_name:   'Nom complet',
+    settings_role:        'Rôle',
+    settings_save:        'Enregistrer les modifications',
+    settings_saved:       'Enregistré avec succès',
+    settings_powered:     'Traduction par',
+
+    auth_welcome:         'Bienvenue sur Woven',
+    auth_subtitle:        'Centre Mondial de la Société Luc',
+    auth_email:           'Adresse email',
+    auth_password:        'Mot de passe',
+    auth_signin:          'Se connecter',
+    auth_create:          'Créer un compte',
+    auth_full_name:       'Nom complet',
+    auth_no_account:      "Vous n'avez pas de compte?",
+    auth_have_account:    'Vous avez déjà un compte?',
+
+    compare_title:        'Comparer les ministères',
+    compare_select_a:     'Sélectionner ministère A',
+    compare_select_b:     'Sélectionner ministère B',
+    compare_trend:        'Tendance des consultations (6 mois)',
+
+    loading:              'Chargement...',
+    submitted:            'soumis',
+    approved:             'approuvé',
+    pending:              'en attente',
+    search:               'Rechercher des ministères...',
+    ministries_shown:     'ministères affichés',
+    ministry_singular:    'ministère affiché',
+  },
+
+  pt: {
+    nav_dashboard:    'Painel',
+    nav_ministries:   'Ministérios',
+    nav_compare:      'Comparar',
+    nav_map:          'Mapa mundial',
+    nav_messages:     'Mensagens',
+    nav_submit:       'Enviar relatório',
+    nav_settings:     'Configurações',
+    nav_signout:      'Sair',
+
+    dash_title:             'Visão geral da rede',
+    dash_all_ministries:    'Todos os ministérios',
+    dash_latest_month:      'Último mês',
+    dash_year_view:         'visão anual',
+    dash_total_consults:    'Total de consultas (último mês)',
+    dash_total_income:      'Receita total (USD)',
+    dash_reports_filed:     'Relatórios enviados',
+    dash_active_ministries: 'Ministérios ativos',
+    dash_ministry:          'Ministério',
+    dash_country:           'País',
+    dash_region:            'Região',
+    dash_director:          'Diretor',
+    dash_consultations:     'Consultas',
+    dash_status:            'Status',
+    dash_budget:            'Utilização do orçamento por região',
+    dash_trend:             'Tendência de consultas da rede',
+
+    detail_back:          '← Painel',
+    detail_stats:         'Estatísticas',
+    detail_reports:       'Relatórios narrativos',
+    detail_prayer:        'Pedidos de oração',
+    detail_current:       'Mês atual',
+    detail_ytd:           'Ano até hoje',
+    detail_prev:          'Ano anterior',
+    detail_all:           'Todo o tempo',
+    detail_consults:      'Total de consultas',
+    detail_pharmacy:      'Pacientes na farmácia',
+    detail_lab:           'Testes laboratoriais',
+    detail_income:        'Receita total (USD)',
+    detail_expenses:      'Despesas totais (USD)',
+    detail_balance:       'Saldo final em caixa',
+    detail_trend:         'Tendência de consultas',
+    detail_payment:       'Métodos de pagamento',
+    detail_full_pay:      'Pagamento integral',
+    detail_subsidized:    'Subsidiado',
+    detail_charity:       'Caridade',
+    detail_no_reports:    'Nenhum relatório narrativo enviado para este ministério.',
+    detail_no_prayer:     'Nenhum pedido de oração enviado para este ministério.',
+    detail_english_trans: 'Tradução em inglês',
+    detail_auto_trans:    'Traduzido automaticamente',
+    detail_filed:         'Enviado',
+    detail_draft:         'Rascunho',
+    detail_loading:       'Carregando',
+    detail_data:          'dados...',
+
+    msg_conversations:    'Conversas',
+    msg_new:              '+ Nova',
+    msg_no_messages:      'Ainda sem mensagens — seja o primeiro a escrever.',
+    msg_select:           'Selecione uma conversa',
+    msg_add_members:      '+ Adicionar membros',
+    msg_reply:            'Responder a',
+    msg_send:             'Enviar',
+    msg_new_convo:        'Iniciar nova conversa',
+    msg_type:             'Tipo de conversa',
+    msg_ministry_ch:      'Canal do ministério',
+    msg_team_ch:          'Canal da equipe / PMT',
+    msg_network_ch:       'Canal de toda a rede',
+    msg_select_ministry:  'Selecionar ministério',
+    msg_channel_name:     'Nome do canal',
+    msg_opening_msg:      'Mensagem inicial (opcional)',
+    msg_create:           'Criar canal',
+    msg_cancel:           'Cancelar',
+    msg_attach:           'Anexar foto',
+    msg_members:          'membro',
+    msg_members_pl:       'membros',
+    msg_loading_members:  'Carregando membros...',
+    msg_search_users:     'Nome ou email...',
+    msg_already_member:   'Já é membro',
+    msg_add:              'Adicionar',
+    msg_adding:           'Adicionando...',
+    msg_done:             'Concluído',
+    msg_add_members_title:'Adicionar membros',
+
+    submit_ministry:      'Ministério',
+    submit_financials:    'Finanças',
+    submit_clinical:      'Clínico',
+    submit_narrative:     'Narrativa',
+    submit_continue:      'Continuar →',
+    submit_back:          '← Voltar',
+    submit_save_draft:    'Salvar rascunho',
+    submit_cancel:        'Cancelar',
+    submit_report_month:  'Mês do relatório',
+    submit_report_year:   'Ano do relatório',
+    submit_currency:      'Moeda local',
+    submit_exchange:      'Taxa de câmbio (local por 1 USD)',
+    submit_opening:       'Saldo inicial em caixa (moeda local)',
+
+    settings_title:       'Configurações',
+    settings_language:    'Preferências de idioma',
+    settings_my_lang:     'Meu idioma principal',
+    settings_auto_trans:  'Tradução automática de mensagens',
+    settings_auto_desc:   'Traduzir mensagens escritas em outros idiomas para o seu idioma preferido',
+    settings_trans_active:'A tradução automática está ativa. Mensagens em outros idiomas serão traduzidas para',
+    settings_account:     'Conta',
+    settings_full_name:   'Nome completo',
+    settings_role:        'Função',
+    settings_save:        'Salvar alterações',
+    settings_saved:       'Salvo com sucesso',
+    settings_powered:     'Tradução por',
+
+    auth_welcome:         'Bem-vindo ao Woven',
+    auth_subtitle:        'Centro Global da Sociedade Lucas',
+    auth_email:           'Endereço de email',
+    auth_password:        'Senha',
+    auth_signin:          'Entrar',
+    auth_create:          'Criar conta',
+    auth_full_name:       'Nome completo',
+    auth_no_account:      'Não tem uma conta?',
+    auth_have_account:    'Já tem uma conta?',
+
+    compare_title:        'Comparar ministérios',
+    compare_select_a:     'Selecionar ministério A',
+    compare_select_b:     'Selecionar ministério B',
+    compare_trend:        'Tendência de consultas (6 meses)',
+
+    loading:              'Carregando...',
+    submitted:            'enviado',
+    approved:             'aprovado',
+    pending:              'pendente',
+    search:               'Buscar ministérios...',
+    ministries_shown:     'ministérios exibidos',
+    ministry_singular:    'ministério exibido',
+  }
+};
+
+// Get a UI string in current language, fallback to English
+function t(key) {
+  const lang = UI_STRINGS[userLang] ? userLang : 'en';
+  return UI_STRINGS[lang][key] || UI_STRINGS['en'][key] || key;
+}
+
+// Apply UI language to all data-i18n elements
+function applyUILanguage() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const val = t(key);
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+      el.placeholder = val;
+    } else {
+      el.textContent = val;
+    }
+  });
+}
+
 // ── WORLD MAP ──
 const MINISTRY_LOCATIONS = [
   // Philippines
@@ -2926,8 +3493,10 @@ function saveLanguagePref() {
   userLang = sel.value;
   localStorage.setItem('woven_lang', userLang);
   updateTranslateStatus();
-  // Clear cache when language changes
+  // Clear translation cache when language changes
   Object.keys(translationCache).forEach(k => delete translationCache[k]);
+  // Apply UI language immediately
+  applyUILanguage();
 }
 
 function saveTranslatePref() {
@@ -2968,6 +3537,9 @@ async function saveAccountSettings() {
   const nameEl = document.getElementById('user-name');
   if (nameEl) nameEl.textContent = name;
 
+  // Apply UI language based on saved preference
+  applyUILanguage();
+
   const saved = document.getElementById('settings-saved');
   if (saved) { saved.style.display = 'block'; setTimeout(() => saved.style.display = 'none', 2500); }
 }
@@ -2994,6 +3566,7 @@ function tagDemoMessageLangs() {
 // ── INIT FORM ──
 renderForm();
 tagDemoMessageLangs();
+applyUILanguage();
 </script>
 </body>
 </html>
