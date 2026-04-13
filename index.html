@@ -1715,7 +1715,7 @@ function openConvo(id) {
     msgEl.dataset.lang = m.lang || 'en';
     msgEl.dataset.body = encodeURIComponent(m.text || '');
     const imgHtml = m.image_url
-      ? `<div style="margin-top:6px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:var(--r-md);border:0.5px solid var(--border);cursor:pointer;" onclick="window.open('${m.image_url}','_blank')"/></div>`
+      ? `<div style="margin-top:6px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:var(--r-md);border:0.5px solid var(--border);cursor:pointer;" loading="lazy" onclick="window.open('${m.image_url}','_blank')"/></div>`
       : '';
     const bodyHtml = m.text ? `<div>${m.text}</div>` : '';
     const langBadge = m.lang && m.lang !== 'en'
@@ -1735,7 +1735,7 @@ function openConvo(id) {
   // Scroll to bottom after demo messages render
   requestAnimationFrame(() => { msgsDiv.scrollTop = msgsDiv.scrollHeight; });
 
-  // Auto-translate demo messages
+  // Auto-translate demo messages, scroll again when done
   if (autoTranslate) {
     setTimeout(async () => {
       for (const {el, text, lang} of msgNodes) {
@@ -1743,6 +1743,8 @@ function openConvo(id) {
           await translateMessage(el, text, lang);
         }
       }
+      // Final scroll after all translations complete
+      msgsDiv.scrollTop = msgsDiv.scrollHeight;
     }, 200);
   }
 
@@ -1773,8 +1775,12 @@ function openConvo(id) {
   panel.appendChild(inputRow);
   panel.appendChild(previewDiv);
 
-  // Scroll after paint - messages load async so we defer
-  setTimeout(() => { msgsDiv.scrollTop = 99999; }, 50);
+  // Scroll after paint - images may affect scroll height
+  setTimeout(() => {
+    msgsDiv.scrollTop = msgsDiv.scrollHeight;
+    // Re-check after another frame in case images loaded
+    setTimeout(() => { msgsDiv.scrollTop = msgsDiv.scrollHeight; }, 500);
+  }, 100);
 
   if (!DEMO_MODE && sb) {
     sb.from('conversation_members').select('user_id', {count:'exact'}).eq('conversation_id', id).then(({count}) => {
@@ -1869,7 +1875,7 @@ function renderLiveMessages(msgs, convoId) {
     const color = isOwn ? 'var(--purple-d)' : 'var(--text2)';
     const time = m.created_at ? new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
     const imageHtml = m.image_url
-      ? `<div style="margin-top:6px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:var(--r-md);border:0.5px solid var(--border);cursor:pointer;" onclick="window.open('${m.image_url}','_blank')"/></div>`
+      ? `<div style="margin-top:6px;min-height:60px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:var(--r-md);border:0.5px solid var(--border);cursor:pointer;display:block;" loading="lazy" onload="this.closest('.chat-messages').scrollTop=this.closest('.chat-messages').scrollHeight" onclick="window.open('${m.image_url}','_blank')"/></div>`
       : '';
     const bodyHtml = m.body ? `<div>${m.body}</div>` : '';
     const msgLang = m.language || m.original_language || 'en';
@@ -1885,26 +1891,47 @@ function renderLiveMessages(msgs, convoId) {
       <div class="msg-bubble${isOwn?' own':''}">${bodyHtml}${imageHtml}</div>
     </div>`;
   }).join('');
-  // Scroll to bottom after render completes
-  requestAnimationFrame(() => {
-    container.scrollTop = container.scrollHeight;
-  });
+  // Scroll to bottom - wait for images to load before calculating scroll height
+  const scrollToBottom = () => { container.scrollTop = container.scrollHeight; };
+  const images = container.querySelectorAll('img');
+  if (images.length === 0) {
+    scrollToBottom();
+  } else {
+    let loaded = 0;
+    images.forEach(img => {
+      if (img.complete) {
+        loaded++;
+        if (loaded === images.length) scrollToBottom();
+      } else {
+        img.addEventListener('load', () => {
+          loaded++;
+          if (loaded === images.length) scrollToBottom();
+        });
+        img.addEventListener('error', () => {
+          loaded++;
+          if (loaded === images.length) scrollToBottom();
+        });
+      }
+    });
+    // Fallback in case images take too long
+    setTimeout(scrollToBottom, 1500);
+  }
 
-  // Apply auto-translation after render
+  // Apply auto-translation after render, scroll again when done
   if (autoTranslate) {
     setTimeout(async () => {
       const msgNodes = container.querySelectorAll('.msg[data-lang]');
       for (const msgNode of msgNodes) {
         const lang = msgNode.dataset.lang;
         const body = decodeURIComponent(msgNode.dataset.body || '');
-        // Translate if message lang differs from user's preferred lang
-        // and lang is not 'und' (undetermined) or empty
         if (body && lang && lang !== 'en' && lang !== userLang && lang !== 'und') {
           await translateMessage(msgNode, body, lang);
         } else if (body && lang === 'en' && userLang !== 'en') {
           await translateMessage(msgNode, body, 'en');
         }
       }
+      // Scroll to bottom again after all translations have added content
+      container.scrollTop = container.scrollHeight;
     }, 100);
   }
 }
@@ -3323,7 +3350,7 @@ function buildMessageElement(m) {
     ? `<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:var(--surface2);color:var(--text2);margin-left:4px;">${msgLang.toUpperCase()}</span>`
     : '';
   const imageHtml = m.image_url
-    ? `<div style="margin-top:6px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:var(--r-md);border:0.5px solid var(--border);cursor:pointer;" onclick="window.open('${m.image_url}','_blank')"/></div>`
+    ? `<div style="margin-top:6px;"><img src="${m.image_url}" style="max-width:260px;max-height:200px;border-radius:var(--r-md);border:0.5px solid var(--border);cursor:pointer;" loading="lazy" onclick="window.open('${m.image_url}','_blank')"/></div>`
     : '';
   const bodyHtml = m.body ? `<div>${m.body}</div>` : '';
 
