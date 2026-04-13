@@ -224,6 +224,7 @@ button:hover{background:var(--surface2);}
       <button class="tnav" onclick="showScreen('ministries',this)" data-i18n="nav_ministries">Ministries</button>
       <button class="tnav" onclick="showScreen('compare',this)" data-i18n="nav_compare">Compare</button>
       <button class="tnav hidden" id="nav-submit" onclick="showScreen('submit',this)" data-i18n="nav_submit">Submit report</button>
+      <button class="tnav hidden" id="nav-admin" onclick="showScreen('admin',this)">Admin</button>
       <button class="tnav" onclick="showScreen('map',this)" data-i18n="nav_map">World map</button>
       <button class="tnav" onclick="showScreen('messages',this)" data-i18n="nav_messages">Messages</button>
     </div>
@@ -488,6 +489,90 @@ button:hover{background:var(--surface2);}
     </div>
   </div>
 
+  <!-- ADMIN PANEL -->
+  <div class="screen" id="screen-admin">
+    <div style="max-width:900px;">
+
+      <!-- Edit user modal -->
+      <div id="edit-user-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:200;">
+        <div class="card" style="width:100%;max-width:440px;margin:20px;">
+          <div style="font-size:15px;font-weight:600;margin-bottom:16px;" id="edit-modal-title">Edit user</div>
+          <input type="hidden" id="edit-user-id"/>
+          <div class="form-row-1">
+            <div class="flabel">Full name</div>
+            <input type="text" id="edit-user-name"/>
+          </div>
+          <div class="form-row-1" style="margin-top:10px;">
+            <div class="flabel">Role</div>
+            <select id="edit-user-role">
+              <option value="pmt_member">PMT Member</option>
+              <option value="director">Ministry Director</option>
+              <option value="admin">Staff (Admin)</option>
+              <option value="board">Board Member</option>
+            </select>
+          </div>
+          <div class="form-row-1" style="margin-top:10px;">
+            <div class="flabel">Ministry assignment</div>
+            <select id="edit-user-ministry">
+              <option value="">— None (board / staff / PMT) —</option>
+            </select>
+          </div>
+          <div class="form-row-1" style="margin-top:10px;">
+            <div class="flabel">Account status</div>
+            <select id="edit-user-status">
+              <option value="active">Active</option>
+              <option value="pending">Pending approval</option>
+              <option value="deactivated">Deactivated</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px;">
+            <button class="btn-primary" onclick="saveUserEdit()">Save changes</button>
+            <button onclick="closeEditModal()">Cancel</button>
+            <button onclick="confirmDeleteUser()" style="margin-left:auto;color:var(--red);border-color:var(--red);">Delete user</button>
+          </div>
+          <div id="edit-modal-error" style="font-size:12px;color:var(--red);margin-top:8px;"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div style="font-size:18px;font-weight:600;">Admin panel</div>
+        <div style="font-size:12px;color:var(--text2);" id="admin-last-updated"></div>
+      </div>
+
+      <!-- Pending approvals -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">
+          <div style="font-size:14px;font-weight:600;">Pending approvals</div>
+          <span id="pending-count" style="font-size:12px;padding:2px 8px;border-radius:10px;background:var(--amber-l);color:var(--amber);font-weight:500;"></span>
+        </div>
+        <div id="pending-list">
+          <div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;"><span class="spinner"></span></div>
+        </div>
+      </div>
+
+      <!-- All users -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">
+          <div style="font-size:14px;font-weight:600;">All users</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="user-search" placeholder="Search users..." style="font-size:12px;padding:5px 10px;width:180px;" oninput="filterUserTable(this.value)"/>
+            <span id="user-count" style="font-size:12px;color:var(--text2);"></span>
+          </div>
+        </div>
+        <div id="users-table"></div>
+      </div>
+
+      <!-- Report filing status -->
+      <div class="card">
+        <div style="font-size:14px;font-weight:600;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">
+          Monthly report status — <span id="report-month-label"></span>
+        </div>
+        <div id="report-status-grid"></div>
+      </div>
+
+    </div>
+  </div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -617,6 +702,15 @@ async function loadProfile(user) {
 }
 
 function enterApp(profile) {
+  // Check account status before showing app
+  if (profile.status === 'pending') {
+    showPendingScreen(profile);
+    return;
+  }
+  if (profile.status === 'deactivated') {
+    showDeactivatedScreen();
+    return;
+  }
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'block';
   const initials = profile.initials || (profile.full_name || profile.name || '?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
@@ -629,6 +723,9 @@ function enterApp(profile) {
   if (menuRole) menuRole.textContent = (profile.role||'').replace('_',' ');
   if (profile.role === 'director' || profile.role === 'admin') {
     document.getElementById('nav-submit').classList.remove('hidden');
+  }
+  if (profile.role === 'admin' || profile.role === 'board') {
+    document.getElementById('nav-admin').classList.remove('hidden');
   }
   loadDashboard();
   loadCompareSelects();
@@ -652,6 +749,7 @@ function showScreen(id, btn) {
   if (id === 'messages') { loadConversations(); }
   if (id === 'map') { initMap(); }
   if (id === 'submit') { formStep = 1; renderForm(); }
+  if (id === 'admin') { loadAdminPanel(); }
 
 }
 
@@ -2656,6 +2754,362 @@ function applyUILanguage() {
     }
   });
 }
+
+
+// ── ADMIN PANEL ──
+let allUsersCache = [];
+let editingUserId = null;
+
+function showPendingScreen(profile) {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'none';
+  // Show pending message
+  const pending = document.createElement('div');
+  pending.style.cssText = 'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;';
+  pending.innerHTML = `
+    <div class="card" style="max-width:440px;text-align:center;">
+      <img src="Luke_logo.png" style="height:48px;width:auto;margin-bottom:20px;" alt="Luke Society"/>
+      <div style="font-size:18px;font-weight:600;margin-bottom:8px;">Account pending approval</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:20px;">
+        Welcome, ${profile.full_name || 'friend'}. Your account has been created and is awaiting approval by the Woven administrator.<br><br>
+        You will receive access once your role and ministry assignment have been confirmed by the Sioux Falls team. Please contact <strong>office@lukesociety.org</strong> if you have questions.
+      </div>
+      <button onclick="handleSignout()" style="width:100%;">Sign out</button>
+    </div>`;
+  document.body.appendChild(pending);
+}
+
+function showDeactivatedScreen() {
+  document.getElementById('auth-screen').style.display = 'none';
+  const deact = document.createElement('div');
+  deact.style.cssText = 'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;';
+  deact.innerHTML = `
+    <div class="card" style="max-width:440px;text-align:center;">
+      <img src="Luke_logo.png" style="height:48px;width:auto;margin-bottom:20px;" alt="Luke Society"/>
+      <div style="font-size:18px;font-weight:600;margin-bottom:8px;color:var(--red);">Account deactivated</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:20px;">
+        This account has been deactivated. Please contact <strong>office@lukesociety.org</strong> if you believe this is an error.
+      </div>
+      <button onclick="handleSignout()" style="width:100%;">Sign out</button>
+    </div>`;
+  document.body.appendChild(deact);
+}
+
+async function loadAdminPanel() {
+  const now = new Date();
+  document.getElementById('admin-last-updated').textContent = 'Updated ' + now.toLocaleTimeString();
+  document.getElementById('report-month-label').textContent =
+    now.toLocaleString('default', {month:'long', year:'numeric'});
+
+  if (DEMO_MODE) {
+    renderPendingList([
+      {id:'demo-p1', full_name:'Dr. Samuel Okonkwo', email:'s.okonkwo@example.com', role:'director', created_at: new Date(Date.now()-86400000).toISOString(), ministry_name:'N'Dali Health Ministry'},
+      {id:'demo-p2', full_name:'Rebecca Torres', email:'r.torres@example.com', role:'pmt_member', created_at: new Date(Date.now()-172800000).toISOString(), ministry_name:null},
+    ]);
+    renderUsersTable([
+      {id:'1', full_name:'Jon Engbers', email:'jon@example.com', role:'board', status:'active', ministry_name:null},
+      {id:'2', full_name:'Dr. E. Vargas', email:'vargas@example.com', role:'director', status:'active', ministry_name:'Ministerio Clínica Jehová Rafa'},
+      {id:'3', full_name:'Dr. Sarah Mitchell', email:'sarah@example.com', role:'pmt_member', status:'active', ministry_name:null},
+      {id:'4', full_name:'Dr. A. Wanjiku', email:'wanjiku@example.com', role:'director', status:'active', ministry_name:'Nairobi Health Ministry'},
+      {id:'5', full_name:'Nathan Stob', email:'nathan@lukesociety.org', role:'admin', status:'active', ministry_name:null},
+    ]);
+    renderReportStatus();
+    return;
+  }
+
+  try {
+    // Load pending users
+    const { data: pending } = await sb
+      .from('user_profiles')
+      .select('id, full_name, role, status, created_at, ministry_id, ministries(name)')
+      .eq('status', 'pending')
+      .order('created_at', {ascending: false});
+
+    const pendingMapped = (pending||[]).map(u => ({
+      ...u, ministry_name: u.ministries?.name || null
+    }));
+    renderPendingList(pendingMapped);
+
+    // Load all users
+    const { data: users } = await sb
+      .from('user_profiles')
+      .select('id, full_name, role, status, created_at, ministry_id, ministries(name)')
+      .neq('status', 'pending')
+      .order('full_name');
+
+    allUsersCache = (users||[]).map(u => ({...u, ministry_name: u.ministries?.name || null}));
+    document.getElementById('user-count').textContent = allUsersCache.length + ' users';
+    renderUsersTable(allUsersCache);
+    renderReportStatus();
+  } catch(e) {
+    console.error('Admin panel error:', e);
+  }
+}
+
+function renderPendingList(pending) {
+  const container = document.getElementById('pending-list');
+  const countEl = document.getElementById('pending-count');
+
+  if (!pending || pending.length === 0) {
+    countEl.textContent = '0 pending';
+    countEl.style.background = 'var(--surface2)';
+    countEl.style.color = 'var(--text2)';
+    container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text2);font-size:13px;">No accounts awaiting approval</div>';
+    return;
+  }
+
+  countEl.textContent = pending.length + ' pending';
+
+  container.innerHTML = pending.map(u => {
+    const since = timeAgo(u.created_at);
+    const roleLabel = (u.role||'pmt_member').replace('_',' ');
+    const initials = (u.full_name||'?').split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:0.5px solid var(--border);">
+      <div style="width:38px;height:38px;border-radius:50%;background:var(--amber-l);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--amber);flex-shrink:0;">${initials}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:500;">${u.full_name||'Unknown'}</div>
+        <div style="font-size:12px;color:var(--text2);">${u.email||''} · registered ${since}</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+        <span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--surface2);color:var(--text2);">${roleLabel}</span>
+        <button onclick="openEditModal('${u.id}','${(u.full_name||'').replace(/'/g,'&apos;')}','${u.role||'pmt_member'}',${u.ministry_id||'null'},'pending')" style="font-size:12px;padding:4px 10px;" class="btn-primary">Review</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderUsersTable(users) {
+  const container = document.getElementById('users-table');
+  if (!users || users.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">No users found</div>';
+    return;
+  }
+
+  const roleColors = {
+    board:      {bg:'var(--purple-l)',  color:'var(--purple-d)'},
+    admin:      {bg:'var(--amber-l)',   color:'var(--amber)'},
+    director:   {bg:'var(--teal-l)',    color:'var(--teal-d)'},
+    pmt_member: {bg:'var(--surface2)', color:'var(--text2)'},
+  };
+  const statusColors = {
+    active:      {bg:'var(--green-l)',  color:'var(--green)'},
+    deactivated: {bg:'var(--red-l)',    color:'var(--red)'},
+  };
+
+  container.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="border-bottom:0.5px solid var(--border);">
+          <th style="text-align:left;padding:8px 6px;font-size:11px;color:var(--text2);font-weight:500;">Name</th>
+          <th style="text-align:left;padding:8px 6px;font-size:11px;color:var(--text2);font-weight:500;">Role</th>
+          <th style="text-align:left;padding:8px 6px;font-size:11px;color:var(--text2);font-weight:500;">Ministry</th>
+          <th style="text-align:left;padding:8px 6px;font-size:11px;color:var(--text2);font-weight:500;">Status</th>
+          <th style="text-align:right;padding:8px 6px;font-size:11px;color:var(--text2);font-weight:500;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${users.map(u => {
+          const rc = roleColors[u.role] || roleColors.pmt_member;
+          const sc = statusColors[u.status] || statusColors.active;
+          const roleLabel = (u.role||'').replace('_',' ');
+          const initials = (u.full_name||'?').split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+          return `<tr style="border-bottom:0.5px solid var(--border);" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+            <td style="padding:10px 6px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div style="width:28px;height:28px;border-radius:50%;background:${rc.bg};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:${rc.color};flex-shrink:0;">${initials}</div>
+                <div>
+                  <div style="font-weight:500;">${u.full_name||'—'}</div>
+                </div>
+              </div>
+            </td>
+            <td style="padding:10px 6px;"><span style="font-size:11px;padding:2px 7px;border-radius:4px;background:${rc.bg};color:${rc.color};">${roleLabel}</span></td>
+            <td style="padding:10px 6px;color:var(--text2);">${u.ministry_name||'—'}</td>
+            <td style="padding:10px 6px;"><span style="font-size:11px;padding:2px 7px;border-radius:4px;background:${sc.bg};color:${sc.color};">${u.status||'active'}</span></td>
+            <td style="padding:10px 6px;text-align:right;">
+              <button onclick="openEditModal('${u.id}','${(u.full_name||'').replace(/'/g,'&apos;')}','${u.role||'pmt_member'}',${u.ministry_id||'null'},'${u.status||'active'}')" style="font-size:11px;padding:3px 9px;">Edit</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+function filterUserTable(query) {
+  const q = query.toLowerCase();
+  const filtered = q
+    ? allUsersCache.filter(u =>
+        (u.full_name||'').toLowerCase().includes(q) ||
+        (u.role||'').toLowerCase().includes(q) ||
+        (u.ministry_name||'').toLowerCase().includes(q))
+    : allUsersCache;
+  renderUsersTable(filtered);
+}
+
+async function renderReportStatus() {
+  const container = document.getElementById('report-status-grid');
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+
+  if (DEMO_MODE) {
+    const statuses = ministriesData.map(m => ({
+      name: m.ministry_name, country: m.country, region: m.region,
+      status: m.report_status || 'pending'
+    }));
+    renderReportStatusGrid(statuses);
+    return;
+  }
+
+  try {
+    const { data } = await sb
+      .from('ministries')
+      .select(`name, country, region, monthly_reports!left(status, report_year, report_month)`)
+      .eq('active', true);
+
+    const statuses = (data||[]).map(m => {
+      const thisMonth = (m.monthly_reports||[]).find(r =>
+        r.report_year === year && r.report_month === month);
+      return {
+        name: m.name, country: m.country, region: m.region,
+        status: thisMonth?.status || 'not filed'
+      };
+    });
+    renderReportStatusGrid(statuses);
+  } catch(e) {
+    container.innerHTML = `<div style="color:var(--red);font-size:13px;">Error loading report status: ${e.message}</div>`;
+  }
+}
+
+function renderReportStatusGrid(statuses) {
+  const container = document.getElementById('report-status-grid');
+  const filed = statuses.filter(s => s.status === 'submitted' || s.status === 'approved').length;
+  const total = statuses.length;
+
+  const regionColors = {
+    'Africa': '#2E7D4F', 'Asia': '#1A5FA8',
+    'Europe': '#C2547A', 'Latin America': '#C49A0A'
+  };
+
+  container.innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap;">
+      <div style="font-size:24px;font-weight:700;color:var(--text);">${filed}<span style="font-size:14px;color:var(--text2);font-weight:400;"> / ${total} filed</span></div>
+      <div style="flex:1;min-width:200px;background:var(--surface2);border-radius:4px;height:8px;">
+        <div style="background:var(--green);height:8px;border-radius:4px;width:${Math.round(filed/total*100)}%;transition:width .5s;"></div>
+      </div>
+      <span style="font-size:13px;color:var(--text2);">${Math.round(filed/total*100)}% complete</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">
+      ${statuses.map(s => {
+        const filed = s.status === 'submitted' || s.status === 'approved';
+        const regionColor = regionColors[s.region] || '#888';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r-md);background:var(--surface2);border-left:3px solid ${filed ? 'var(--green)' : 'var(--border2)'};">
+          <div style="width:8px;height:8px;border-radius:50%;background:${filed ? 'var(--green)' : 'var(--border2)'};flex-shrink:0;"></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.name}</div>
+            <div style="font-size:10px;color:var(--text2);">${s.country} · <span style="color:${regionColor}">${s.region}</span></div>
+          </div>
+          <span style="font-size:10px;padding:1px 6px;border-radius:3px;background:${filed?'var(--green-l)':'var(--surface)'};color:${filed?'var(--green)':'var(--text2)'};flex-shrink:0;">${filed?'Filed':'Pending'}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+async function openEditModal(userId, name, role, ministryId, status) {
+  editingUserId = userId;
+  document.getElementById('edit-user-id').value = userId;
+  document.getElementById('edit-user-name').value = decodeURIComponent(name).replace(/&apos;/g,"'");
+  document.getElementById('edit-user-role').value = role;
+  document.getElementById('edit-user-status').value = status;
+  document.getElementById('edit-modal-error').textContent = '';
+  document.getElementById('edit-modal-title').textContent = status === 'pending' ? 'Approve new account' : 'Edit user';
+
+  // Populate ministry dropdown
+  const ministrySelect = document.getElementById('edit-user-ministry');
+  const items = DEMO_MODE ? DEMO_MINISTRIES : ministriesData;
+  ministrySelect.innerHTML = '<option value="">— None (board / staff / PMT) —</option>' +
+    items.map(m => `<option value="${m.ministry_id}" ${m.ministry_id == ministryId ? 'selected' : ''}>${m.ministry_name} (${m.country})</option>`).join('');
+
+  document.getElementById('edit-user-modal').classList.remove('hidden');
+  document.getElementById('edit-user-modal').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('edit-user-modal').classList.add('hidden');
+  document.getElementById('edit-user-modal').style.display = 'none';
+  editingUserId = null;
+}
+
+async function saveUserEdit() {
+  const id = document.getElementById('edit-user-id').value;
+  const name = document.getElementById('edit-user-name').value.trim();
+  const role = document.getElementById('edit-user-role').value;
+  const ministryId = document.getElementById('edit-user-ministry').value || null;
+  const status = document.getElementById('edit-user-status').value;
+  const errEl = document.getElementById('edit-modal-error');
+
+  if (!name) { errEl.textContent = 'Name is required.'; return; }
+
+  if (DEMO_MODE) {
+    toast('User updated (demo mode)', 'success');
+    closeEditModal();
+    return;
+  }
+
+  try {
+    const { error } = await sb.from('user_profiles').update({
+      full_name: name,
+      role,
+      ministry_id: ministryId ? parseInt(ministryId) : null,
+      status
+    }).eq('id', id);
+
+    if (error) throw error;
+    toast('User updated successfully', 'success');
+    closeEditModal();
+    loadAdminPanel();
+  } catch(e) {
+    errEl.textContent = 'Error: ' + e.message;
+  }
+}
+
+async function confirmDeleteUser() {
+  const id = document.getElementById('edit-user-id').value;
+  const name = document.getElementById('edit-user-name').value;
+  if (!confirm(`Permanently delete ${name}? This cannot be undone.`)) return;
+
+  if (DEMO_MODE) {
+    toast('User deleted (demo mode)', 'success');
+    closeEditModal();
+    return;
+  }
+
+  try {
+    await sb.from('user_profiles').delete().eq('id', id);
+    toast('User deleted', 'success');
+    closeEditModal();
+    loadAdminPanel();
+  } catch(e) {
+    document.getElementById('edit-modal-error').textContent = 'Error: ' + e.message;
+  }
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return 'recently';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (days > 0) return days + 'd ago';
+  if (hours > 0) return hours + 'h ago';
+  if (mins > 0) return mins + 'm ago';
+  return 'just now';
+}
+
+// Close edit modal on backdrop click
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('edit-user-modal');
+  if (modal && e.target === modal) closeEditModal();
+});
 
 // ── WORLD MAP ──
 const MINISTRY_LOCATIONS = [
