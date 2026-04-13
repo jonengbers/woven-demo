@@ -1813,7 +1813,39 @@ function openConvo(id) {
         }
       });
     if (realtimeSub) realtimeSub.unsubscribe();
-    realtimeSub = sb.channel('msgs-'+id).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`conversation_id=eq.${id}`}, payload => appendLiveMsg(payload.new)).subscribe();
+    realtimeSub = sb.channel('msgs-'+id).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`conversation_id=eq.${id}`}, payload => {
+      appendLiveMsg(payload.new);
+      // If this conversation was archived, unarchive it when new activity arrives
+      const c = demoConvos.find(x => x.id === payload.new.conversation_id);
+      if (c && c.archived) {
+        c.archived = false;
+        sb.from('conversation_members')
+          .update({ archived: false })
+          .eq('conversation_id', payload.new.conversation_id)
+          .eq('user_id', currentUser.id)
+          .then(() => renderConvoList());
+      }
+    }).subscribe();
+
+    // Also subscribe to ALL conversations to unarchive on new activity
+    // even if not currently open
+    if (!window.globalMsgSub) {
+      window.globalMsgSub = sb.channel('global-msgs')
+        .on('postgres_changes', {event:'INSERT', schema:'public', table:'messages'}, payload => {
+          const c = demoConvos.find(x => x.id === payload.new.conversation_id);
+          if (c && c.archived) {
+            c.archived = false;
+            c.preview = 'New message';
+            sb.from('conversation_members')
+              .update({ archived: false })
+              .eq('conversation_id', payload.new.conversation_id)
+              .eq('user_id', currentUser.id)
+              .then(() => renderConvoList());
+            renderConvoList();
+          }
+        })
+        .subscribe();
+    }
   }
 }
 
@@ -1958,6 +1990,11 @@ async function sendMsg(convoId) {
   if (DEMO_MODE) {
     const c = demoConvos.find(x=>x.id===convoId);
     if (c) {
+      // Unarchive if needed when sending a message
+      if (c.archived) {
+        c.archived = false;
+        renderConvoList();
+      }
       const profile = userProfile || DEMO_USER;
       const name = profile.full_name || profile.name || 'You';
       const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
@@ -1968,6 +2005,17 @@ async function sendMsg(convoId) {
       openConvo(convoId);
     }
     return;
+  }
+
+  // Live mode: unarchive conversation if it was archived
+  const liveConvo = demoConvos.find(x => x.id === convoId);
+  if (liveConvo && liveConvo.archived) {
+    liveConvo.archived = false;
+    sb.from('conversation_members')
+      .update({ archived: false })
+      .eq('conversation_id', convoId)
+      .eq('user_id', currentUser.id)
+      .then(() => renderConvoList());
   }
 
   await sb.from('messages').insert({
