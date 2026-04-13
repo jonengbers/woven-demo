@@ -1732,6 +1732,9 @@ function openConvo(id) {
     msgNodes.push({el:msgEl, text:m.text, lang:m.lang||'en'});
   });
 
+  // Scroll to bottom after demo messages render
+  requestAnimationFrame(() => { msgsDiv.scrollTop = msgsDiv.scrollHeight; });
+
   // Auto-translate demo messages
   if (autoTranslate) {
     setTimeout(async () => {
@@ -1770,7 +1773,8 @@ function openConvo(id) {
   panel.appendChild(inputRow);
   panel.appendChild(previewDiv);
 
-  msgsDiv.scrollTop = 99999;
+  // Scroll after paint - messages load async so we defer
+  setTimeout(() => { msgsDiv.scrollTop = 99999; }, 50);
 
   if (!DEMO_MODE && sb) {
     sb.from('conversation_members').select('user_id', {count:'exact'}).eq('conversation_id', id).then(({count}) => {
@@ -1881,7 +1885,10 @@ function renderLiveMessages(msgs, convoId) {
       <div class="msg-bubble${isOwn?' own':''}">${bodyHtml}${imageHtml}</div>
     </div>`;
   }).join('');
-  container.scrollTop = 99999;
+  // Scroll to bottom after render completes
+  requestAnimationFrame(() => {
+    container.scrollTop = container.scrollHeight;
+  });
 
   // Apply auto-translation after render
   if (autoTranslate) {
