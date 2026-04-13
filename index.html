@@ -1589,25 +1589,14 @@ async function seedConversations() {
 
 function renderConvoList() {
   const active = demoConvos.filter(c => !c.archived);
-  const archived = demoConvos.filter(c => c.archived);
   const header = `<div style="padding:10px 12px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
     <span style="font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Conversations</span>
     <button onclick="openNewConvoModal()" style="font-size:11px;padding:3px 9px;border-radius:var(--r-md);">+ New</button>
   </div>`;
-  const archivedSection = archived.length > 0 ? `
-    <div style="padding:8px 12px;border-top:0.5px solid var(--border);margin-top:4px;">
-      <button onclick="toggleArchivedSection()" style="font-size:11px;color:var(--text2);border:none;background:none;cursor:pointer;padding:0;" id="archived-toggle">
-        ▸ Archived (${archived.length})
-      </button>
-      <div id="archived-section" style="display:none;">
-        ${archived.map(c => renderConvoItem(c)).join('')}
-      </div>
-    </div>` : '';
   document.getElementById('convo-list').innerHTML = header +
     active.map(c => renderConvoItem(c)).join('') +
-    archivedSection;
+    renderArchivedSection();
 }
-
 function toggleArchivedSection() {
   const section = document.getElementById('archived-section');
   const btn = document.getElementById('archived-toggle');
@@ -1668,9 +1657,42 @@ function openConvo(id) {
   addBtn.textContent = '+ Add members';
   addBtn.onclick = () => openAddMembersModal(id);
 
+  // Options button with dropdown — built entirely via DOM, no inline onclick
+  const optionsWrap = document.createElement('div');
+  optionsWrap.style.cssText = 'position:relative;flex-shrink:0;';
+
+  const optBtn = document.createElement('button');
+  optBtn.textContent = 'Options';
+  optBtn.style.cssText = 'font-size:12px;padding:5px 11px;border-radius:var(--r-md);color:var(--text2);';
+  optBtn.dataset.action = 'toggle-convo-menu';
+  optBtn.dataset.convoId = id;
+
+  const dropdown = document.createElement('div');
+  dropdown.id = 'convo-options-menu';
+  dropdown.style.cssText = 'display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--r-md);min-width:180px;z-index:500;box-shadow:0 4px 16px rgba(0,0,0,0.15);overflow:hidden;';
+
+  const archiveItem = document.createElement('div');
+  archiveItem.textContent = 'Archive conversation';
+  archiveItem.dataset.action = 'archive-convo';
+  archiveItem.dataset.convoId = id;
+  archiveItem.style.cssText = 'padding:11px 16px;font-size:13px;cursor:pointer;color:var(--text);border-bottom:0.5px solid var(--border);';
+
+  const deleteItem = document.createElement('div');
+  deleteItem.textContent = 'Delete conversation';
+  deleteItem.dataset.action = 'delete-convo';
+  deleteItem.dataset.convoId = id;
+  deleteItem.dataset.convoTitle = c.title;
+  deleteItem.style.cssText = 'padding:11px 16px;font-size:13px;cursor:pointer;color:var(--red);';
+
+  dropdown.appendChild(archiveItem);
+  dropdown.appendChild(deleteItem);
+  optionsWrap.appendChild(optBtn);
+  optionsWrap.appendChild(dropdown);
+
   header.appendChild(av);
   header.appendChild(titleArea);
   header.appendChild(addBtn);
+  header.appendChild(optionsWrap);
 
   const msgsDiv = document.createElement('div');
   msgsDiv.className = 'chat-messages';
@@ -3659,6 +3681,186 @@ document.addEventListener('click', function(e) {
   const modal = document.getElementById('add-members-modal');
   if (modal && e.target === modal) closeAddMembersModal();
 });
+
+
+// ── CONVERSATION MANAGEMENT (event delegation) ──
+
+// Single delegated listener on the entire chat panel area
+document.addEventListener('click', function(e) {
+  const action = e.target.dataset.action || e.target.closest('[data-action]')?.dataset.action;
+  const el = e.target.dataset.action ? e.target : e.target.closest('[data-action]');
+  if (!action || !el) return;
+
+  const convoId = el.dataset.convoId ? parseInt(el.dataset.convoId) : null;
+
+  if (action === 'toggle-convo-menu') {
+    e.stopPropagation();
+    const menu = document.getElementById('convo-options-menu');
+    if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    return;
+  }
+
+  if (action === 'archive-convo') {
+    const menu = document.getElementById('convo-options-menu');
+    if (menu) menu.style.display = 'none';
+    archiveConversation(convoId);
+    return;
+  }
+
+  if (action === 'delete-convo') {
+    const menu = document.getElementById('convo-options-menu');
+    if (menu) menu.style.display = 'none';
+    const title = el.dataset.convoTitle || 'this conversation';
+    showDeleteConfirm(convoId, title);
+    return;
+  }
+
+  if (action === 'confirm-delete') {
+    deleteConversation(convoId);
+    return;
+  }
+
+  if (action === 'cancel-delete') {
+    if (activeConvoId) openConvo(activeConvoId);
+    return;
+  }
+});
+
+// Close dropdown when clicking outside it
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('convo-options-menu');
+  if (!menu) return;
+  if (!e.target.closest('#convo-options-menu') && !e.target.closest('[data-action="toggle-convo-menu"]')) {
+    menu.style.display = 'none';
+  }
+});
+
+// Hover effects for dropdown items
+document.addEventListener('mouseover', function(e) {
+  const el = e.target.closest('[data-action="archive-convo"]');
+  const el2 = e.target.closest('[data-action="delete-convo"]');
+  if (el) el.style.background = 'var(--surface2)';
+  if (el2) el2.style.background = 'var(--red-l)';
+});
+document.addEventListener('mouseout', function(e) {
+  const el = e.target.closest('[data-action="archive-convo"]');
+  const el2 = e.target.closest('[data-action="delete-convo"]');
+  if (el) el.style.background = '';
+  if (el2) el2.style.background = '';
+});
+
+function archiveConversation(id) {
+  const c = demoConvos.find(x => x.id === id);
+  if (!c) return;
+  c.archived = true;
+
+  if (!DEMO_MODE && sb) {
+    sb.from('conversation_members')
+      .update({ archived: true })
+      .eq('conversation_id', id)
+      .eq('user_id', currentUser.id)
+      .then(({error}) => { if (error) console.error('Archive error:', error); });
+  }
+
+  if (activeConvoId === id) {
+    activeConvoId = null;
+    document.getElementById('chat-panel').innerHTML =
+      '<div style="padding:40px;text-align:center;color:var(--text2);">Select a conversation</div>';
+  }
+  renderConvoList();
+  toast('Conversation archived', 'success');
+}
+
+function showDeleteConfirm(id, title) {
+  const panel = document.getElementById('chat-panel');
+  const safeTitle = title.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // Build confirmation UI via DOM
+  panel.innerHTML = '';
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'padding:50px 40px;text-align:center;';
+
+  const icon = document.createElement('div');
+  icon.style.cssText = 'font-size:32px;margin-bottom:16px;';
+  icon.textContent = '🗑️';
+
+  const title_el = document.createElement('div');
+  title_el.style.cssText = 'font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px;';
+  title_el.textContent = 'Delete this conversation?';
+
+  const desc = document.createElement('div');
+  desc.style.cssText = 'font-size:13px;color:var(--text2);margin-bottom:24px;line-height:1.6;max-width:320px;margin-left:auto;margin-right:auto;';
+  desc.innerHTML = `<strong>${safeTitle}</strong> and all its messages will be permanently deleted. This cannot be undone.`;
+
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:10px;justify-content:center;';
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.textContent = 'Delete permanently';
+  deleteBtn.dataset.action = 'confirm-delete';
+  deleteBtn.dataset.convoId = id;
+  deleteBtn.style.cssText = 'background:var(--red);color:#fff;border-color:var(--red);padding:8px 20px;border-radius:var(--r-md);font-weight:500;cursor:pointer;';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.dataset.action = 'cancel-delete';
+  cancelBtn.style.cssText = 'padding:8px 20px;border-radius:var(--r-md);cursor:pointer;';
+
+  btnRow.appendChild(deleteBtn);
+  btnRow.appendChild(cancelBtn);
+  wrap.appendChild(icon);
+  wrap.appendChild(title_el);
+  wrap.appendChild(desc);
+  wrap.appendChild(btnRow);
+  panel.appendChild(wrap);
+}
+
+async function deleteConversation(id) {
+  if (!DEMO_MODE && sb) {
+    try {
+      await sb.from('messages').delete().eq('conversation_id', id);
+      await sb.from('conversation_members').delete().eq('conversation_id', id);
+      await sb.from('conversations').delete().eq('id', id);
+    } catch(e) {
+      toast('Error deleting: ' + e.message, 'error');
+      return;
+    }
+  }
+
+  const idx = demoConvos.findIndex(c => c.id === id);
+  if (idx > -1) demoConvos.splice(idx, 1);
+
+  activeConvoId = null;
+  document.getElementById('chat-panel').innerHTML =
+    '<div style="padding:40px;text-align:center;color:var(--text2);">Select a conversation</div>';
+
+  renderConvoList();
+  toast('Conversation deleted', 'success');
+}
+
+// Add archived section support to renderConvoList
+function renderArchivedSection() {
+  const archived = demoConvos.filter(c => c.archived);
+  if (!archived.length) return '';
+  return `<div style="padding:8px 12px 4px;">
+    <button id="archived-toggle-btn" onclick="toggleArchivedSection()" style="font-size:11px;color:var(--text2);border:none;background:none;cursor:pointer;padding:0;">
+      ▸ Archived (${archived.length})
+    </button>
+    <div id="archived-section" style="display:none;margin-top:4px;">
+      ${archived.map(c => renderConvoItem(c)).join('')}
+    </div>
+  </div>`;
+}
+
+function toggleArchivedSection() {
+  const section = document.getElementById('archived-section');
+  const btn = document.getElementById('archived-toggle-btn');
+  if (!section || !btn) return;
+  const open = section.style.display === 'none';
+  section.style.display = open ? 'block' : 'none';
+  btn.textContent = (open ? '▾' : '▸') + ` Archived (${demoConvos.filter(c=>c.archived).length})`;
+}
 
 // ── NEW CONVERSATION MODAL ──
 function openNewConvoModal() {
