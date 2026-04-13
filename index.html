@@ -677,36 +677,53 @@ function setRegion(region) {
   const input = document.getElementById('region-filter');
   if (input) input.value = region;
 
-  // Reset all toggles to their outline style
-  Object.entries(REGION_TOGGLE_IDS).forEach(([r, btnId]) => {
-    const btn = document.getElementById(btnId);
-    if (!btn) return;
-    const c = REGION_TOGGLE_COLORS[r];
-    if (r === '') {
-      // "All" button
-      if (region === '') {
-        btn.style.background = 'var(--text)';
-        btn.style.color = 'var(--surface)';
-        btn.style.borderColor = 'var(--text)';
-        btn.style.fontWeight = '500';
-      } else {
-        btn.style.background = 'transparent';
-        btn.style.color = 'var(--text2)';
-        btn.style.borderColor = 'var(--border2)';
-        btn.style.fontWeight = '400';
-      }
+  // Reset all toggles
+  const allBtn = document.getElementById('rtog-all');
+  const regionBtns = {
+    'Africa':        document.getElementById('rtog-africa'),
+    'Asia':          document.getElementById('rtog-asia'),
+    'Europe':        document.getElementById('rtog-europe'),
+    'Latin America': document.getElementById('rtog-latin'),
+  };
+
+  // Reset All button
+  if (allBtn) {
+    if (region === '') {
+      allBtn.style.background = 'var(--text)';
+      allBtn.style.color = 'var(--surface)';
+      allBtn.style.borderColor = 'var(--border2)';
+      allBtn.style.fontWeight = '500';
+      allBtn.style.opacity = '1';
     } else {
-      if (r === region) {
-        btn.style.background = c.bg;
-        btn.style.color = c.color;
-        btn.style.borderColor = c.border;
-        btn.style.fontWeight = '500';
-      } else {
-        btn.style.background = 'transparent';
-        btn.style.color = c.border;
-        btn.style.borderColor = c.border;
-        btn.style.fontWeight = '400';
-      }
+      allBtn.style.background = 'transparent';
+      allBtn.style.color = 'var(--text2)';
+      allBtn.style.borderColor = 'var(--border2)';
+      allBtn.style.fontWeight = '400';
+      allBtn.style.opacity = '1';
+    }
+  }
+
+  // Reset region buttons
+  const colors = {
+    'Africa':        '#2E7D4F',
+    'Asia':          '#1A5FA8',
+    'Europe':        '#C2547A',
+    'Latin America': '#C49A0A',
+  };
+  Object.entries(regionBtns).forEach(([r, btn]) => {
+    if (!btn) return;
+    if (r === region) {
+      btn.style.background = colors[r];
+      btn.style.color = '#fff';
+      btn.style.borderColor = colors[r];
+      btn.style.fontWeight = '500';
+      btn.style.opacity = '1';
+    } else {
+      btn.style.background = 'transparent';
+      btn.style.color = colors[r];
+      btn.style.borderColor = colors[r];
+      btn.style.fontWeight = '400';
+      btn.style.opacity = '1';
     }
   });
 
