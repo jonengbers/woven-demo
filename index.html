@@ -255,15 +255,11 @@ button:hover{background:var(--surface2);}
     <div style="margin-bottom:14px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
         <div style="display:flex;gap:6px;flex-wrap:wrap;" id="region-toggles">
-          <button onclick="setRegion('')" id="rtog-all" class="rtog active-rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid var(--border2);background:var(--text);color:var(--surface);font-weight:500;">All (40)</button>
-          <button onclick="setRegion('Latin America')" id="rtog-latin" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #534AB7;color:#534AB7;background:transparent;">Latin America</button>
-          <button onclick="setRegion('Sub-Saharan Africa')" id="rtog-africa" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #1D9E75;color:#1D9E75;background:transparent;">Sub-Saharan Africa</button>
-          <button onclick="setRegion('South Asia')" id="rtog-southasia" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #BA7517;color:#BA7517;background:transparent;">South Asia</button>
-          <button onclick="setRegion('Southeast Asia')" id="rtog-seasia" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #185FA5;color:#185FA5;background:transparent;">Southeast Asia</button>
-          <button onclick="setRegion('Eastern Europe')" id="rtog-europe" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #854F0B;color:#854F0B;background:transparent;">Eastern Europe</button>
-          <button onclick="setRegion('Caribbean')" id="rtog-carib" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #D4537E;color:#D4537E;background:transparent;">Caribbean</button>
-          <button onclick="setRegion('Central Asia')" id="rtog-central" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #639922;color:#639922;background:transparent;">Central Asia</button>
-          <button onclick="setRegion('Middle East & North Africa')" id="rtog-mena" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #A32D2D;color:#A32D2D;background:transparent;">M. East & N. Africa</button>
+          <button onclonclick="setRegion('')" id="rtog-all" class="rtog active-rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid var(--border2);background:var(--text);color:var(--surface);font-weight:500;">All (40)</button>
+          <button onclick="setRegion('Africa')" id="rtog-africa" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #2E7D4F;color:#2E7D4F;background:transparent;">Africa</button>
+          <button onclick="setRegion('Asia')" id="rtog-asia" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #1A5FA8;color:#1A5FA8;background:transparent;">Asia</button>
+          <button onclick="setRegion('Europe')" id="rtog-europe" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #C2547A;color:#C2547A;background:transparent;">Europe</button>
+          <button onclick="setRegion('Latin America')" id="rtog-latin" class="rtog" style="font-size:12px;padding:5px 12px;border-radius:20px;border:0.5px solid #C49A0A;color:#C49A0A;background:transparent;">Latin America</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <select id="year-filter" style="width:auto;font-size:12px;" onchange="loadDashboard()">
@@ -661,27 +657,19 @@ function showScreen(id, btn) {
 
 // ── REGION TOGGLES ──
 const REGION_TOGGLE_COLORS = {
-  '':                       {bg:'var(--text)',    color:'var(--surface)', border:'var(--text)'},
-  'Latin America':          {bg:'#534AB7',        color:'#fff',           border:'#534AB7'},
-  'Sub-Saharan Africa':     {bg:'#1D9E75',        color:'#fff',           border:'#1D9E75'},
-  'South Asia':             {bg:'#BA7517',        color:'#fff',           border:'#BA7517'},
-  'Southeast Asia':         {bg:'#185FA5',        color:'#fff',           border:'#185FA5'},
-  'Eastern Europe':         {bg:'#854F0B',        color:'#fff',           border:'#854F0B'},
-  'Caribbean':              {bg:'#D4537E',        color:'#fff',           border:'#D4537E'},
-  'Central Asia':           {bg:'#639922',        color:'#fff',           border:'#639922'},
-  'Middle East & North Africa': {bg:'#A32D2D',   color:'#fff',           border:'#A32D2D'},
+  '':              {bg:'var(--text)', color:'var(--surface)', border:'var(--text)'},
+  'Africa':        {bg:'#2E7D4F',    color:'#fff',           border:'#2E7D4F'},
+  'Asia':          {bg:'#1A5FA8',    color:'#fff',           border:'#1A5FA8'},
+  'Europe':        {bg:'#C2547A',    color:'#fff',           border:'#C2547A'},
+  'Latin America': {bg:'#C49A0A',    color:'#fff',           border:'#C49A0A'},
 };
 
 const REGION_TOGGLE_IDS = {
-  '':                           'rtog-all',
-  'Latin America':              'rtog-latin',
-  'Sub-Saharan Africa':         'rtog-africa',
-  'South Asia':                 'rtog-southasia',
-  'Southeast Asia':             'rtog-seasia',
-  'Eastern Europe':             'rtog-europe',
-  'Caribbean':                  'rtog-carib',
-  'Central Asia':               'rtog-central',
-  'Middle East & North Africa': 'rtog-mena',
+  '':              'rtog-all',
+  'Africa':        'rtog-africa',
+  'Asia':          'rtog-asia',
+  'Europe':        'rtog-europe',
+  'Latin America': 'rtog-latin',
 };
 
 function setRegion(region) {
@@ -822,14 +810,14 @@ async function renderTrendChart() {
 
 function renderBudgetChart() {
   if (budgetChart) budgetChart.destroy();
-  const regions = ['Latin America','Sub-Saharan Africa','South Asia','Southeast Asia','Eastern Europe','Caribbean','Central Asia','Middle East & North Africa'];
-  const colors   = ['#534AB7','#1D9E75','#BA7517','#185FA5','#854F0B','#D4537E','#639922','#A32D2D'];
+  const regions = ['Africa','Asia','Europe','Latin America'];
+  const colors   = ['#2E7D4F','#1A5FA8','#C2547A','#C49A0A'];
   const vals = regions.map(r => {
     const ms = ministriesData.filter(m=>m.region===r);
     return ms.length ? Math.round(ms.reduce((s,m)=>s+(m.budget_utilization_pct||0),0)/ms.length) : null;
   });
   const filtered = regions.map((r,i)=>({r,v:vals[i],c:colors[i]})).filter(x=>x.v!==null);
-  const shortLabel = r => r.replace('Sub-Saharan ','').replace('Southeast ','SE ').replace('Middle East & North Africa','M. East & N. Africa').replace('Central Asia','Central Asia').replace('Eastern Europe','E. Europe');
+  const shortLabel = r => r;
   budgetChart = new Chart(document.getElementById('budget-chart'), {
     type:'bar',
     data:{labels:filtered.map(x=>shortLabel(x.r)),datasets:[{data:filtered.map(x=>x.v),backgroundColor:filtered.map(x=>x.c),borderRadius:4}]},
@@ -2654,84 +2642,80 @@ function applyUILanguage() {
 
 // ── WORLD MAP ──
 const MINISTRY_LOCATIONS = [
-  // Philippines
-  {id:1,  name:'Iloilo Island Ministry',        country:'Philippines',  lat:10.72,  lng:122.56, region:'Southeast Asia'},
-  {id:2,  name:'Palawan Health Ministry',        country:'Philippines',  lat:9.83,   lng:118.73, region:'Southeast Asia'},
-  // India
-  {id:3,  name:'Odisha Community Health',        country:'India',        lat:20.29,  lng:85.82,  region:'South Asia'},
-  {id:4,  name:'Madhya Pradesh Ministry',        country:'India',        lat:23.47,  lng:77.95,  region:'South Asia'},
-  // Ghana
-  {id:5,  name:'Kasei Health Ministry',          country:'Ghana',        lat:7.96,   lng:-1.42,  region:'Sub-Saharan Africa'},
-  // Guatemala
+  // Philippines — Asia
+  {id:1,  name:'Iloilo Island Ministry',        country:'Philippines',  lat:10.72,  lng:122.56, region:'Asia'},
+  {id:2,  name:'Palawan Health Ministry',        country:'Philippines',  lat:9.83,   lng:118.73, region:'Asia'},
+  // India — Asia
+  {id:3,  name:'Odisha Community Health',        country:'India',        lat:20.29,  lng:85.82,  region:'Asia'},
+  {id:4,  name:'Madhya Pradesh Ministry',        country:'India',        lat:23.47,  lng:77.95,  region:'Asia'},
+  // Ghana — Africa
+  {id:5,  name:'Kasei Health Ministry',          country:'Ghana',        lat:7.96,   lng:-1.42,  region:'Africa'},
+  // Guatemala — Latin America
   {id:6,  name:'Patzun Community Clinic',        country:'Guatemala',    lat:14.68,  lng:-90.97, region:'Latin America'},
   {id:7,  name:'San Juan Health Ministry',       country:'Guatemala',    lat:14.73,  lng:-90.65, region:'Latin America'},
-  // Myanmar
-  {id:8,  name:'Matupi Health Ministry',         country:'Myanmar',      lat:23.00,  lng:93.58,  region:'Southeast Asia'},
-  // Ukraine
-  {id:9,  name:'Transcarpathia Medical Center',  country:'Ukraine',      lat:48.44,  lng:22.70,  region:'Eastern Europe'},
-  {id:10, name:'Rivne Community Clinic',         country:'Ukraine',      lat:50.62,  lng:26.25,  region:'Eastern Europe'},
-  {id:11, name:'Lugansk Medical Ministry',       country:'Ukraine',      lat:48.57,  lng:39.31,  region:'Eastern Europe'},
-  // Kenya
-  {id:12, name:'Nairobi Health Ministry',        country:'Kenya',        lat:-1.29,  lng:36.82,  region:'Sub-Saharan Africa'},
-  // Indonesia
-  {id:13, name:'Papua Health Ministry',          country:'Indonesia',    lat:-4.27,  lng:138.08, region:'Southeast Asia'},
-  // Mexico
+  // Myanmar — Asia
+  {id:8,  name:'Matupi Health Ministry',         country:'Myanmar',      lat:23.00,  lng:93.58,  region:'Asia'},
+  // Ukraine — Europe
+  {id:9,  name:'Transcarpathia Medical Center',  country:'Ukraine',      lat:48.44,  lng:22.70,  region:'Europe'},
+  {id:10, name:'Rivne Community Clinic',         country:'Ukraine',      lat:50.62,  lng:26.25,  region:'Europe'},
+  {id:11, name:'Lugansk Medical Ministry',       country:'Ukraine',      lat:48.57,  lng:39.31,  region:'Europe'},
+  // Kenya — Africa
+  {id:12, name:'Nairobi Health Ministry',        country:'Kenya',        lat:-1.29,  lng:36.82,  region:'Africa'},
+  // Indonesia — Asia
+  {id:13, name:'Papua Health Ministry',          country:'Indonesia',    lat:-4.27,  lng:138.08, region:'Asia'},
+  // Mexico — Latin America
   {id:14, name:'Jalapa Community Clinic',        country:'Mexico',       lat:19.53,  lng:-96.92, region:'Latin America'},
   {id:15, name:'Eloxochitlan Health Ministry',   country:'Mexico',       lat:18.45,  lng:-97.08, region:'Latin America'},
-  // Ecuador
+  // Ecuador — Latin America
   {id:16, name:'Quininde Community Clinic',      country:'Ecuador',      lat:0.32,   lng:-79.47, region:'Latin America'},
-  // Cameroon
-  {id:17, name:'Bamenda Medical Ministry',       country:'Cameroon',     lat:5.96,   lng:10.15,  region:'Sub-Saharan Africa'},
-  {id:18, name:'Mbongo Health Ministry',         country:'Cameroon',     lat:4.35,   lng:9.25,   region:'Sub-Saharan Africa'},
-  // Mali
-  {id:19, name:'Kayes Health Ministry',          country:'Mali',         lat:14.45,  lng:-11.44, region:'Sub-Saharan Africa'},
-  {id:20, name:'Segou Community Clinic',         country:'Mali',         lat:13.45,  lng:-6.27,  region:'Sub-Saharan Africa'},
-  {id:21, name:'Kaniaka Health Ministry',        country:'Mali',         lat:12.85,  lng:-8.55,  region:'Sub-Saharan Africa'},
-  // Nepal
-  {id:22, name:'Birtamod Community Health',      country:'Nepal',        lat:26.64,  lng:87.99,  region:'South Asia'},
-  // Benin
-  {id:23, name:"N'Dali Health Ministry",         country:'Benin',        lat:9.86,   lng:2.70,   region:'Sub-Saharan Africa'},
-  {id:24, name:'Tchaourou Medical Center',       country:'Benin',        lat:8.88,   lng:2.60,   region:'Sub-Saharan Africa'},
-  // Haiti
-  {id:25, name:'Cayes-Jacmel Community Clinic',  country:'Haiti',        lat:18.23,  lng:-72.53, region:'Caribbean'},
-  // Bolivia
+  // Cameroon — Africa
+  {id:17, name:'Bamenda Medical Ministry',       country:'Cameroon',     lat:5.96,   lng:10.15,  region:'Africa'},
+  {id:18, name:'Mbongo Health Ministry',         country:'Cameroon',     lat:4.35,   lng:9.25,   region:'Africa'},
+  // Mali — Africa
+  {id:19, name:'Kayes Health Ministry',          country:'Mali',         lat:14.45,  lng:-11.44, region:'Africa'},
+  {id:20, name:'Segou Community Clinic',         country:'Mali',         lat:13.45,  lng:-6.27,  region:'Africa'},
+  {id:21, name:'Kaniaka Health Ministry',        country:'Mali',         lat:12.85,  lng:-8.55,  region:'Africa'},
+  // Nepal — Asia
+  {id:22, name:'Birtamod Community Health',      country:'Nepal',        lat:26.64,  lng:87.99,  region:'Asia'},
+  // Benin — Africa
+  {id:23, name:"N'Dali Health Ministry",         country:'Benin',        lat:9.86,   lng:2.70,   region:'Africa'},
+  {id:24, name:'Tchaourou Medical Center',       country:'Benin',        lat:8.88,   lng:2.60,   region:'Africa'},
+  // Haiti — Latin America
+  {id:25, name:'Cayes-Jacmel Community Clinic',  country:'Haiti',        lat:18.23,  lng:-72.53, region:'Latin America'},
+  // Bolivia — Latin America
   {id:26, name:'Chilimarca Health Ministry',     country:'Bolivia',      lat:-17.39, lng:-66.16, region:'Latin America'},
-  // Niger
-  {id:27, name:'Madaoua Medical Ministry',       country:'Niger',        lat:14.08,  lng:5.96,   region:'Sub-Saharan Africa'},
-  {id:28, name:'Maradi Community Clinic',        country:'Niger',        lat:13.50,  lng:7.10,   region:'Sub-Saharan Africa'},
-  {id:29, name:'Tekanassar Health Ministry',     country:'Niger',        lat:15.22,  lng:5.26,   region:'Sub-Saharan Africa'},
-  // Liberia
-  {id:30, name:'Monrovia Health Ministry',       country:'Liberia',      lat:6.29,   lng:-10.75, region:'Sub-Saharan Africa'},
-  // Chad
-  {id:31, name:'Moundou Medical Center',         country:'Chad',         lat:8.57,   lng:16.08,  region:'Sub-Saharan Africa'},
-  // Nicaragua
+  // Niger — Africa
+  {id:27, name:'Madaoua Medical Ministry',       country:'Niger',        lat:14.08,  lng:5.96,   region:'Africa'},
+  {id:28, name:'Maradi Community Clinic',        country:'Niger',        lat:13.50,  lng:7.10,   region:'Africa'},
+  {id:29, name:'Tekanassar Health Ministry',     country:'Niger',        lat:15.22,  lng:5.26,   region:'Africa'},
+  // Liberia — Africa
+  {id:30, name:'Monrovia Health Ministry',       country:'Liberia',      lat:6.29,   lng:-10.75, region:'Africa'},
+  // Chad — Africa
+  {id:31, name:'Moundou Medical Center',         country:'Chad',         lat:8.57,   lng:16.08,  region:'Africa'},
+  // Nicaragua — Latin America
   {id:32, name:'Leon Community Health',          country:'Nicaragua',    lat:12.43,  lng:-86.88, region:'Latin America'},
   {id:33, name:'Ministerio Clinica Jehova Rafa', country:'Nicaragua',    lat:12.13,  lng:-86.28, region:'Latin America'},
-  // Dominican Republic
-  {id:34, name:'Rafey Health Ministry',          country:'Dominican Republic', lat:19.45, lng:-70.70, region:'Caribbean'},
-  // El Salvador
+  // Dominican Republic — Latin America
+  {id:34, name:'Rafey Health Ministry',          country:'Dominican Republic', lat:19.45, lng:-70.70, region:'Latin America'},
+  // El Salvador — Latin America
   {id:35, name:'Metapan Community Clinic',       country:'El Salvador',  lat:14.33,  lng:-89.44, region:'Latin America'},
-  // Kyrgyzstan
-  {id:36, name:'Tokmok Health Ministry',         country:'Kyrgyzstan',   lat:42.84,  lng:75.30,  region:'Central Asia'},
-  // Sri Lanka
-  {id:37, name:'Habaraduwa Medical Center',      country:'Sri Lanka',    lat:6.04,   lng:80.25,  region:'South Asia'},
-  // Egypt
-  {id:38, name:'Northern Egypt Ministry',        country:'Egypt',        lat:30.50,  lng:28.50,  region:'Middle East & N. Africa'},
-  // China
-  {id:39, name:'Anshan Ministry',               country:'China',         lat:41.12,  lng:122.99, region:'Central Asia'},
-  // South Sudan
-  {id:40, name:'Juba Health Ministry',           country:'South Sudan',  lat:4.85,   lng:31.60,  region:'Sub-Saharan Africa'},
+  // Kyrgyzstan — Asia
+  {id:36, name:'Tokmok Health Ministry',         country:'Kyrgyzstan',   lat:42.84,  lng:75.30,  region:'Asia'},
+  // Sri Lanka — Asia
+  {id:37, name:'Habaraduwa Medical Center',      country:'Sri Lanka',    lat:6.04,   lng:80.25,  region:'Asia'},
+  // Egypt — Africa
+  {id:38, name:'Northern Egypt Ministry',        country:'Egypt',        lat:30.50,  lng:28.50,  region:'Africa'},
+  // China — Asia
+  {id:39, name:'Anshan Ministry',               country:'China',         lat:41.12,  lng:122.99, region:'Asia'},
+  // South Sudan — Africa
+  {id:40, name:'Juba Health Ministry',           country:'South Sudan',  lat:4.85,   lng:31.60,  region:'Africa'},
 ];
 
 const REGION_COLORS = {
-  'Latin America':          '#534AB7',
-  'Sub-Saharan Africa':     '#1D9E75',
-  'South Asia':             '#BA7517',
-  'Southeast Asia':         '#185FA5',
-  'Eastern Europe':         '#854F0B',
-  'Caribbean':              '#D4537E',
-  'Central Asia':           '#639922',
-  'Middle East & N. Africa':'#A32D2D',
+  'Africa':        '#2E7D4F',
+  'Asia':          '#1A5FA8',
+  'Europe':        '#C2547A',
+  'Latin America': '#C49A0A',
 };
 
 let mapInitialized = false;
@@ -2746,6 +2730,12 @@ function initMap() {
   // Legend
   const legend = document.createElement('div');
   legend.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;padding:0 0 12px;';
+  const regionLabels = {
+    'Africa': 'Africa (green)',
+    'Asia': 'Asia (blue)',
+    'Europe': 'Europe (rose)',
+    'Latin America': 'Latin America (gold)',
+  };
   Object.entries(REGION_COLORS).forEach(([region, color]) => {
     legend.innerHTML += `<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);">
       <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block;"></span>${region}
@@ -2816,13 +2806,10 @@ function initMap() {
       const shortcuts = document.createElement('div');
       shortcuts.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:10px 0 4px;';
       const zoomRegions = [
-        {label:'Latin America', lng:-85, lat:5,   scale:2.8},
-        {label:'W. Africa',     lng:5,   lat:10,  scale:3.5},
-        {label:'E. Africa',     lng:35,  lat:0,   scale:3.5},
-        {label:'South Asia',    lng:82,  lat:22,  scale:3.2},
-        {label:'SE Asia',       lng:118, lat:5,   scale:3.5},
-        {label:'E. Europe',     lng:32,  lat:49,  scale:4.0},
-        {label:'Caribbean',     lng:-70, lat:18,  scale:5.0},
+        {label:'Africa',        lng:20,  lat:5,   scale:2.2},
+        {label:'Asia',          lng:95,  lat:20,  scale:2.0},
+        {label:'Europe',        lng:32,  lat:49,  scale:4.0},
+        {label:'Latin America', lng:-75, lat:5,   scale:2.5},
       ];
       zoomRegions.forEach(r => {
         shortcuts.innerHTML += `<button onclick="zoomToRegion(${r.lng},${r.lat},${r.scale})" style="font-size:11px;padding:4px 10px;border-radius:20px;">${r.label}</button>`;
