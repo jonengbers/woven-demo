@@ -1127,7 +1127,6 @@ function showMinistryDetail(id, period) {
 
   const hsContainer = document.getElementById('dp-health-score');
   const isSameMinistry = id === previousMinistryId && hsContainer !== null;
-  console.log('showMinistryDetail:', {id, period, previousMinistryId, isSameMinistry, hasContainer: !!hsContainer});
 
   if (isSameMinistry) {
     // Just update the period button styles and reload data
@@ -3840,7 +3839,7 @@ document.addEventListener('click', function(e) {
 
 
 
-async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period) {
+async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period, totalConsults) {
   // Default to flat if we can't compare
   const communityReachVal = totalPatients > 0 ? Math.round((agg.consult_community||0) / Math.max(totalConsults,1) * 100) : 0;
   const flat = {
@@ -3975,7 +3974,6 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
 
 async function buildHealthScore(agg, period, totalConsults, reportCount) {
   const container = document.getElementById('dp-health-score');
-  console.log('buildHealthScore called:', {period, totalConsults, hasContainer: !!container, agg_consult_clinic: agg.consult_clinic, agg_community: agg.consult_community});
   if (!container) return;
 
   // Calculate key ratios
@@ -3994,7 +3992,7 @@ async function buildHealthScore(agg, period, totalConsults, reportCount) {
     lsDependency:   { val: lsDependency,      trend: 'down', label: 'Decreasing' },
     charityRate:    { val: charityRate,        trend: 'flat', label: 'Stable' },
     communityReach: { val: communityReachDemo, trend: 'up',   label: 'Growing' },
-  } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period);
+  } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period, totalConsults);
 
   const trendIcon = (t, metric) => {
     // For cost per patient: down is good (green), up is bad (red)
