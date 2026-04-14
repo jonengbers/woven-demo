@@ -264,8 +264,8 @@ button:hover{background:var(--surface2);}
         <div style="display:flex;align-items:center;gap:8px;">
           <select id="year-filter" style="width:auto;font-size:12px;" onchange="loadDashboard()">
             <option value="">Latest month</option>
-            <option value="2026">2026</option>
-            <option value="2025">2025</option>
+            <option value="2026">Full year 2026</option>
+            <option value="2025">Full year 2025</option>
           </select>
           <div id="dash-loading" class="hidden"><span class="spinner"></span></div>
         </div>
@@ -940,12 +940,76 @@ async function loadDashboard() {
   if (DEMO_MODE) {
     ministriesData = region ? DEMO_MINISTRIES.filter(m => m.region === region) : [...DEMO_MINISTRIES];
   } else {
-    let q = sb.from('ministry_dashboard').select('*');
-    if (region) q = q.eq('region', region);
-    // If a specific year is selected, filter reports to that year
-    if (year) q = q.eq('report_year', parseInt(year));
-    const { data } = await q;
-    ministriesData = data || [];
+    if (year) {
+      // For a specific year, aggregate all months from monthly_reports directly
+      let mq = sb.from('ministries').select(`
+        id, name, short_name, country, country_code, region, director_name,
+        monthly_reports!inner(
+          id, report_year, report_month, status,
+          financial_summary(total_income_usd, total_expenses_usd, ending_balance_usd, luke_society_support_usd),
+          clinical_stats(consult_clinic, consult_community, consult_dental, consult_spiritual, services_pharmacy, services_lab, pay_full, pay_partial, pay_charity)
+        )
+      `).eq('active', true).eq('monthly_reports.report_year', parseInt(year));
+      if (region) mq = mq.eq('region', region);
+      const { data: rawData } = await mq;
+
+      // Aggregate per ministry
+      ministriesData = (rawData || []).map(m => {
+        const reports = m.monthly_reports || [];
+        let totalConsults = 0, pharmacy = 0, lab = 0;
+        let income = 0, expenses = 0, balance = 0, lsSupport = 0;
+        let payFull = 0, payPartial = 0, payCharity = 0;
+        let filed = 0;
+        reports.forEach(r => {
+          const cs = r.clinical_stats;
+          const fs = r.financial_summary;
+          if (cs) {
+            totalConsults += (cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0);
+            pharmacy += cs.services_pharmacy||0;
+            lab += cs.services_lab||0;
+            payFull += cs.pay_full||0;
+            payPartial += cs.pay_partial||0;
+            payCharity += cs.pay_charity||0;
+          }
+          if (fs) {
+            income += fs.total_income_usd||0;
+            expenses += fs.total_expenses_usd||0;
+            lsSupport += fs.luke_society_support_usd||0;
+            balance = fs.ending_balance_usd||0; // use last month's balance
+          }
+          if (r.status === 'submitted' || r.status === 'approved') filed++;
+        });
+        const budgetPct = income > 0 ? Math.round(expenses/income*100) : 0;
+        return {
+          ministry_id: m.id,
+          ministry_name: m.name,
+          short_name: m.short_name,
+          country: m.country,
+          country_code: m.country_code,
+          region: m.region,
+          director_name: m.director_name,
+          report_status: filed > 0 ? 'submitted' : 'pending',
+          report_year: parseInt(year),
+          total_consultations: totalConsults,
+          services_pharmacy: pharmacy,
+          services_lab: lab,
+          total_income_usd: Math.round(income),
+          total_expenses_usd: Math.round(expenses),
+          ending_balance_usd: Math.round(balance),
+          luke_society_support_usd: Math.round(lsSupport),
+          budget_utilization_pct: budgetPct,
+          pay_full: payFull,
+          pay_partial: payPartial,
+          pay_charity: payCharity,
+        };
+      });
+    } else {
+      // Latest month view — use ministry_dashboard view
+      let q = sb.from('ministry_dashboard').select('*');
+      if (region) q = q.eq('region', region);
+      const { data } = await q;
+      ministriesData = data || [];
+    }
   }
   renderMetrics();
   renderTable();
