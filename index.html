@@ -3799,11 +3799,12 @@ document.addEventListener('click', function(e) {
 
 async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate) {
   // Default to flat if we can't compare
+  const communityReachVal = totalPatients > 0 ? Math.round((agg.consult_community||0) / Math.max(totalConsults,1) * 100) : 0;
   const flat = {
-    costPerPatient: { val: costPerPatient, trend: 'flat', label: 'No prior data' },
-    lsDependency:   { val: lsDependency,   trend: 'flat', label: 'No prior data' },
-    charityRate:    { val: charityRate,     trend: 'flat', label: 'No prior data' },
-    selfSustain:    { val: 100-lsDependency, trend: 'flat', label: 'No prior data' },
+    costPerPatient: { val: costPerPatient,    trend: 'flat', label: 'No prior data' },
+    lsDependency:   { val: lsDependency,      trend: 'flat', label: 'No prior data' },
+    charityRate:    { val: charityRate,        trend: 'flat', label: 'No prior data' },
+    communityReach: { val: communityReachVal,  trend: 'flat', label: 'No prior data' },
   };
   if (!sb || !currentDetailMinistryId) return flat;
 
@@ -3851,6 +3852,27 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
       return delta > 0 ? 'up' : 'down';
     };
 
+    // Also fetch prior community reach
+    let priorCommunity = 0, priorTotalConsults = 0;
+    // reuse priorMonths data already fetched above via clinical_stats
+    // We need consult_community and total consults from prior period
+    for (const {y, m} of priorMonths) {
+      const { data: csData } = await sb.from('monthly_reports')
+        .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual)')
+        .eq('ministry_id', currentDetailMinistryId)
+        .eq('report_year', y).eq('report_month', m);
+      (csData||[]).forEach(r => {
+        if (r.clinical_stats) {
+          const cs = r.clinical_stats;
+          priorCommunity     += cs.consult_community||0;
+          priorTotalConsults += (cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0);
+        }
+      });
+    }
+    const priorCommunityReach = priorTotalConsults > 0 ? Math.round(priorCommunity / priorTotalConsults * 100) : 0;
+    const communityReach = agg.consult_community > 0 && totalConsults > 0
+      ? Math.round((agg.consult_community||0) / totalConsults * 100) : 0;
+
     return {
       costPerPatient: {
         val: costPerPatient,
@@ -3867,10 +3889,10 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
         trend: trendDir(charityRate, priorCharityRate, false),
         label: priorCharityRate > 0 ? (charityRate > priorCharityRate ? 'Growing' : charityRate < priorCharityRate ? 'Declining' : 'Stable') : 'No prior data'
       },
-      selfSustain: {
-        val: 100 - lsDependency,
-        trend: trendDir(100-lsDependency, 100-priorLsDep, false),
-        label: priorLsDep > 0 ? (lsDependency < priorLsDep ? 'Growing' : lsDependency > priorLsDep ? 'Declining' : 'Stable') : 'No prior data'
+      communityReach: {
+        val: communityReach,
+        trend: trendDir(communityReach, priorCommunityReach, false),
+        label: priorCommunityReach > 0 ? (communityReach > priorCommunityReach ? 'Growing' : communityReach < priorCommunityReach ? 'Declining' : 'Stable') : 'No prior data'
       },
     };
   } catch(e) {
@@ -3894,11 +3916,12 @@ async function buildHealthScore(agg, period, totalConsults, reportCount) {
   // For trend data we need historical comparison — use demo values or fetch
   // Trend arrows: up/down/flat based on comparison to prior period
   // In demo mode generate plausible trends
+  const communityReachDemo = totalConsults > 0 ? Math.round((agg.consult_community||0) / totalConsults * 100) : 0;
   const trends = DEMO_MODE ? {
-    costPerPatient: { val: costPerPatient, trend: 'down', label: 'Improving' },
-    lsDependency:   { val: lsDependency,   trend: 'down', label: 'Improving' },
-    charityRate:    { val: charityRate,     trend: 'flat', label: 'Stable' },
-    selfSustain:    { val: 100-lsDependency, trend: 'up', label: 'Growing' },
+    costPerPatient: { val: costPerPatient,    trend: 'down', label: 'Improving' },
+    lsDependency:   { val: lsDependency,      trend: 'down', label: 'Decreasing' },
+    charityRate:    { val: charityRate,        trend: 'flat', label: 'Stable' },
+    communityReach: { val: communityReachDemo, trend: 'up',   label: 'Growing' },
   } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate);
 
   const trendIcon = (t, metric) => {
@@ -3907,7 +3930,7 @@ async function buildHealthScore(agg, period, totalConsults, reportCount) {
     // For charity rate: stable/up is good (mission alignment)
     // For self-sustain: up is good
     const goodDown = ['costPerPatient', 'lsDependency'];
-    const goodUp   = ['charityRate', 'selfSustain'];
+    const goodUp   = ['charityRate', 'communityReach'];
     if (t === 'flat') return { icon: '→', color: 'var(--amber)', bg: 'var(--amber-l)' };
     if (goodDown.includes(metric)) {
       return t === 'down'
@@ -3919,34 +3942,34 @@ async function buildHealthScore(agg, period, totalConsults, reportCount) {
       : { icon: '↓', color: 'var(--red)',   bg: 'var(--red-l)' };
   };
 
+  const communityConsults = agg.consult_community || 0;
+  const clinicConsults = agg.consult_clinic || 0;
+  const communityReach = totalConsults > 0 ? Math.round(communityConsults / totalConsults * 100) : 0;
+
   const indicators = [
     {
       key: 'costPerPatient',
       label: 'Cost per patient',
       value: costPerPatient > 0 ? '$' + costPerPatient.toFixed(2) : '—',
-      description: 'Total expenses ÷ patients seen. Lower over time = greater efficiency.',
-      good: 'Declining trend means the ministry is serving more people per dollar.',
+      description: 'Total expenses ÷ patients seen. Declining over time = greater efficiency.',
     },
     {
       key: 'lsDependency',
       label: 'LS dependency',
       value: lsDependency + '%',
       description: 'Luke Society support as % of total income. Decreasing = progress toward self-sustainability.',
-      good: 'Ministries typically graduate when LS support falls below 30%.',
     },
     {
       key: 'charityRate',
       label: 'Charity patient rate',
       value: charityRate + '%',
-      description: 'Patients receiving free care. Stable or growing = mission alignment.',
-      good: 'This should remain high — it reflects commitment to serving the poorest.',
+      description: 'Patients receiving free care. Stable or growing = mission faithfulness.',
     },
     {
-      key: 'selfSustain',
-      label: 'Self-sustainability',
-      value: (100-lsDependency) + '%',
-      description: 'Local income as % of total income. Growing = progress toward independence.',
-      good: 'A healthy trajectory shows gradual growth in local revenue over years.',
+      key: 'communityReach',
+      label: 'Community reach',
+      value: communityReach + '%',
+      description: 'Community visits as % of total consultations. Growing = proactive outreach beyond clinic walls.',
     },
   ];
 
