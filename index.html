@@ -224,10 +224,10 @@ button:hover{background:var(--surface2);}
       <button class="tnav" onclick="showScreen('ministries',this)" data-i18n="nav_ministries">Ministries</button>
       <button class="tnav" onclick="showScreen('compare',this)" data-i18n="nav_compare">Compare</button>
       <button class="tnav hidden" id="nav-submit" onclick="showScreen('submit',this)" data-i18n="nav_submit">Submit report</button>
-      <button class="tnav hidden" id="nav-admin" onclick="showScreen('admin',this)">Admin</button>
       <button class="tnav" onclick="showScreen('map',this)" data-i18n="nav_map">World map</button>
       <button class="tnav" onclick="showScreen('messages',this)" data-i18n="nav_messages">Messages</button>
     </div>
+    <button class="tnav hidden" id="nav-admin" onclick="showScreen('admin',document.getElementById('nav-admin'))" style="margin-right:4px;">Admin</button>
     <div class="user-pill" style="position:relative;">
       <div id="user-dropdown-trigger" onclick="toggleUserMenu()" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 8px;border-radius:var(--r-md);transition:background .15s;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
         <div class="av" id="user-av">?</div>
