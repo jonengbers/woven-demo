@@ -534,10 +534,92 @@ button:hover{background:var(--surface2);}
         </div>
       </div>
 
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <!-- Ministry edit modal -->
+      <div id="edit-ministry-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:200;">
+        <div class="card" style="width:100%;max-width:500px;margin:20px;max-height:90vh;overflow-y:auto;">
+          <div style="font-size:15px;font-weight:600;margin-bottom:16px;" id="ministry-modal-title">Add ministry</div>
+          <input type="hidden" id="edit-ministry-id"/>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-row-1" style="grid-column:1/-1;">
+              <div class="flabel">Ministry name</div>
+              <input type="text" id="edit-ministry-name" placeholder="e.g. Clínica Jehová Rafa"/>
+            </div>
+            <div class="form-row-1">
+              <div class="flabel">Short name</div>
+              <input type="text" id="edit-ministry-short" placeholder="e.g. Jehová Rafa"/>
+            </div>
+            <div class="form-row-1">
+              <div class="flabel">Country</div>
+              <input type="text" id="edit-ministry-country" placeholder="e.g. Nicaragua"/>
+            </div>
+            <div class="form-row-1">
+              <div class="flabel">Country code (2 letters)</div>
+              <input type="text" id="edit-ministry-code" placeholder="e.g. NI" maxlength="2" style="text-transform:uppercase;"/>
+            </div>
+            <div class="form-row-1">
+              <div class="flabel">Region</div>
+              <select id="edit-ministry-region">
+                <option value="Africa">Africa</option>
+                <option value="Asia">Asia</option>
+                <option value="Europe">Europe</option>
+                <option value="Latin America">Latin America</option>
+              </select>
+            </div>
+            <div class="form-row-1">
+              <div class="flabel">Director name</div>
+              <input type="text" id="edit-ministry-director" placeholder="e.g. Dr. E. Vargas"/>
+            </div>
+            <div class="form-row-1">
+              <div class="flabel">Primary language</div>
+              <select id="edit-ministry-lang">
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="pt">Portuguese</option>
+                <option value="ar">Arabic</option>
+                <option value="hi">Hindi</option>
+                <option value="bn">Bengali</option>
+                <option value="ne">Nepali</option>
+                <option value="my">Burmese</option>
+                <option value="id">Indonesian</option>
+                <option value="uk">Ukrainian</option>
+                <option value="ky">Kyrgyz</option>
+              </select>
+            </div>
+            <div class="form-row-1">
+              <div class="flabel">Local currency code</div>
+              <input type="text" id="edit-ministry-currency" placeholder="e.g. NIO, KES, XOF" maxlength="5" style="text-transform:uppercase;"/>
+            </div>
+          </div>
+          <div class="form-row-1" style="margin-top:6px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <input type="checkbox" id="edit-ministry-active" checked style="width:16px;height:16px;"/>
+              <label for="edit-ministry-active" style="font-size:13px;color:var(--text);">Active ministry</label>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px;">
+            <button class="btn-primary" onclick="saveMinistryEdit()">Save ministry</button>
+            <button onclick="closeMinistryModal()">Cancel</button>
+            <button id="delete-ministry-btn" onclick="confirmDeleteMinistry()" style="margin-left:auto;color:var(--red);border-color:var(--red);display:none;">Deactivate</button>
+          </div>
+          <div id="ministry-modal-error" style="font-size:12px;color:var(--red);margin-top:8px;"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
         <div style="font-size:18px;font-weight:600;">Admin panel</div>
         <div style="font-size:12px;color:var(--text2);" id="admin-last-updated"></div>
       </div>
+
+      <!-- Admin tabs -->
+      <div style="display:flex;gap:0;margin-bottom:18px;border-bottom:0.5px solid var(--border);">
+        <button onclick="switchAdminTab('users')" id="atab-users" style="font-size:13px;padding:8px 18px;border:none;border-bottom:2px solid #534AB7;color:#534AB7;font-weight:500;background:transparent;cursor:pointer;margin-bottom:-1px;">Users</button>
+        <button onclick="switchAdminTab('ministries')" id="atab-ministries" style="font-size:13px;padding:8px 18px;border:none;border-bottom:2px solid transparent;color:var(--text2);background:transparent;cursor:pointer;margin-bottom:-1px;">Ministries</button>
+        <button onclick="switchAdminTab('reports')" id="atab-reports" style="font-size:13px;padding:8px 18px;border:none;border-bottom:2px solid transparent;color:var(--text2);background:transparent;cursor:pointer;margin-bottom:-1px;">Report status</button>
+      </div>
+
+      <!-- USERS TAB -->
+      <div id="admin-tab-users">
 
       <!-- Pending approvals -->
       <div class="card" style="margin-bottom:16px;">
@@ -562,12 +644,30 @@ button:hover{background:var(--surface2);}
         <div id="users-table"></div>
       </div>
 
-      <!-- Report filing status -->
-      <div class="card">
-        <div style="font-size:14px;font-weight:600;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">
-          Monthly report status — <span id="report-month-label"></span>
+      </div> <!-- end admin-tab-users -->
+
+      <!-- MINISTRIES TAB -->
+      <div id="admin-tab-ministries" style="display:none;">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">
+            <div style="font-size:14px;font-weight:600;">All ministries</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="text" id="ministry-search" placeholder="Search..." style="font-size:12px;padding:5px 10px;width:160px;" oninput="filterMinistriesTable(this.value)"/>
+              <button class="btn-primary" onclick="openAddMinistryModal()" style="font-size:12px;padding:5px 12px;">+ Add ministry</button>
+            </div>
+          </div>
+          <div id="ministries-admin-table"></div>
         </div>
-        <div id="report-status-grid"></div>
+      </div>
+
+      <!-- REPORT STATUS TAB -->
+      <div id="admin-tab-reports" style="display:none;">
+        <div class="card">
+          <div style="font-size:14px;font-weight:600;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">
+            Monthly report status — <span id="report-month-label"></span>
+          </div>
+          <div id="report-status-grid"></div>
+        </div>
       </div>
 
     </div>
@@ -2924,8 +3024,11 @@ function showDeactivatedScreen() {
 async function loadAdminPanel() {
   const now = new Date();
   document.getElementById('admin-last-updated').textContent = 'Updated ' + now.toLocaleTimeString();
-  document.getElementById('report-month-label').textContent =
-    now.toLocaleString('default', {month:'long', year:'numeric'});
+  // Set report month label if element exists
+  const rml = document.getElementById('report-month-label');
+  if (rml) rml.textContent = now.toLocaleString('default', {month:'long', year:'numeric'});
+  // Reset to users tab
+  switchAdminTab('users');
 
   if (DEMO_MODE) {
     renderPendingList([
@@ -3357,6 +3460,239 @@ function buildMessageElement(m) {
     <div class="msg-bubble${isOwn?' own':''}">${bodyHtml}${imageHtml}</div>`;
   return el;
 }
+
+
+// ── ADMIN MINISTRY MANAGEMENT ──
+let allMinistriesAdmin = [];
+
+function switchAdminTab(tab) {
+  ['users','ministries','reports'].forEach(t => {
+    const btn = document.getElementById('atab-'+t);
+    const panel = document.getElementById('admin-tab-'+t);
+    if (btn) {
+      btn.style.borderBottomColor = t === tab ? '#534AB7' : 'transparent';
+      btn.style.color = t === tab ? '#534AB7' : 'var(--text2)';
+      btn.style.fontWeight = t === tab ? '500' : '400';
+    }
+    if (panel) panel.style.display = t === tab ? 'block' : 'none';
+  });
+
+  if (tab === 'ministries' && allMinistriesAdmin.length === 0) {
+    loadMinistriesAdmin();
+  }
+  if (tab === 'reports') {
+    renderReportStatus();
+  }
+}
+
+async function loadMinistriesAdmin() {
+  const container = document.getElementById('ministries-admin-table');
+  if (!container) return;
+
+  if (DEMO_MODE) {
+    allMinistriesAdmin = ministriesData.map(m => ({
+      id: m.ministry_id,
+      name: m.ministry_name,
+      country: m.country,
+      region: m.region,
+      director_name: m.director_name,
+      primary_language: 'es',
+      local_currency_code: 'NIO',
+      active: true
+    }));
+    renderMinistriesTable(allMinistriesAdmin);
+    return;
+  }
+
+  try {
+    const { data } = await sb
+      .from('ministries')
+      .select('id, name, short_name, country, country_code, region, director_name, primary_language, local_currency_code, active')
+      .order('region')
+      .order('name');
+
+    allMinistriesAdmin = data || [];
+    renderMinistriesTable(allMinistriesAdmin);
+  } catch(e) {
+    container.innerHTML = `<div style="color:var(--red);padding:16px;">Error: ${e.message}</div>`;
+  }
+}
+
+function renderMinistriesTable(ministries) {
+  const container = document.getElementById('ministries-admin-table');
+  if (!container) return;
+
+  const regionColors = {
+    'Africa': '#2E7D4F', 'Asia': '#1A5FA8',
+    'Europe': '#C2547A', 'Latin America': '#C49A0A'
+  };
+
+  if (!ministries.length) {
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">No ministries found</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="border-bottom:0.5px solid var(--border);">
+          <th style="text-align:left;padding:8px 6px;font-size:11px;color:var(--text2);font-weight:500;">Ministry</th>
+          <th style="text-align:left;padding:8px 6px;font-size:11px;color:var(--text2);font-weight:500;">Country</th>
+          <th style="text-align:left;padding:8px 6px;font-size:11px;color:var(--text2);font-weight:500;">Region</th>
+          <th style="text-align:left;padding:8px 6px;font-size:11px;color:var(--text2);font-weight:500;">Director</th>
+          <th style="text-align:left;padding:8px 6px;font-size:11px;color:var(--text2);font-weight:500;">Status</th>
+          <th style="text-align:right;padding:8px 6px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${ministries.map(m => {
+          const rc = regionColors[m.region] || '#888';
+          return `<tr style="border-bottom:0.5px solid var(--border);" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+            <td style="padding:10px 6px;font-weight:500;">${m.name}</td>
+            <td style="padding:10px 6px;color:var(--text2);">${m.country}</td>
+            <td style="padding:10px 6px;"><span style="font-size:11px;padding:2px 7px;border-radius:4px;background:${rc}20;color:${rc};">${m.region}</span></td>
+            <td style="padding:10px 6px;color:var(--text2);">${m.director_name||'—'}</td>
+            <td style="padding:10px 6px;">
+              <span style="font-size:11px;padding:2px 7px;border-radius:4px;background:${m.active?'var(--green-l)':'var(--surface2)'};color:${m.active?'var(--green)':'var(--text2)'};">
+                ${m.active ? 'Active' : 'Inactive'}
+              </span>
+            </td>
+            <td style="padding:10px 6px;text-align:right;">
+              <button onclick="openEditMinistryModal(${m.id})" style="font-size:11px;padding:3px 9px;">Edit</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+function filterMinistriesTable(query) {
+  const q = query.toLowerCase();
+  const filtered = q
+    ? allMinistriesAdmin.filter(m =>
+        m.name.toLowerCase().includes(q) ||
+        m.country.toLowerCase().includes(q) ||
+        (m.region||'').toLowerCase().includes(q) ||
+        (m.director_name||'').toLowerCase().includes(q))
+    : allMinistriesAdmin;
+  renderMinistriesTable(filtered);
+}
+
+function openAddMinistryModal() {
+  document.getElementById('ministry-modal-title').textContent = 'Add ministry';
+  document.getElementById('edit-ministry-id').value = '';
+  document.getElementById('edit-ministry-name').value = '';
+  document.getElementById('edit-ministry-short').value = '';
+  document.getElementById('edit-ministry-country').value = '';
+  document.getElementById('edit-ministry-code').value = '';
+  document.getElementById('edit-ministry-region').value = 'Africa';
+  document.getElementById('edit-ministry-director').value = '';
+  document.getElementById('edit-ministry-lang').value = 'en';
+  document.getElementById('edit-ministry-currency').value = '';
+  document.getElementById('edit-ministry-active').checked = true;
+  document.getElementById('delete-ministry-btn').style.display = 'none';
+  document.getElementById('ministry-modal-error').textContent = '';
+  document.getElementById('edit-ministry-modal').classList.remove('hidden');
+  document.getElementById('edit-ministry-modal').style.display = 'flex';
+}
+
+function openEditMinistryModal(id) {
+  const m = allMinistriesAdmin.find(x => x.id === id);
+  if (!m) return;
+
+  document.getElementById('ministry-modal-title').textContent = 'Edit ministry';
+  document.getElementById('edit-ministry-id').value = id;
+  document.getElementById('edit-ministry-name').value = m.name || '';
+  document.getElementById('edit-ministry-short').value = m.short_name || '';
+  document.getElementById('edit-ministry-country').value = m.country || '';
+  document.getElementById('edit-ministry-code').value = m.country_code || '';
+  document.getElementById('edit-ministry-region').value = m.region || 'Africa';
+  document.getElementById('edit-ministry-director').value = m.director_name || '';
+  document.getElementById('edit-ministry-lang').value = m.primary_language || 'en';
+  document.getElementById('edit-ministry-currency').value = m.local_currency_code || '';
+  document.getElementById('edit-ministry-active').checked = m.active !== false;
+  document.getElementById('delete-ministry-btn').style.display = '';
+  document.getElementById('ministry-modal-error').textContent = '';
+  document.getElementById('edit-ministry-modal').classList.remove('hidden');
+  document.getElementById('edit-ministry-modal').style.display = 'flex';
+}
+
+function closeMinistryModal() {
+  document.getElementById('edit-ministry-modal').classList.add('hidden');
+  document.getElementById('edit-ministry-modal').style.display = 'none';
+}
+
+async function saveMinistryEdit() {
+  const id = document.getElementById('edit-ministry-id').value;
+  const name = document.getElementById('edit-ministry-name').value.trim();
+  const errEl = document.getElementById('ministry-modal-error');
+
+  if (!name) { errEl.textContent = 'Ministry name is required.'; return; }
+
+  const payload = {
+    name,
+    short_name: document.getElementById('edit-ministry-short').value.trim() || name,
+    country: document.getElementById('edit-ministry-country').value.trim(),
+    country_code: document.getElementById('edit-ministry-code').value.trim().toUpperCase(),
+    region: document.getElementById('edit-ministry-region').value,
+    director_name: document.getElementById('edit-ministry-director').value.trim(),
+    primary_language: document.getElementById('edit-ministry-lang').value,
+    local_currency_code: document.getElementById('edit-ministry-currency').value.trim().toUpperCase(),
+    active: document.getElementById('edit-ministry-active').checked,
+  };
+
+  if (DEMO_MODE) {
+    toast(id ? 'Ministry updated (demo mode)' : 'Ministry added (demo mode)', 'success');
+    closeMinistryModal();
+    return;
+  }
+
+  try {
+    if (id) {
+      const { error } = await sb.from('ministries').update(payload).eq('id', id);
+      if (error) throw error;
+      toast('Ministry updated', 'success');
+    } else {
+      const { error } = await sb.from('ministries').insert(payload);
+      if (error) throw error;
+      toast('Ministry added', 'success');
+    }
+    closeMinistryModal();
+    allMinistriesAdmin = [];
+    loadMinistriesAdmin();
+  } catch(e) {
+    errEl.textContent = 'Error: ' + e.message;
+  }
+}
+
+async function confirmDeleteMinistry() {
+  const id = document.getElementById('edit-ministry-id').value;
+  const name = document.getElementById('edit-ministry-name').value;
+  if (!confirm(`Deactivate "${name}"? This will hide it from the dashboard but preserve all historical data.`)) return;
+
+  if (DEMO_MODE) {
+    toast('Ministry deactivated (demo mode)', 'success');
+    closeMinistryModal();
+    return;
+  }
+
+  try {
+    const { error } = await sb.from('ministries').update({ active: false }).eq('id', id);
+    if (error) throw error;
+    toast('Ministry deactivated', 'success');
+    closeMinistryModal();
+    allMinistriesAdmin = [];
+    loadMinistriesAdmin();
+  } catch(e) {
+    document.getElementById('ministry-modal-error').textContent = 'Error: ' + e.message;
+  }
+}
+
+// Close ministry modal on backdrop click
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('edit-ministry-modal');
+  if (modal && e.target === modal) closeMinistryModal();
+});
 
 // ── WORLD MAP ──
 const MINISTRY_LOCATIONS = [
