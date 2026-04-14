@@ -1111,12 +1111,48 @@ function renderBudgetChart() {
 }
 
 // ── MINISTRY DETAIL ──
+let currentDetailPeriod = 'current';
+
 function showMinistryDetail(id, period) {
   period = period || 'current';
   const m = ministriesData.find(x => x.ministry_id === id);
   if (!m) return;
   detailCharts.forEach(c => c.destroy());
   detailCharts = [];
+
+  // If same ministry, just switch period without rebuilding the whole template
+  const isSameMinistry = id === currentDetailMinistryId && 
+    document.getElementById('dp-health-score') !== null;
+  currentDetailPeriod = period;
+
+  if (isSameMinistry) {
+    // Just update the period button styles and reload data
+    document.querySelectorAll('.period-btn').forEach(btn => {
+      btn.style.background = 'transparent';
+      btn.style.color = 'var(--text2)';
+      btn.style.fontWeight = '400';
+    });
+    const active = document.getElementById('period-' + period);
+    if (active) {
+      active.style.background = '#534AB7';
+      active.style.color = '#fff';
+      active.style.fontWeight = '500';
+    }
+    // Reset tabs and show loading
+    document.getElementById('dp-loading').style.display = 'block';
+    document.getElementById('dp-content').style.display = 'none';
+    document.getElementById('dp-health-score').style.display = 'none';
+    document.getElementById('dp-health-score').innerHTML = '';
+    const statsEl = document.getElementById('dp-stats');
+    if (statsEl) statsEl.innerHTML = '';
+    narrativeReportsLoaded = false;
+    prayerRequestsLoaded = false;
+    // Update period badge
+    const badge = document.getElementById('current-period-badge');
+    if (badge) badge.textContent = period === 'current' ? 'Current month' : period === 'ytd' ? 'YTD' : period === 'prev' ? 'Prior year' : 'All time';
+    loadMinistryPeriodData(id, period);
+    return;
+  }
 
   document.getElementById('ministry-detail-content').innerHTML = `
     <button onclick="showScreen('dashboard',document.querySelector('.tnav'))" style="margin-bottom:14px;">← Dashboard</button>
@@ -1133,6 +1169,7 @@ function showMinistryDetail(id, period) {
             <button onclick="showMinistryDetail(${m.ministry_id},'prev')" id="period-prev" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">Prior year</button>
             <button onclick="showMinistryDetail(${m.ministry_id},'all')" id="period-all" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">All time</button>
           </div>
+          <span id="current-period-badge" class="badge b-teal" style="font-size:12px;padding:4px 10px;">${period === 'current' ? 'Current month' : period === 'ytd' ? 'YTD' : period === 'prev' ? 'Prior year' : 'All time'}</span>
           <span class="badge ${m.report_status==='submitted'||m.report_status==='approved'?'b-green':'b-amber'}" style="font-size:12px;padding:4px 10px;">${m.report_status||'—'}</span>
         </div>
       </div>
@@ -1359,8 +1396,11 @@ async function loadMinistryPeriodData(ministryId, period) {
   document.getElementById('dp-loading').style.display = 'none';
   document.getElementById('dp-content').style.display = 'block';
 
-  // Build health score after dp-content is visible so DOM elements exist
-  setTimeout(() => buildHealthScore(agg, period, totalConsults, reportCount), 20);
+  // Snapshot agg values for health score (prevents closure issues)
+  const aggSnapshot = JSON.parse(JSON.stringify(agg));
+  const totalConsultsSnapshot = totalConsults;
+  const reportCountSnapshot = reportCount;
+  setTimeout(() => buildHealthScore(aggSnapshot, period, totalConsultsSnapshot, reportCountSnapshot), 50);
 
   // Trend chart title
   const trendTitles = {current:'Consultation breakdown',ytd:'Monthly trend (YTD)',prev:'Monthly trend (prior year)',all:'Monthly trend (all time)'};
