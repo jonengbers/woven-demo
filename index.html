@@ -1120,10 +1120,14 @@ function showMinistryDetail(id, period) {
   detailCharts.forEach(c => c.destroy());
   detailCharts = [];
 
-  // If same ministry, just switch period without rebuilding the whole template
-  const isSameMinistry = id === currentDetailMinistryId && 
-    document.getElementById('dp-health-score') !== null;
+  // Track current ministry BEFORE checking if it's the same
+  const previousMinistryId = currentDetailMinistryId;
+  currentDetailMinistryId = id;
   currentDetailPeriod = period;
+
+  // If same ministry, just switch period without rebuilding the whole template
+  const isSameMinistry = id === previousMinistryId && 
+    document.getElementById('dp-health-score') !== null;
 
   if (isSameMinistry) {
     // Just update the period button styles and reload data
@@ -1234,7 +1238,6 @@ function showMinistryDetail(id, period) {
     }
   }, 10);
 
-  currentDetailMinistryId = m.ministry_id;
   narrativeReportsLoaded = false;
   prayerRequestsLoaded = false;
   showScreen('ministries', null);
