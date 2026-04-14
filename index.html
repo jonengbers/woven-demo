@@ -3843,10 +3843,10 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
   // Default to flat if we can't compare
   const communityReachVal = totalPatients > 0 ? Math.round((agg.consult_community||0) / Math.max(totalConsults,1) * 100) : 0;
   const flat = {
-    costPerPatient: { val: costPerPatient,    trend: 'flat', label: 'No prior data' },
-    lsDependency:   { val: lsDependency,      trend: 'flat', label: 'No prior data' },
-    charityRate:    { val: charityRate,        trend: 'flat', label: 'No prior data' },
-    communityReach: { val: communityReachVal,  trend: 'flat', label: 'No prior data' },
+    costPerPatient: { val: costPerPatient,    trend: 'flat', label: 'Baseline (building history)' },
+    lsDependency:   { val: lsDependency,      trend: 'flat', label: 'Baseline (building history)' },
+    charityRate:    { val: charityRate,        trend: 'flat', label: 'Baseline (building history)' },
+    communityReach: { val: communityReachVal,  trend: 'flat', label: 'Baseline (building history)' },
   };
   if (!sb || !currentDetailMinistryId) return flat;
 
@@ -3854,27 +3854,46 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
+
+    // Quick check: does any prior period data exist for this ministry?
+    // This avoids slow queries when we know there's nothing to compare
+    const priorYear = period === 'prev' ? currentYear - 2 : currentYear - 1;
+    const { count: priorCount } = await sb
+      .from('monthly_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('ministry_id', currentDetailMinistryId)
+      .eq('report_year', priorYear);
+
+    if (!priorCount || priorCount === 0) {
+      // No prior year data — return baseline labels immediately
+      const baseLabel = period === 'current' ? 'Baseline (first year)' :
+                        period === 'ytd'     ? 'Baseline (first year)' :
+                        period === 'prev'    ? 'Baseline (no prior year)' : 'Baseline';
+      return {
+        costPerPatient: { val: costPerPatient,    trend: 'flat', label: baseLabel },
+        lsDependency:   { val: lsDependency,      trend: 'flat', label: baseLabel },
+        charityRate:    { val: charityRate,        trend: 'flat', label: baseLabel },
+        communityReach: { val: communityReachVal,  trend: 'flat', label: baseLabel },
+      };
+    }
+
     const priorMonths = [];
     let comparisonLabel = '';
 
     if (period === 'current') {
-      // Compare current month vs same month last year
       priorMonths.push({ y: currentYear - 1, m: currentMonth });
       comparisonLabel = 'vs same month last year';
     } else if (period === 'ytd') {
-      // Compare Jan–now vs same period last year
       for (let m = 1; m <= currentMonth; m++) {
         priorMonths.push({ y: currentYear - 1, m });
       }
       comparisonLabel = 'vs same period last year';
     } else if (period === 'prev') {
-      // Compare prior year vs the year before that
       for (let m = 1; m <= 12; m++) {
         priorMonths.push({ y: currentYear - 2, m });
       }
       comparisonLabel = 'vs two years prior';
     } else {
-      // All time — no meaningful comparison period
       return flat;
     }
 
