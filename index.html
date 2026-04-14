@@ -3660,6 +3660,8 @@ async function saveMinistryEdit() {
     closeMinistryModal();
     allMinistriesAdmin = [];
     loadMinistriesAdmin();
+    // Refresh dashboard data so changes appear immediately
+    await loadDashboard();
   } catch(e) {
     errEl.textContent = 'Error: ' + e.message;
   }
@@ -3683,6 +3685,8 @@ async function confirmDeleteMinistry() {
     closeMinistryModal();
     allMinistriesAdmin = [];
     loadMinistriesAdmin();
+    // Refresh dashboard data so changes appear immediately
+    await loadDashboard();
   } catch(e) {
     document.getElementById('ministry-modal-error').textContent = 'Error: ' + e.message;
   }
