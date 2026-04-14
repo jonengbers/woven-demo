@@ -3855,40 +3855,51 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
 
-    // Quick check: does any prior period data exist for this ministry?
-    // This avoids slow queries when we know there's nothing to compare
-    const priorYear = period === 'prev' ? currentYear - 2 : currentYear - 1;
-    const { count: priorCount } = await sb
-      .from('monthly_reports')
-      .select('id', { count: 'exact', head: true })
-      .eq('ministry_id', currentDetailMinistryId)
-      .eq('report_year', priorYear);
-
-    if (!priorCount || priorCount === 0) {
-      // No prior year data — return baseline labels immediately
-      const baseLabel = period === 'current' ? 'Baseline (first year)' :
-                        period === 'ytd'     ? 'Baseline (first year)' :
-                        period === 'prev'    ? 'Baseline (no prior year)' : 'Baseline';
-      return {
-        costPerPatient: { val: costPerPatient,    trend: 'flat', label: baseLabel },
-        lsDependency:   { val: lsDependency,      trend: 'flat', label: baseLabel },
-        charityRate:    { val: charityRate,        trend: 'flat', label: baseLabel },
-        communityReach: { val: communityReachVal,  trend: 'flat', label: baseLabel },
-      };
-    }
-
     const priorMonths = [];
     let comparisonLabel = '';
 
     if (period === 'current') {
-      priorMonths.push({ y: currentYear - 1, m: currentMonth });
-      comparisonLabel = 'vs same month last year';
+      // Compare vs prior month (most useful for month view)
+      const priorDate = new Date(currentYear, currentMonth - 2, 1);
+      priorMonths.push({ y: priorDate.getFullYear(), m: priorDate.getMonth() + 1 });
+      const priorMonthName = priorDate.toLocaleString('default', { month: 'long' });
+      comparisonLabel = 'vs ' + priorMonthName;
     } else if (period === 'ytd') {
+      // Check if prior year data exists first
+      const { count: priorYTDCount } = await sb
+        .from('monthly_reports')
+        .select('id', { count: 'exact', head: true })
+        .eq('ministry_id', currentDetailMinistryId)
+        .eq('report_year', currentYear - 1);
+      if (!priorYTDCount || priorYTDCount === 0) {
+        const baseLabel = 'Baseline (first year)';
+        return {
+          costPerPatient: { val: costPerPatient,   trend: 'flat', label: baseLabel },
+          lsDependency:   { val: lsDependency,     trend: 'flat', label: baseLabel },
+          charityRate:    { val: charityRate,       trend: 'flat', label: baseLabel },
+          communityReach: { val: communityReachVal, trend: 'flat', label: baseLabel },
+        };
+      }
       for (let m = 1; m <= currentMonth; m++) {
         priorMonths.push({ y: currentYear - 1, m });
       }
       comparisonLabel = 'vs same period last year';
     } else if (period === 'prev') {
+      // Check if two-years-ago data exists
+      const { count: priorPrevCount } = await sb
+        .from('monthly_reports')
+        .select('id', { count: 'exact', head: true })
+        .eq('ministry_id', currentDetailMinistryId)
+        .eq('report_year', currentYear - 2);
+      if (!priorPrevCount || priorPrevCount === 0) {
+        const baseLabel = 'Baseline (no prior year)';
+        return {
+          costPerPatient: { val: costPerPatient,   trend: 'flat', label: baseLabel },
+          lsDependency:   { val: lsDependency,     trend: 'flat', label: baseLabel },
+          charityRate:    { val: charityRate,       trend: 'flat', label: baseLabel },
+          communityReach: { val: communityReachVal, trend: 'flat', label: baseLabel },
+        };
+      }
       for (let m = 1; m <= 12; m++) {
         priorMonths.push({ y: currentYear - 2, m });
       }
@@ -4007,10 +4018,10 @@ async function buildHealthScore(agg, period, totalConsults, reportCount) {
   // In demo mode generate plausible trends
   const communityReachDemo = totalConsults > 0 ? Math.round((agg.consult_community||0) / totalConsults * 100) : 0;
   const trends = DEMO_MODE ? {
-    costPerPatient: { val: costPerPatient,    trend: 'down', label: 'Improving' },
-    lsDependency:   { val: lsDependency,      trend: 'down', label: 'Decreasing' },
-    charityRate:    { val: charityRate,        trend: 'flat', label: 'Stable' },
-    communityReach: { val: communityReachDemo, trend: 'up',   label: 'Growing' },
+    costPerPatient: { val: costPerPatient,    trend: 'down', label: 'Improving (vs prior month)' },
+    lsDependency:   { val: lsDependency,      trend: 'down', label: 'Decreasing (vs prior month)' },
+    charityRate:    { val: charityRate,        trend: 'flat', label: 'Stable (vs prior month)' },
+    communityReach: { val: communityReachDemo, trend: 'up',   label: 'Growing (vs prior month)' },
   } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period, totalConsults);
 
   const trendIcon = (t, metric) => {
