@@ -1,4 +1,4 @@
-<!DOCTYPE html><!-- Woven v20260414-193138 -->
+<!DOCTYPE html><!-- v20260414200745 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -607,19 +607,14 @@ button:hover{background:var(--surface2);}
 
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
         <div style="font-size:18px;font-weight:600;">Admin panel</div>
-        <div style="display:flex;align-items:center;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
           <div style="font-size:12px;color:var(--text2);" id="admin-last-updated"></div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <select id="export-year" style="font-size:12px;padding:4px 8px;">
-              <option value="">All years</option>
-              <option value="2026">2026</option>
-              <option value="2025">2025</option>
-            </select>
-            <button id="export-btn" onclick="exportData()" class="btn-primary" style="font-size:12px;padding:5px 12px;display:flex;align-items:center;gap:5px;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Export CSV
-            </button>
-          </div>
+          <select id="export-year" style="font-size:12px;padding:4px 8px;">
+            <option value="">All years</option>
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+          </select>
+          <button id="export-btn" onclick="exportData()" class="btn-primary" style="font-size:12px;padding:5px 12px;">Export CSV</button>
         </div>
       </div>
 
@@ -4117,165 +4112,6 @@ async function buildHealthScore(agg, period, totalConsults, reportCount) {
     </div>`;
 }
 
-
-// ── DATA EXPORT ──
-
-async function exportData() {
-  const yearFilter = document.getElementById('export-year')?.value || '';
-  const btn = document.getElementById('export-btn');
-  if (btn) { btn.textContent = 'Exporting...'; btn.disabled = true; }
-
-  try {
-    if (DEMO_MODE) {
-      // Generate demo CSV from in-memory data
-      exportDemoCSV(yearFilter);
-      return;
-    }
-
-    // Fetch all ministry report data
-    let q = sb.from('ministries')
-      .select(`
-        id, name, country, region, director_name,
-        monthly_reports(
-          id, report_year, report_month, status, submitted_at,
-          financial_summary(total_income_usd, total_expenses_usd, ending_balance_usd,
-            luke_society_support_usd, local_income_usd, beginning_balance_usd),
-          clinical_stats(consult_clinic, consult_community, consult_dental, consult_spiritual,
-            services_pharmacy, services_lab, services_xray, services_immunization,
-            proc_surgeries, proc_deliveries,
-            pay_full, pay_partial, pay_charity),
-          written_reports(body_original, body_english, original_language, prayer_requests)
-        )
-      `)
-      .eq('active', true)
-      .order('name');
-
-    const { data, error } = await q;
-    if (error) throw error;
-
-    // Flatten into CSV rows
-    const rows = [];
-    const headers = [
-      'Ministry', 'Country', 'Region', 'Director',
-      'Year', 'Month', 'Status', 'Submitted',
-      'Income (USD)', 'Expenses (USD)', 'Ending Balance (USD)',
-      'LS Support (USD)', 'Local Income (USD)', 'Opening Balance (USD)',
-      'Clinic Consults', 'Community Consults', 'Dental Consults', 'Spiritual Consults',
-      'Total Consults', 'Pharmacy Patients', 'Lab Tests', 'X-Rays', 'Immunizations',
-      'Surgeries', 'Births', 'Full Pay', 'Partial Pay', 'Charity',
-      'Narrative (Original)', 'Narrative Language', 'Narrative (English)', 'Prayer Requests'
-    ];
-    rows.push(headers);
-
-    (data || []).forEach(m => {
-      (m.monthly_reports || []).forEach(r => {
-        if (yearFilter && r.report_year !== parseInt(yearFilter)) return;
-        const fs = r.financial_summary || {};
-        const cs = r.clinical_stats || {};
-        const wr = r.written_reports || {};
-        const totalConsults = (cs.consult_clinic||0) + (cs.consult_community||0) +
-                              (cs.consult_dental||0) + (cs.consult_spiritual||0);
-        const monthName = new Date(r.report_year, r.report_month-1, 1)
-          .toLocaleString('default', {month:'long'});
-
-        rows.push([
-          m.name, m.country, m.region, m.director_name || '',
-          r.report_year, monthName, r.status || '', r.submitted_at ? r.submitted_at.slice(0,10) : '',
-          fs.total_income_usd || 0, fs.total_expenses_usd || 0, fs.ending_balance_usd || 0,
-          fs.luke_society_support_usd || 0, fs.local_income_usd || 0, fs.beginning_balance_usd || 0,
-          cs.consult_clinic || 0, cs.consult_community || 0, cs.consult_dental || 0, cs.consult_spiritual || 0,
-          totalConsults, cs.services_pharmacy || 0, cs.services_lab || 0,
-          cs.services_xray || 0, cs.services_immunization || 0,
-          cs.proc_surgeries || 0, cs.proc_deliveries || 0,
-          cs.pay_full || 0, cs.pay_partial || 0, cs.pay_charity || 0,
-          (wr.body_original || '').replace(/
-/g, ' '),
-          wr.original_language || '',
-          (wr.body_english || '').replace(/
-/g, ' '),
-          (wr.prayer_requests || '').replace(/
-/g, ' ')
-        ]);
-      });
-    });
-
-    downloadCSV(rows, yearFilter);
-
-  } catch(e) {
-    toast('Export error: ' + e.message, 'error');
-  } finally {
-    if (btn) {
-      btn.textContent = 'Export CSV';
-      btn.disabled = false;
-    }
-  }
-}
-
-function exportDemoCSV(yearFilter) {
-  const rows = [
-    ['Ministry', 'Country', 'Region', 'Director',
-     'Year', 'Month', 'Status',
-     'Income (USD)', 'Expenses (USD)', 'Ending Balance (USD)', 'LS Support (USD)',
-     'Clinic Consults', 'Community Consults', 'Dental Consults', 'Spiritual Consults',
-     'Total Consults', 'Pharmacy Patients', 'Lab Tests',
-     'Full Pay', 'Partial Pay', 'Charity']
-  ];
-
-  DEMO_MINISTRIES.forEach(m => {
-    const months = ['October','November','December','January','February','March'];
-    const years  = [2025,2025,2025,2026,2026,2026];
-    months.forEach((month, i) => {
-      const year = years[i];
-      if (yearFilter && year !== parseInt(yearFilter)) return;
-      const base = Math.floor(Math.random() * 300) + 100;
-      rows.push([
-        m.ministry_name, m.country, m.region, m.director_name || '',
-        year, month, 'submitted',
-        Math.round((m.total_income_usd||0) / 6), Math.round((m.total_expenses_usd||0) / 6),
-        m.ending_balance_usd || 0, Math.round((m.luke_society_support_usd||0) / 6),
-        Math.round(base * 0.55), Math.round(base * 0.20),
-        Math.round(base * 0.14), Math.round(base * 0.11),
-        base, Math.round(base * 0.55), Math.round(base * 0.40),
-        Math.round(base * 0.60), Math.round(base * 0.25), Math.round(base * 0.15)
-      ]);
-    });
-  });
-
-  downloadCSV(rows, yearFilter);
-}
-
-function downloadCSV(rows, yearFilter) {
-  // Convert to CSV string, handling commas and quotes in values
-  const csvContent = rows.map(row =>
-    row.map(cell => {
-      const str = String(cell === null || cell === undefined ? '' : cell);
-      // Wrap in quotes if cell contains comma, double-quote, or newline
-      const dq = String.fromCharCode(34); // double-quote char
-      const needsQuoting = str.indexOf(',') >= 0 || str.indexOf(dq) >= 0 || str.indexOf('\n') >= 0;
-      if (!needsQuoting) return str;
-      return dq + str.split(dq).join(dq + dq) + dq;
-    }).join(',')
-  ).join('
-');
-
-  const now = new Date();
-  const dateStr = now.toISOString().slice(0,10);
-  const yearStr = yearFilter ? '_' + yearFilter : '_all-years';
-  const filename = `woven-export_luke-society${yearStr}_${dateStr}.csv`;
-
-  const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-
-  toast('Export downloaded: ' + filename, 'success');
-}
-
 // ── WORLD MAP ──
 const MINISTRY_LOCATIONS = [
   // Philippines — Asia
@@ -5370,6 +5206,123 @@ function tagDemoMessageLangs() {
 renderForm();
 tagDemoMessageLangs();
 applyUILanguage();
+
+// ── DATA EXPORT ──
+async function exportData() {
+  const yearFilter = document.getElementById('export-year').value || '';
+  const btn = document.getElementById('export-btn');
+  if (btn) { btn.textContent = 'Exporting...'; btn.disabled = true; }
+
+  try {
+    if (DEMO_MODE) {
+      exportDemoCSV(yearFilter);
+      return;
+    }
+
+    const { data, error } = await sb.from('ministries').select([
+      'id,name,country,region,director_name',
+      'monthly_reports(id,report_year,report_month,status,submitted_at',
+      'financial_summary(total_income_usd,total_expenses_usd,ending_balance_usd,luke_society_support_usd,local_income_usd)',
+      'clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual,services_pharmacy,services_lab,proc_surgeries,proc_deliveries,pay_full,pay_partial,pay_charity)',
+      'written_reports(body_original,body_english,original_language,prayer_requests))'
+    ].join(','))
+    .eq('active', true)
+    .order('name');
+
+    if (error) throw error;
+
+    const rows = [['Ministry','Country','Region','Director',
+      'Year','Month','Status','Submitted',
+      'Income USD','Expenses USD','Balance USD','LS Support USD','Local Income USD',
+      'Clinic','Community','Dental','Spiritual','Total Consults',
+      'Pharmacy','Lab','Surgeries','Births',
+      'Full Pay','Partial Pay','Charity',
+      'Narrative Original','Language','Narrative English','Prayer Requests']];
+
+    (data || []).forEach(m => {
+      (m.monthly_reports || []).forEach(r => {
+        if (yearFilter && r.report_year !== parseInt(yearFilter)) return;
+        const fs = r.financial_summary || {};
+        const cs = r.clinical_stats || {};
+        const wr = r.written_reports || {};
+        const total = (cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0);
+        const month = new Date(r.report_year, (r.report_month||1)-1, 1).toLocaleString('default',{month:'long'});
+        rows.push([
+          m.name, m.country, m.region, m.director_name||'',
+          r.report_year, month, r.status||'', (r.submitted_at||'').slice(0,10),
+          fs.total_income_usd||0, fs.total_expenses_usd||0, fs.ending_balance_usd||0,
+          fs.luke_society_support_usd||0, fs.local_income_usd||0,
+          cs.consult_clinic||0, cs.consult_community||0, cs.consult_dental||0, cs.consult_spiritual||0, total,
+          cs.services_pharmacy||0, cs.services_lab||0, cs.proc_surgeries||0, cs.proc_deliveries||0,
+          cs.pay_full||0, cs.pay_partial||0, cs.pay_charity||0,
+          (wr.body_original||'').replace(/\n/g,' '),
+          wr.original_language||'',
+          (wr.body_english||'').replace(/\n/g,' '),
+          (wr.prayer_requests||'').replace(/\n/g,' ')
+        ]);
+      });
+    });
+
+    triggerDownload(rows, yearFilter);
+
+  } catch(e) {
+    toast('Export error: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.textContent = 'Export CSV'; btn.disabled = false; }
+  }
+}
+
+function exportDemoCSV(yearFilter) {
+  const rows = [['Ministry','Country','Region','Director','Year','Month','Status',
+    'Income USD','Expenses USD','Balance USD','LS Support USD',
+    'Clinic','Community','Dental','Spiritual','Total',
+    'Pharmacy','Lab','Full Pay','Partial Pay','Charity']];
+  const months = ['October','November','December','January','February','March'];
+  const years  = [2025,2025,2025,2026,2026,2026];
+  DEMO_MINISTRIES.forEach(m => {
+    months.forEach((mn, i) => {
+      const yr = years[i];
+      if (yearFilter && yr !== parseInt(yearFilter)) return;
+      const base = 250;
+      rows.push([
+        m.ministry_name, m.country, m.region, m.director_name||'',
+        yr, mn, 'submitted',
+        Math.round((m.total_income_usd||0)/6), Math.round((m.total_expenses_usd||0)/6),
+        m.ending_balance_usd||0, Math.round((m.luke_society_support_usd||0)/6),
+        Math.round(base*0.55), Math.round(base*0.20), Math.round(base*0.14), Math.round(base*0.11), base,
+        Math.round(base*0.55), Math.round(base*0.40),
+        Math.round(base*0.60), Math.round(base*0.25), Math.round(base*0.15)
+      ]);
+    });
+  });
+  triggerDownload(rows, yearFilter);
+}
+
+function triggerDownload(rows, yearFilter) {
+  const dq = String.fromCharCode(34);
+  const csv = rows.map(row =>
+    row.map(cell => {
+      const s = String(cell == null ? '' : cell);
+      const needs = s.indexOf(',') >= 0 || s.indexOf(dq) >= 0 || s.indexOf('\n') >= 0;
+      return needs ? dq + s.split(dq).join(dq+dq) + dq : s;
+    }).join(',')
+  ).join('\n');
+
+  const bom = String.fromCharCode(0xFEFF);
+  const blob = new Blob([bom + csv], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0,10);
+  const yearStr = yearFilter ? '_' + yearFilter : '_all';
+  a.href = url;
+  a.download = 'woven-export_luke-society' + yearStr + '_' + dateStr + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Export downloaded', 'success');
+}
+
 </script>
 </body>
 </html>
