@@ -227,8 +227,9 @@ button:hover{background:var(--surface2);}
       <button class="tnav" onclick="showScreen('map',this)" data-i18n="nav_map">World map</button>
       <button class="tnav" onclick="showScreen('messages',this)" data-i18n="nav_messages">Messages</button>
     </div>
-    <button class="tnav hidden" id="nav-admin" onclick="showScreen('admin',document.getElementById('nav-admin'))" style="margin-right:4px;">Admin</button>
-    <div class="user-pill" style="position:relative;">
+    <div class="user-pill" style="position:relative;display:flex;align-items:center;gap:6px;">
+      <button class="tnav hidden" id="nav-admin" onclick="showScreen('admin',document.getElementById('nav-admin'))" style="font-size:12px;padding:4px 10px;border-radius:var(--r-md);border:0.5px solid var(--border2);color:var(--text2);background:transparent;font-weight:500;">Admin</button>
+      <div style="width:1px;height:20px;background:var(--border2);"></div>
       <div id="user-dropdown-trigger" onclick="toggleUserMenu()" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 8px;border-radius:var(--r-md);transition:background .15s;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
         <div class="av" id="user-av">?</div>
         <span id="user-name" style="font-size:13px;color:var(--text2);"></span>
