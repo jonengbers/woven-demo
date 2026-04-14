@@ -615,7 +615,7 @@ button:hover{background:var(--surface2);}
               <option value="2026">2026</option>
               <option value="2025">2025</option>
             </select>
-            <button onclick="exportData()" class="btn-primary" style="font-size:12px;padding:5px 12px;display:flex;align-items:center;gap:5px;">
+            <button id="export-btn" onclick="exportData()" class="btn-primary" style="font-size:12px;padding:5px 12px;display:flex;align-items:center;gap:5px;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Export CSV
             </button>
@@ -4122,7 +4122,7 @@ async function buildHealthScore(agg, period, totalConsults, reportCount) {
 
 async function exportData() {
   const yearFilter = document.getElementById('export-year')?.value || '';
-  const btn = document.querySelector('[onclick="exportData()"]');
+  const btn = document.getElementById('export-btn');
   if (btn) { btn.textContent = 'Exporting...'; btn.disabled = true; }
 
   try {
@@ -4249,11 +4249,11 @@ function downloadCSV(rows, yearFilter) {
   const csvContent = rows.map(row =>
     row.map(cell => {
       const str = String(cell === null || cell === undefined ? '' : cell);
-      // Wrap in quotes if contains comma, quote, or newline
-      return str.includes(',') || str.includes('"') || str.includes('
-')
-        ? '"' + str.replace(/"/g, '""') + '"'
-        : str;
+      // Wrap in quotes if cell contains comma, double-quote, or newline
+      const dq = String.fromCharCode(34); // double-quote char
+      const needsQuoting = str.indexOf(',') >= 0 || str.indexOf(dq) >= 0 || str.indexOf('\n') >= 0;
+      if (!needsQuoting) return str;
+      return dq + str.split(dq).join(dq + dq) + dq;
     }).join(',')
   ).join('
 ');
