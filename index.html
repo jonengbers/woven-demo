@@ -1125,9 +1125,9 @@ function showMinistryDetail(id, period) {
   currentDetailMinistryId = id;
   currentDetailPeriod = period;
 
-  // If same ministry, just switch period without rebuilding the whole template
-  const isSameMinistry = id === previousMinistryId && 
-    document.getElementById('dp-health-score') !== null;
+  const hsContainer = document.getElementById('dp-health-score');
+  const isSameMinistry = id === previousMinistryId && hsContainer !== null;
+  console.log('showMinistryDetail:', {id, period, previousMinistryId, isSameMinistry, hasContainer: !!hsContainer});
 
   if (isSameMinistry) {
     // Just update the period button styles and reload data
@@ -3975,6 +3975,7 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
 
 async function buildHealthScore(agg, period, totalConsults, reportCount) {
   const container = document.getElementById('dp-health-score');
+  console.log('buildHealthScore called:', {period, totalConsults, hasContainer: !!container, agg_consult_clinic: agg.consult_clinic, agg_community: agg.consult_community});
   if (!container) return;
 
   // Calculate key ratios
