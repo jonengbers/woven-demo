@@ -1139,6 +1139,9 @@ function showMinistryDetail(id, period) {
       <div id="dp-loading" style="text-align:center;padding:30px;color:var(--text2);"><span class="spinner"></span> Loading ${period} data...</div>
       <div id="dp-content" style="display:none;">
 
+        <!-- Health score panel -->
+        <div id="dp-health-score" style="display:none;margin-bottom:16px;"></div>
+
         <!-- View tabs -->
         <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:0.5px solid var(--border);">
           <button onclick="switchDetailTab('stats')" id="dtab-stats" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid #534AB7;color:#534AB7;font-weight:500;background:transparent;cursor:pointer;margin-bottom:-1px;">Statistics</button>
@@ -1324,6 +1327,37 @@ async function loadMinistryPeriodData(ministryId, period) {
       <div class="dp-stat-label">Ending cash balance</div>
       <div class="dp-stat-val" style="${bal<500?'color:#A32D2D;':''}">${bal<500?'⚠ ':''}$${Math.round(bal).toLocaleString()}</div>
     </div>`;
+
+  // Add LS support to stats
+  const lsSupport = agg.luke_society_support_usd || 0;
+  const totalIncome = agg.total_income_usd || 0;
+  const lsPct = totalIncome > 0 ? Math.round(lsSupport / totalIncome * 100) : 0;
+  const selfSustainPct = 100 - lsPct;
+
+  // Append LS support card to dp-stats
+  setTimeout(() => {
+    const statsGrid = document.getElementById('dp-stats');
+    if (statsGrid) {
+      const lsCard = document.createElement('div');
+      lsCard.className = 'dp-stat';
+      lsCard.innerHTML = `
+        <div class="dp-stat-label">Luke Society support</div>
+        <div class="dp-stat-val">$${Math.round(lsSupport).toLocaleString()}</div>
+        <div style="margin-top:6px;">
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:3px;">
+            <span>LS funded: ${lsPct}%</span>
+            <span>Self-sustaining: ${selfSustainPct}%</span>
+          </div>
+          <div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;">
+            <div style="background:#534AB7;height:6px;width:${lsPct}%;border-radius:4px;transition:width .5s;"></div>
+          </div>
+        </div>`;
+      statsGrid.appendChild(lsCard);
+    }
+  }, 10);
+
+  // Build health score
+  buildHealthScore(agg, period, totalConsults, reportCount);
 
   document.getElementById('dp-loading').style.display = 'none';
   document.getElementById('dp-content').style.display = 'block';
@@ -3760,6 +3794,192 @@ document.addEventListener('click', function(e) {
   const modal = document.getElementById('edit-ministry-modal');
   if (modal && e.target === modal) closeMinistryModal();
 });
+
+
+
+async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate) {
+  // Default to flat if we can't compare
+  const flat = {
+    costPerPatient: { val: costPerPatient, trend: 'flat', label: 'No prior data' },
+    lsDependency:   { val: lsDependency,   trend: 'flat', label: 'No prior data' },
+    charityRate:    { val: charityRate,     trend: 'flat', label: 'No prior data' },
+    selfSustain:    { val: 100-lsDependency, trend: 'flat', label: 'No prior data' },
+  };
+  if (!sb || !currentDetailMinistryId) return flat;
+
+  try {
+    // Fetch prior 3 months for comparison
+    const now = new Date();
+    const priorMonths = [];
+    for (let i = 4; i <= 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      priorMonths.push({ y: d.getFullYear(), m: d.getMonth() + 1 });
+    }
+
+    let priorExpenses = 0, priorIncome = 0, priorLsSupport = 0;
+    let priorPatients = 0, priorCharity = 0;
+
+    for (const {y, m} of priorMonths) {
+      const { data } = await sb.from('monthly_reports')
+        .select('financial_summary(total_expenses_usd,total_income_usd,luke_society_support_usd), clinical_stats(pay_full,pay_partial,pay_charity)')
+        .eq('ministry_id', currentDetailMinistryId)
+        .eq('report_year', y).eq('report_month', m);
+      (data||[]).forEach(r => {
+        if (r.financial_summary) {
+          priorExpenses  += r.financial_summary.total_expenses_usd||0;
+          priorIncome    += r.financial_summary.total_income_usd||0;
+          priorLsSupport += r.financial_summary.luke_society_support_usd||0;
+        }
+        if (r.clinical_stats) {
+          const cs = r.clinical_stats;
+          priorPatients += (cs.pay_full||0)+(cs.pay_partial||0)+(cs.pay_charity||0);
+          priorCharity  += cs.pay_charity||0;
+        }
+      });
+    }
+
+    if (priorPatients === 0 && priorIncome === 0) return flat;
+
+    const priorCostPerPatient = priorPatients > 0 ? priorExpenses / priorPatients : 0;
+    const priorLsDep = priorIncome > 0 ? Math.round(priorLsSupport / priorIncome * 100) : 0;
+    const priorCharityRate = priorPatients > 0 ? Math.round(priorCharity / priorPatients * 100) : 0;
+
+    const trendDir = (curr, prior, lowerIsBetter) => {
+      const delta = curr - prior;
+      if (Math.abs(delta) < (prior * 0.03)) return 'flat'; // <3% change = flat
+      if (lowerIsBetter) return delta < 0 ? 'down' : 'up';
+      return delta > 0 ? 'up' : 'down';
+    };
+
+    return {
+      costPerPatient: {
+        val: costPerPatient,
+        trend: trendDir(costPerPatient, priorCostPerPatient, true),
+        label: priorCostPerPatient > 0 ? (costPerPatient < priorCostPerPatient ? 'Improving' : costPerPatient > priorCostPerPatient ? 'Rising' : 'Stable') : 'No prior data'
+      },
+      lsDependency: {
+        val: lsDependency,
+        trend: trendDir(lsDependency, priorLsDep, true),
+        label: priorLsDep > 0 ? (lsDependency < priorLsDep ? 'Decreasing' : lsDependency > priorLsDep ? 'Increasing' : 'Stable') : 'No prior data'
+      },
+      charityRate: {
+        val: charityRate,
+        trend: trendDir(charityRate, priorCharityRate, false),
+        label: priorCharityRate > 0 ? (charityRate > priorCharityRate ? 'Growing' : charityRate < priorCharityRate ? 'Declining' : 'Stable') : 'No prior data'
+      },
+      selfSustain: {
+        val: 100 - lsDependency,
+        trend: trendDir(100-lsDependency, 100-priorLsDep, false),
+        label: priorLsDep > 0 ? (lsDependency < priorLsDep ? 'Growing' : lsDependency > priorLsDep ? 'Declining' : 'Stable') : 'No prior data'
+      },
+    };
+  } catch(e) {
+    return flat;
+  }
+}
+
+// ── MINISTRY HEALTH SCORE ──
+
+async function buildHealthScore(agg, period, totalConsults, reportCount) {
+  const container = document.getElementById('dp-health-score');
+  if (!container) return;
+
+  // Calculate key ratios
+  const totalPatients = (agg.pay_full||0) + (agg.pay_partial||0) + (agg.pay_charity||0);
+  const costPerPatient = totalPatients > 0 ? agg.total_expenses_usd / totalPatients : 0;
+  const totalIncome = agg.total_income_usd || 1;
+  const lsDependency = Math.round((agg.luke_society_support_usd||0) / totalIncome * 100);
+  const charityRate = totalPatients > 0 ? Math.round((agg.pay_charity||0) / totalPatients * 100) : 0;
+
+  // For trend data we need historical comparison — use demo values or fetch
+  // Trend arrows: up/down/flat based on comparison to prior period
+  // In demo mode generate plausible trends
+  const trends = DEMO_MODE ? {
+    costPerPatient: { val: costPerPatient, trend: 'down', label: 'Improving' },
+    lsDependency:   { val: lsDependency,   trend: 'down', label: 'Improving' },
+    charityRate:    { val: charityRate,     trend: 'flat', label: 'Stable' },
+    selfSustain:    { val: 100-lsDependency, trend: 'up', label: 'Growing' },
+  } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate);
+
+  const trendIcon = (t, metric) => {
+    // For cost per patient: down is good (green), up is bad (red)
+    // For LS dependency: down is good (moving toward independence)
+    // For charity rate: stable/up is good (mission alignment)
+    // For self-sustain: up is good
+    const goodDown = ['costPerPatient', 'lsDependency'];
+    const goodUp   = ['charityRate', 'selfSustain'];
+    if (t === 'flat') return { icon: '→', color: 'var(--amber)', bg: 'var(--amber-l)' };
+    if (goodDown.includes(metric)) {
+      return t === 'down'
+        ? { icon: '↓', color: 'var(--green)', bg: 'var(--green-l)' }
+        : { icon: '↑', color: 'var(--red)',   bg: 'var(--red-l)' };
+    }
+    return t === 'up'
+      ? { icon: '↑', color: 'var(--green)', bg: 'var(--green-l)' }
+      : { icon: '↓', color: 'var(--red)',   bg: 'var(--red-l)' };
+  };
+
+  const indicators = [
+    {
+      key: 'costPerPatient',
+      label: 'Cost per patient',
+      value: costPerPatient > 0 ? '$' + costPerPatient.toFixed(2) : '—',
+      description: 'Total expenses ÷ patients seen. Lower over time = greater efficiency.',
+      good: 'Declining trend means the ministry is serving more people per dollar.',
+    },
+    {
+      key: 'lsDependency',
+      label: 'LS dependency',
+      value: lsDependency + '%',
+      description: 'Luke Society support as % of total income. Decreasing = progress toward self-sustainability.',
+      good: 'Ministries typically graduate when LS support falls below 30%.',
+    },
+    {
+      key: 'charityRate',
+      label: 'Charity patient rate',
+      value: charityRate + '%',
+      description: 'Patients receiving free care. Stable or growing = mission alignment.',
+      good: 'This should remain high — it reflects commitment to serving the poorest.',
+    },
+    {
+      key: 'selfSustain',
+      label: 'Self-sustainability',
+      value: (100-lsDependency) + '%',
+      description: 'Local income as % of total income. Growing = progress toward independence.',
+      good: 'A healthy trajectory shows gradual growth in local revenue over years.',
+    },
+  ];
+
+  container.style.display = 'block';
+  container.innerHTML = `
+    <div class="card" style="padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">
+        <div>
+          <div style="font-size:14px;font-weight:600;">Ministry health indicators</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px;">Mission alignment · Efficiency · Sustainability</div>
+        </div>
+        <div style="font-size:11px;color:var(--text2);padding:3px 8px;border-radius:var(--r-md);background:var(--surface2);">
+          ${period === 'current' ? 'Current month' : period === 'ytd' ? 'Year to date' : period === 'prev' ? 'Prior year' : 'All time'}
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
+        ${indicators.map(ind => {
+          const ti = trendIcon(trends[ind.key].trend, ind.key);
+          return `<div style="padding:12px;border-radius:var(--r-md);background:var(--surface2);border:0.5px solid var(--border);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <div style="font-size:11px;color:var(--text2);font-weight:500;text-transform:uppercase;letter-spacing:0.3px;">${ind.label}</div>
+              <span style="font-size:12px;font-weight:600;padding:2px 7px;border-radius:4px;background:${ti.bg};color:${ti.color};">${ti.icon} ${trends[ind.key].label}</span>
+            </div>
+            <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px;">${ind.value}</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.5;">${ind.description}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="margin-top:12px;padding:10px 12px;background:var(--purple-l);border-radius:var(--r-md);font-size:12px;color:var(--purple-d);line-height:1.6;">
+        <strong>Note:</strong> Trend arrows reflect direction relative to prior period. These indicators are guides for conversation, not targets — a high charity rate is a sign of mission faithfulness, not inefficiency. Self-sustainability is a long-term journey measured in years, not months.
+      </div>
+    </div>`;
+}
 
 // ── WORLD MAP ──
 const MINISTRY_LOCATIONS = [
