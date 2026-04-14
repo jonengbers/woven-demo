@@ -1356,11 +1356,11 @@ async function loadMinistryPeriodData(ministryId, period) {
     }
   }, 10);
 
-  // Build health score
-  buildHealthScore(agg, period, totalConsults, reportCount);
-
   document.getElementById('dp-loading').style.display = 'none';
   document.getElementById('dp-content').style.display = 'block';
+
+  // Build health score after dp-content is visible so DOM elements exist
+  setTimeout(() => buildHealthScore(agg, period, totalConsults, reportCount), 20);
 
   // Trend chart title
   const trendTitles = {current:'Consultation breakdown',ytd:'Monthly trend (YTD)',prev:'Monthly trend (prior year)',all:'Monthly trend (all time)'};
@@ -3797,7 +3797,7 @@ document.addEventListener('click', function(e) {
 
 
 
-async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate) {
+async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period) {
   // Default to flat if we can't compare
   const communityReachVal = totalPatients > 0 ? Math.round((agg.consult_community||0) / Math.max(totalConsults,1) * 100) : 0;
   const flat = {
@@ -3809,12 +3809,31 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
   if (!sb || !currentDetailMinistryId) return flat;
 
   try {
-    // Fetch prior 3 months for comparison
     const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
     const priorMonths = [];
-    for (let i = 4; i <= 6; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      priorMonths.push({ y: d.getFullYear(), m: d.getMonth() + 1 });
+    let comparisonLabel = '';
+
+    if (period === 'current') {
+      // Compare current month vs same month last year
+      priorMonths.push({ y: currentYear - 1, m: currentMonth });
+      comparisonLabel = 'vs same month last year';
+    } else if (period === 'ytd') {
+      // Compare Jan–now vs same period last year
+      for (let m = 1; m <= currentMonth; m++) {
+        priorMonths.push({ y: currentYear - 1, m });
+      }
+      comparisonLabel = 'vs same period last year';
+    } else if (period === 'prev') {
+      // Compare prior year vs the year before that
+      for (let m = 1; m <= 12; m++) {
+        priorMonths.push({ y: currentYear - 2, m });
+      }
+      comparisonLabel = 'vs two years prior';
+    } else {
+      // All time — no meaningful comparison period
+      return flat;
     }
 
     let priorExpenses = 0, priorIncome = 0, priorLsSupport = 0;
@@ -3873,26 +3892,35 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
     const communityReach = agg.consult_community > 0 && totalConsults > 0
       ? Math.round((agg.consult_community||0) / totalConsults * 100) : 0;
 
+    const trendLabel = (curr, prior, lowerIsBetter, betterWord, worseWord) => {
+      if (prior === 0) return 'No prior data';
+      const delta = curr - prior;
+      if (Math.abs(delta) < prior * 0.03) return `Stable (${comparisonLabel})`;
+      return (lowerIsBetter ? delta < 0 : delta > 0)
+        ? `${betterWord} (${comparisonLabel})`
+        : `${worseWord} (${comparisonLabel})`;
+    };
+
     return {
       costPerPatient: {
         val: costPerPatient,
         trend: trendDir(costPerPatient, priorCostPerPatient, true),
-        label: priorCostPerPatient > 0 ? (costPerPatient < priorCostPerPatient ? 'Improving' : costPerPatient > priorCostPerPatient ? 'Rising' : 'Stable') : 'No prior data'
+        label: trendLabel(costPerPatient, priorCostPerPatient, true, 'Improving', 'Rising')
       },
       lsDependency: {
         val: lsDependency,
         trend: trendDir(lsDependency, priorLsDep, true),
-        label: priorLsDep > 0 ? (lsDependency < priorLsDep ? 'Decreasing' : lsDependency > priorLsDep ? 'Increasing' : 'Stable') : 'No prior data'
+        label: trendLabel(lsDependency, priorLsDep, true, 'Decreasing', 'Increasing')
       },
       charityRate: {
         val: charityRate,
         trend: trendDir(charityRate, priorCharityRate, false),
-        label: priorCharityRate > 0 ? (charityRate > priorCharityRate ? 'Growing' : charityRate < priorCharityRate ? 'Declining' : 'Stable') : 'No prior data'
+        label: trendLabel(charityRate, priorCharityRate, false, 'Growing', 'Declining')
       },
       communityReach: {
         val: communityReach,
         trend: trendDir(communityReach, priorCommunityReach, false),
-        label: priorCommunityReach > 0 ? (communityReach > priorCommunityReach ? 'Growing' : communityReach < priorCommunityReach ? 'Declining' : 'Stable') : 'No prior data'
+        label: trendLabel(communityReach, priorCommunityReach, false, 'Growing', 'Declining')
       },
     };
   } catch(e) {
@@ -3922,7 +3950,7 @@ async function buildHealthScore(agg, period, totalConsults, reportCount) {
     lsDependency:   { val: lsDependency,      trend: 'down', label: 'Decreasing' },
     charityRate:    { val: charityRate,        trend: 'flat', label: 'Stable' },
     communityReach: { val: communityReachDemo, trend: 'up',   label: 'Growing' },
-  } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate);
+  } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period);
 
   const trendIcon = (t, metric) => {
     // For cost per patient: down is good (green), up is bad (red)
