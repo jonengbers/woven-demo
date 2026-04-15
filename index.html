@@ -502,6 +502,25 @@ button:hover{background:var(--surface2);}
     </div>
   </div>
 
+  <!-- Change password -->
+<div class="card">
+  <div style="font-size:15px;font-weight:600;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">Change password</div>
+  <div class="form-row-1" style="margin-bottom:10px;">
+    <div class="flabel">Current password</div>
+    <input type="password" id="settings-current-password" placeholder="Enter current password"/>
+  </div>
+  <div class="form-row-1" style="margin-bottom:10px;">
+    <div class="flabel">New password</div>
+    <input type="password" id="settings-new-password" placeholder="At least 8 characters"/>
+  </div>
+  <div class="form-row-1" style="margin-bottom:14px;">
+    <div class="flabel">Confirm new password</div>
+    <input type="password" id="settings-confirm-password" placeholder="Repeat new password"/>
+  </div>
+  <button class="btn-primary" onclick="changePassword()">Update password</button>
+  <div id="password-message" style="font-size:12px;margin-top:8px;display:none;"></div>
+</div>
+  
   <!-- ADMIN PANEL -->
   <div class="screen" id="screen-admin">
     <div style="max-width:900px;">
@@ -5445,6 +5464,35 @@ function triggerDownload(rows, yearFilter) {
   toast('Export downloaded', 'success');
 }
 
+  async function changePassword() {
+  const currentPw = document.getElementById('settings-current-password').value;
+  const newPw     = document.getElementById('settings-new-password').value;
+  const confirmPw = document.getElementById('settings-confirm-password').value;
+  const msgEl     = document.getElementById('password-message');
+  const showMsg = (text, ok) => {
+    msgEl.textContent = text;
+    msgEl.style.color = ok ? 'var(--green)' : 'var(--red)';
+    msgEl.style.display = 'block';
+  };
+  if (!currentPw || !newPw || !confirmPw) { showMsg('Please fill in all three fields.', false); return; }
+  if (newPw.length < 8) { showMsg('New password must be at least 8 characters.', false); return; }
+  if (newPw !== confirmPw) { showMsg('New passwords do not match.', false); return; }
+  if (currentPw === newPw) { showMsg('New password must differ from current password.', false); return; }
+  if (DEMO_MODE) { showMsg('Password updated (demo mode).', true); return; }
+  try {
+    const { error: signInError } = await sb.auth.signInWithPassword({ email: currentUser.email, password: currentPw });
+    if (signInError) { showMsg('Current password is incorrect.', false); return; }
+    const { error: updateError } = await sb.auth.updateUser({ password: newPw });
+    if (updateError) throw updateError;
+    document.getElementById('settings-current-password').value = '';
+    document.getElementById('settings-new-password').value = '';
+    document.getElementById('settings-confirm-password').value = '';
+    showMsg('Password updated successfully.', true);
+  } catch(e) {
+    showMsg('Error: ' + e.message, false);
+  }
+}
+  
 </script>
 </body>
 </html>
