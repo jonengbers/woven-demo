@@ -166,6 +166,15 @@ button:hover{background:var(--surface2);}
   .msg-layout{height:auto;}
 }
 </style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+  #leaflet-map { height: 540px; width: 100%; border-radius: var(--r-lg); z-index: 1; }
+  .leaflet-popup-content-wrapper { border-radius: var(--r-md) !important; box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important; border: 0.5px solid var(--border) !important; }
+  .leaflet-popup-content { margin: 10px 14px !important; font-size: 13px !important; line-height: 1.6 !important; }
+  .leaflet-popup-tip-container { display: none; }
+  .ministry-pin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.3); cursor: pointer; transition: transform .15s; }
+  .ministry-pin:hover { transform: scale(1.4); }
+</style>
 </head>
 <body>
 
@@ -4204,15 +4213,20 @@ function initMap() {
   const container = document.getElementById('map-container');
   container.innerHTML = '';
 
-  // Legend
+  // Summary stats bar
+  const summary = document.createElement('div');
+  summary.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px;';
+  const countries = new Set(MINISTRY_LOCATIONS.map(m => m.country)).size;
+  summary.innerHTML = `
+    <div class="mc"><div class="mc-label">Active ministries</div><div class="mc-val">${MINISTRY_LOCATIONS.length}</div></div>
+    <div class="mc"><div class="mc-label">Countries</div><div class="mc-val">${countries}</div></div>
+    <div class="mc"><div class="mc-label">Continents</div><div class="mc-val">5</div></div>
+    <div class="mc"><div class="mc-label">Regions</div><div class="mc-val">4</div></div>`;
+  container.appendChild(summary);
+
+  // Region color legend
   const legend = document.createElement('div');
-  legend.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;padding:0 0 12px;';
-  const regionLabels = {
-    'Africa': 'Africa (green)',
-    'Asia': 'Asia (blue)',
-    'Europe': 'Europe (rose)',
-    'Latin America': 'Latin America (gold)',
-  };
+  legend.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;padding:0 0 10px;';
   Object.entries(REGION_COLORS).forEach(([region, color]) => {
     legend.innerHTML += `<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);">
       <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block;"></span>${region}
@@ -4220,222 +4234,95 @@ function initMap() {
   });
   container.appendChild(legend);
 
-  // Tooltip
-  const tooltip = document.createElement('div');
-  tooltip.className = 'map-tooltip';
-  tooltip.id = 'map-tooltip';
-  container.appendChild(tooltip);
+  // Region zoom shortcuts
+  const shortcuts = document.createElement('div');
+  shortcuts.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:0 0 10px;';
+  const zoomRegions = [
+    {label:'Africa',        lat:5,   lng:20,  zoom:4},
+    {label:'Asia',          lat:20,  lng:95,  zoom:3},
+    {label:'Europe',        lat:49,  lng:32,  zoom:5},
+    {label:'Latin America', lat:5,   lng:-75, zoom:3},
+    {label:'World',         lat:15,  lng:10,  zoom:2},
+  ];
+  zoomRegions.forEach(r => {
+    const btn = document.createElement('button');
+    btn.textContent = r.label;
+    btn.style.cssText = 'font-size:11px;padding:4px 10px;border-radius:20px;';
+    btn.onclick = () => window.leafletMap && window.leafletMap.setView([r.lat, r.lng], r.zoom);
+    shortcuts.appendChild(btn);
+  });
+  container.appendChild(shortcuts);
 
-  // Summary bar
-  const summary = document.createElement('div');
-  summary.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px;';
-  const regions = [...new Set(MINISTRY_LOCATIONS.map(m => m.region))];
-  summary.innerHTML = `
-    <div class="mc"><div class="mc-label">Active ministries</div><div class="mc-val">${MINISTRY_LOCATIONS.length}</div></div>
-    <div class="mc"><div class="mc-label">Countries</div><div class="mc-val">${new Set(MINISTRY_LOCATIONS.map(m=>m.country)).size}</div></div>
-    <div class="mc"><div class="mc-label">Continents</div><div class="mc-val">5</div></div>
-    <div class="mc"><div class="mc-label">Regions</div><div class="mc-val">${regions.length}</div></div>`;
-  container.insertBefore(summary, legend);
-
-  // D3 map
+  // Map wrapper
   const mapDiv = document.createElement('div');
-  mapDiv.id = 'map-svg-wrap';
-  mapDiv.style.cssText = 'background:var(--surface);border:0.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;';
+  mapDiv.id = 'leaflet-map';
   container.appendChild(mapDiv);
 
-  // Load D3 and TopoJSON
-  const loadScript = (src) => new Promise(res => {
-    const s = document.createElement('script');
-    s.src = src; s.onload = res;
-    document.head.appendChild(s);
-  });
-
-  Promise.all([
-    loadScript('https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js'),
-    loadScript('https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js')
-  ]).then(() => {
-    const W = mapDiv.offsetWidth || 900;
-    const H = Math.round(W * 0.52);
+  // Load Leaflet JS then initialize
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+  script.onload = () => {
     const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
 
-    const svg = d3.select('#map-svg-wrap').append('svg')
-      .attr('viewBox', `0 0 ${W} ${H}`)
-      .attr('width', '100%');
+    const map = L.map('leaflet-map', {
+      center: [15, 10],
+      zoom: 2,
+      minZoom: 2,
+      maxZoom: 12,
+      zoomControl: true,
+    });
+    window.leafletMap = map;
 
-    const projection = d3.geoNaturalEarth1()
-      .scale(W / 6.5)
-      .translate([W / 2, H / 2]);
+    // OpenStreetMap tile layer - clean style with country labels
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map);
 
-    const path = d3.geoPath().projection(projection);
+    // Add ministry pins
+    MINISTRY_LOCATIONS.forEach(m => {
+      const color = REGION_COLORS[m.region] || '#534AB7';
 
-    d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(world => {
-      // Zoom controls
-      const zoomBtns = document.createElement('div');
-      zoomBtns.style.cssText = 'position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:4px;z-index:10;';
-      zoomBtns.innerHTML = `
-        <button onclick="mapZoomIn()" style="width:30px;height:30px;font-size:16px;padding:0;border-radius:6px;line-height:1;font-weight:500;">+</button>
-        <button onclick="mapZoomOut()" style="width:30px;height:30px;font-size:16px;padding:0;border-radius:6px;line-height:1;font-weight:500;">−</button>
-        <button onclick="mapReset()" style="width:30px;height:24px;font-size:9px;padding:0;border-radius:6px;line-height:1;" title="Reset view">Reset</button>`;
-      mapDiv.style.position = 'relative';
-      mapDiv.appendChild(zoomBtns);
-
-      // Zoom region shortcuts
-      const shortcuts = document.createElement('div');
-      shortcuts.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:10px 0 4px;';
-      const zoomRegions = [
-        {label:'Africa',        lng:20,  lat:5,   scale:2.2},
-        {label:'Asia',          lng:95,  lat:20,  scale:2.0},
-        {label:'Europe',        lng:32,  lat:49,  scale:4.0},
-        {label:'Latin America', lng:-75, lat:5,   scale:2.5},
-      ];
-      zoomRegions.forEach(r => {
-        shortcuts.innerHTML += `<button onclick="zoomToRegion(${r.lng},${r.lat},${r.scale})" style="font-size:11px;padding:4px 10px;border-radius:20px;">${r.label}</button>`;
+      // Custom circle marker
+      const icon = L.divIcon({
+        className: '',
+        html: `<div class="ministry-pin" style="background:${color};"></div>`,
+        iconSize: [14, 14],
+        iconAnchor: [7, 7],
+        popupAnchor: [0, -10],
       });
-      container.insertBefore(shortcuts, mapDiv);
 
-      // Set up D3 zoom
-      const zoomBehavior = d3.zoom()
-        .scaleExtent([1, 12])
-        .on('zoom', (event) => {
-          mapGroup.attr('transform', event.transform);
-          // Scale pins inversely so they stay readable when zoomed in
-          const k = event.transform.k;
-          svg.selectAll('.pin').each(function() {
-            d3.select(this).select('circle:last-child').attr('r', Math.max(2, 4 / Math.sqrt(k)));
-            d3.select(this).select('circle:first-child').attr('r', Math.max(4, 7 / Math.sqrt(k)));
-          });
-        });
+      const marker = L.marker([m.lat, m.lng], { icon }).addTo(map);
 
-      svg.call(zoomBehavior);
-
-      // Wrap everything in a group for zoom transforms
-      const mapGroup = svg.append('g');
-
-      // Expose zoom controls globally
-      window.currentZoom = zoomBehavior;
-      window.currentSvg = svg;
-      window.mapW = W;
-      window.mapH = H;
-      window.mapProjection = projection;
-
-      window.mapZoomIn = () => svg.transition().duration(300).call(zoomBehavior.scaleBy, 1.6);
-      window.mapZoomOut = () => svg.transition().duration(300).call(zoomBehavior.scaleBy, 0.625);
-      window.mapReset = () => svg.transition().duration(500).call(zoomBehavior.transform, d3.zoomIdentity);
-      window.zoomToRegion = (lng, lat, scale) => {
-        const [cx, cy] = projection([lng, lat]);
-        const transform = d3.zoomIdentity
-          .translate(W / 2, H / 2)
-          .scale(scale)
-          .translate(-cx, -cy);
-        svg.transition().duration(600).call(zoomBehavior.transform, transform);
+      // Build popup content
+      const buildPopup = () => {
+        const mData = ministriesData.find(d => d.ministry_id === m.id);
+        const visits = mData ? (mData.total_consultations||0).toLocaleString() : '—';
+        const director = mData ? (mData.director_name || '—') : '—';
+        const status = mData ? mData.report_status : '—';
+        const statusColor = status === 'submitted' || status === 'approved' ? '#1D9E75' : '#BA7517';
+        return `<div>
+          <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${m.name}</div>
+          <div style="font-size:12px;color:#888;margin-bottom:8px;">${m.country} &middot; <span style="color:${color};">${m.region}</span></div>
+          ${director !== '—' ? `<div style="font-size:12px;margin-bottom:4px;">Director: <strong>${director}</strong></div>` : ''}
+          <div style="font-size:12px;margin-bottom:4px;">Consultations: <strong>${visits}</strong></div>
+          <div style="font-size:12px;margin-bottom:10px;">Report: <strong style="color:${statusColor};">${status}</strong></div>
+          <button onclick="window.leafletMap && window.leafletMap.closePopup(); showMinistryDetail(${m.id});"
+            style="font-size:12px;padding:5px 12px;border-radius:6px;background:#534AB7;color:#fff;border:none;cursor:pointer;width:100%;">
+            View ministry →
+          </button>
+        </div>`;
       };
 
-      // Draw countries into the group
-      mapGroup.append('g')
-        .selectAll('path')
-        .data(topojson.feature(world, world.objects.countries).features)
-        .join('path')
-        .attr('d', path)
-        .attr('fill', isDark ? '#2a2a28' : '#e8e6e0')
-        .attr('stroke', isDark ? '#3a3a38' : '#ffffff')
-        .attr('stroke-width', 0.5);
+      marker.bindPopup(buildPopup, { maxWidth: 220, minWidth: 200 });
 
-      mapGroup.append('path')
-        .datum(topojson.mesh(world, world.objects.countries, (a,b) => a !== b))
-        .attr('d', path)
-        .attr('fill', 'none')
-        .attr('stroke', isDark ? '#444' : '#fff')
-        .attr('stroke-width', 0.3);
-
-      // Draw ministry pins into the group
-      const tip = document.getElementById('map-tooltip');
-
-      MINISTRY_LOCATIONS.forEach(m => {
-        const [x, y] = projection([m.lng, m.lat]);
-        if (!x || !y) return;
-
-        const color = REGION_COLORS[m.region] || '#534AB7';
-
-        const g = mapGroup.append('g')
-          .attr('class', 'pin')
-          .attr('transform', `translate(${x},${y})`);
-
-        // Outer ring
-        g.append('circle')
-          .attr('r', 7)
-          .attr('fill', color)
-          .attr('opacity', 0.25);
-
-        // Inner dot
-        g.append('circle')
-          .attr('r', 4)
-          .attr('fill', color)
-          .attr('stroke', '#fff')
-          .attr('stroke-width', 1);
-
-        // Hover interactions
-        g.on('mouseover', function(event) {
-          d3.select(this).select('circle:last-child').attr('r', 6);
-          d3.select(this).select('circle:first-child').attr('r', 10).attr('opacity', 0.35);
-
-          const mData = ministriesData.find(d => d.ministry_id === m.id);
-          const visits = mData ? (mData.total_consultations||0).toLocaleString() : '—';
-          const status = mData ? mData.report_status : '—';
-          const statusColor = status === 'submitted' || status === 'approved' ? 'var(--green)' : 'var(--amber)';
-
-          tip.innerHTML = `
-            <strong>${m.name}</strong>
-            <span>${m.country} · ${m.region}</span>
-            <span style="margin-top:6px;display:block;">Consultations: <strong style="color:var(--text);">${visits}</strong></span>
-            <span>Report: <strong style="color:${statusColor};">${status}</strong></span>`;
-
-          const rect = container.getBoundingClientRect();
-          let tx = event.clientX - rect.left + 12;
-          let ty = event.clientY - rect.top - 10;
-          if (tx + 200 > container.offsetWidth) tx -= 210;
-          tip.style.left = tx + 'px';
-          tip.style.top = ty + 'px';
-          tip.style.opacity = '1';
-        })
-        .on('mousemove', function(event) {
-          const rect = container.getBoundingClientRect();
-          let tx = event.clientX - rect.left + 12;
-          let ty = event.clientY - rect.top - 10;
-          if (tx + 200 > container.offsetWidth) tx -= 210;
-          tip.style.left = tx + 'px';
-          tip.style.top = ty + 'px';
-        })
-        .on('mouseout', function() {
-          d3.select(this).select('circle:last-child').attr('r', 4);
-          d3.select(this).select('circle:first-child').attr('r', 7).attr('opacity', 0.25);
-          tip.style.opacity = '0';
-        })
-        .on('click', async function() {
-          // Check if ministry is in current filtered data
-          let mData = ministriesData.find(d => d.ministry_id === m.id);
-          if (!mData && !DEMO_MODE && sb) {
-            // Not in filtered view — fetch directly from DB
-            const { data } = await sb.from('ministry_dashboard')
-              .select('*').eq('ministry_id', m.id).single();
-            if (data) {
-              // Temporarily add to ministriesData so detail view works
-              ministriesData = [...ministriesData, data];
-              mData = data;
-            }
-          } else if (!mData && DEMO_MODE) {
-            // In demo mode, reset region filter and reload
-            const input = document.getElementById('region-filter');
-            if (input) input.value = '';
-            setRegion('');
-            await new Promise(r => setTimeout(r, 300));
-          }
-          if (ministriesData.find(d => d.ministry_id === m.id)) {
-            showMinistryDetail(m.id);
-          }
-        });
+      // Refresh popup content when opened (in case data loaded after map init)
+      marker.on('popupopen', () => {
+        marker.getPopup().setContent(buildPopup());
       });
     });
-  });
+  };
+  document.head.appendChild(script);
 }
 
 
