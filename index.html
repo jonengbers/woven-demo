@@ -4288,14 +4288,14 @@ function initMap() {
     // Europe
     'Ukraine':           [31.0,  49.0,    0,  0],
     // Latin America — carefully spaced
-    'Mexico':            [-102.0,23.0,    0,  0],
-    'Guatemala':         [-90.2, 14.8,  -24,  0],
-    'El Salvador':       [-88.9, 13.2,   22,  0],
-    'Nicaragua':         [-85.0, 12.2,    0, 12],
-    'Haiti':             [-72.3, 18.2,  -26,  0],
-    'Dominican Republic':[-70.2, 19.6,   12,  0],
-    'Ecuador':           [-78.2, -1.8,  -22,  0],
-    'Bolivia':           [-64.0,-16.5,    0,  0],
+    'Mexico':            [-102.0,23.0,    0,   0],
+    'Guatemala':         [-90.5, 15.6,    0,   0],
+    'El Salvador':       [-88.9, 13.2,   22,   0],
+    'Nicaragua':         [-85.0, 12.2,    0,  14],
+    'Haiti':             [-72.3, 18.9,    6, -14],
+    'Dominican Republic':[-70.5, 18.6,   18,   0],
+    'Ecuador':           [-78.2, -1.8,  -22,   0],
+    'Bolivia':           [-64.0,-17.5,    0,  14],
   };
 
   const loadScript = src => new Promise(res => {
@@ -4333,13 +4333,14 @@ function initMap() {
     const zoomBehavior = d3.zoom().scaleExtent([1, 12]).on('zoom', event => {
       mapGroup.attr('transform', event.transform);
       const k = event.transform.k;
-      // Scale pins inversely so they stay readable when zoomed
-      svg.selectAll('.pin circle:last-child').attr('r', Math.max(2, 4 / Math.sqrt(k)));
-      svg.selectAll('.pin circle:first-child').attr('r', Math.max(4, 7 / Math.sqrt(k)));
-      // Scale and show/hide labels based on zoom
+
+      // Reposition pins and labels to follow map without scaling
+      if (window._updatePinPositions) window._updatePinPositions(event.transform);
+
+      // Show labels above zoom 1.5, always fixed font size
       svg.selectAll('.country-label')
         .style('display', k > 1.5 ? 'block' : 'none')
-        .attr('font-size', Math.max(6, Math.min(11, 9 / Math.sqrt(k))));
+        .attr('font-size', 9);
     });
 
     svg.call(zoomBehavior);
@@ -4370,23 +4371,23 @@ function initMap() {
         .join('path')
         .attr('d', path)
         .attr('fill', feat => {
-          // Match by checking if any ministry location's country matches this feature
-          // Use centroid proximity to identify country
-          const centroid = projection.invert(path.centroid(feat));
-          if (!centroid) return isDark ? '#2a2a28' : '#e8e6e0';
-          // Check each ministry country label position
-          for (const [country, coords] of Object.entries(COUNTRY_LABELS)) {
-            const dist = Math.sqrt(Math.pow(centroid[0]-coords[0],2) + Math.pow(centroid[1]-coords[1],2));
-            if (dist < 8 && ministryCountrySet.has(country)) {
-              // Find region for this country
-              const ministry = MINISTRY_LOCATIONS.find(m => m.country === country);
-              if (ministry) {
-                const c = REGION_COLORS[ministry.region];
-                return c + '30'; // 19% opacity hex
-              }
-            }
-          }
-          return isDark ? '#2a2a28' : '#e8e6e0';
+          // Use TopoJSON numeric ID mapped to ISO alpha-3 then to our countries
+          const numId = parseInt(feat.id);
+          // Numeric ID → country name mapping for Luke Society ministry countries only
+          const ID_TO_COUNTRY = {
+            608:'Philippines', 356:'India', 104:'Myanmar', 360:'Indonesia',
+            524:'Nepal', 144:'Sri Lanka', 417:'Kyrgyzstan', 156:'China', 50:'Bangladesh',
+            288:'Ghana', 404:'Kenya', 120:'Cameroon', 466:'Mali', 562:'Niger',
+            430:'Liberia', 148:'Chad', 818:'Egypt', 728:'South Sudan', 204:'Benin',
+            804:'Ukraine',
+            320:'Guatemala', 558:'Nicaragua', 218:'Ecuador', 484:'Mexico',
+            332:'Haiti', 68:'Bolivia', 214:'Dominican Republic', 222:'El Salvador',
+          };
+          const country = ID_TO_COUNTRY[numId];
+          if (!country) return isDark ? '#2a2a28' : '#e8e6e0';
+          const ministry = MINISTRY_LOCATIONS.find(m => m.country === country);
+          if (!ministry) return isDark ? '#2a2a28' : '#e8e6e0';
+          return REGION_COLORS[ministry.region] + '30';
         })
         .attr('stroke', isDark ? '#3a3a38' : '#ffffff')
         .attr('stroke-width', 0.5);
@@ -4409,10 +4410,15 @@ function initMap() {
         const color = ministry ? REGION_COLORS[ministry.region] : '#888';
         const px = proj[0] + (dx || 0);
         const py = proj[1] + (dy || 0);
-        // White halo behind text for readability over shaded countries
-        mapGroup.append('text')
+        // Label group in separate overlay (not scaled by zoom)
+        const lg = svg.append('g')
+          .attr('class', 'country-label-g')
+          .attr('transform', `translate(${px},${py})`)
+          .datum({ px, py });
+
+        // White halo
+        lg.append('text')
           .attr('class', 'country-label')
-          .attr('x', px).attr('y', py)
           .attr('text-anchor', 'middle')
           .attr('dominant-baseline', 'middle')
           .attr('font-size', 9)
@@ -4425,10 +4431,9 @@ function initMap() {
           .attr('pointer-events', 'none')
           .style('display', 'none')
           .text(country);
-        // Colored text on top
-        mapGroup.append('text')
+        // Colored text
+        lg.append('text')
           .attr('class', 'country-label')
-          .attr('x', px).attr('y', py)
           .attr('text-anchor', 'middle')
           .attr('dominant-baseline', 'middle')
           .attr('font-size', 9)
@@ -4442,18 +4447,71 @@ function initMap() {
 
       // Ministry pins
       const tip = document.getElementById('map-tooltip');
-      MINISTRY_LOCATIONS.forEach(m => {
-        const [x, y] = projection([m.lng, m.lat]);
+      // Separate overlay group for pins — NOT part of mapGroup so they don't scale with zoom
+      const pinOverlay = svg.append('g').attr('class', 'pin-overlay');
+
+      // Pre-compute projected positions and detect overlaps
+      const projectedPins = MINISTRY_LOCATIONS.map(m => {
+        const p = projection([m.lng, m.lat]);
+        return { m, x: p ? p[0] : null, y: p ? p[1] : null };
+      });
+
+      // Separate pins that are within 12px of each other at default zoom
+      projectedPins.forEach((pin, i) => {
+        if (!pin.x) return;
+        for (let j = i+1; j < projectedPins.length; j++) {
+          const other = projectedPins[j];
+          if (!other.x) continue;
+          const dx = pin.x - other.x, dy = pin.y - other.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 12) {
+            const angle = Math.atan2(dy, dx);
+            const push = (12 - dist) / 2;
+            pin.x  += Math.cos(angle) * push;
+            pin.y  += Math.sin(angle) * push;
+            other.x -= Math.cos(angle) * push;
+            other.y -= Math.sin(angle) * push;
+          }
+        }
+      });
+
+      // Store base positions for repositioning on zoom
+      const pinBasePositions = projectedPins.map(p => ({ m: p.m, bx: p.x, by: p.y }));
+
+      // Update pin positions when zoom changes
+      const updatePinPositions = (transform) => {
+        svg.selectAll('.pin-g').each(function(d) {
+          const sel = d3.select(this);
+          const nx = transform.applyX(d.bx);
+          const ny = transform.applyY(d.by);
+          sel.attr('transform', `translate(${nx},${ny})`);
+        });
+        // Update label positions too
+        svg.selectAll('.country-label-g').each(function(d) {
+          const sel = d3.select(this);
+          const nx = transform.applyX(d.px);
+          const ny = transform.applyY(d.py);
+          sel.attr('transform', `translate(${nx},${ny})`);
+        });
+      };
+
+      // Attach updatePinPositions to zoom handler
+      window._updatePinPositions = updatePinPositions;
+
+      projectedPins.forEach(({ m, x, y }, idx) => {
         if (!x || !y) return;
         const color = REGION_COLORS[m.region] || '#534AB7';
-        const g = mapGroup.append('g').attr('class','pin').attr('transform',`translate(${x},${y})`);
+        const g = pinOverlay.append('g')
+          .attr('class','pin-g')
+          .attr('transform',`translate(${x},${y})`)
+          .datum({ bx: x, by: y });
 
-        g.append('circle').attr('r',7).attr('fill',color).attr('opacity',0.25);
-        g.append('circle').attr('r',4).attr('fill',color).attr('stroke','#fff').attr('stroke-width',1);
+        g.append('circle').attr('r',6).attr('fill',color).attr('opacity',0.22);
+        g.append('circle').attr('r',3.5).attr('fill',color).attr('stroke','#fff').attr('stroke-width',1);
 
         g.on('mouseover', function(event) {
-          d3.select(this).select('circle:last-child').attr('r',6);
-          d3.select(this).select('circle:first-child').attr('r',10).attr('opacity',0.35);
+          d3.select(this).select('circle:last-child').attr('r', 5);
+          d3.select(this).select('circle:first-child').attr('r', 9).attr('opacity', 0.35);
           const mData = ministriesData.find(d => d.ministry_id === m.id);
           const visits = mData ? (mData.total_consultations||0).toLocaleString() : '—';
           const status = mData ? mData.report_status : '—';
@@ -4475,8 +4533,8 @@ function initMap() {
           tip.style.left = tx + 'px'; tip.style.top = ty + 'px';
         })
         .on('mouseout', function() {
-          d3.select(this).select('circle:last-child').attr('r',4);
-          d3.select(this).select('circle:first-child').attr('r',7).attr('opacity',0.25);
+          d3.select(this).select('circle:last-child').attr('r', 3.5);
+          d3.select(this).select('circle:first-child').attr('r', 6).attr('opacity', 0.22);
           tip.style.opacity = '0';
         })
         .on('click', async function() {
