@@ -4213,7 +4213,7 @@ function initMap() {
   const container = document.getElementById('map-container');
   container.innerHTML = '';
 
-  // Summary stats bar
+  // Summary stats
   const summary = document.createElement('div');
   summary.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px;';
   const countries = new Set(MINISTRY_LOCATIONS.map(m => m.country)).size;
@@ -4224,7 +4224,7 @@ function initMap() {
     <div class="mc"><div class="mc-label">Regions</div><div class="mc-val">4</div></div>`;
   container.appendChild(summary);
 
-  // Region color legend
+  // Legend
   const legend = document.createElement('div');
   legend.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;padding:0 0 10px;';
   Object.entries(REGION_COLORS).forEach(([region, color]) => {
@@ -4234,17 +4234,16 @@ function initMap() {
   });
   container.appendChild(legend);
 
-  // Region zoom shortcuts
+  // Zoom shortcuts
   const shortcuts = document.createElement('div');
   shortcuts.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:0 0 10px;';
-  const zoomRegions = [
+  [
     {label:'Africa',        lat:5,   lng:20,  zoom:4},
     {label:'Asia',          lat:20,  lng:95,  zoom:3},
     {label:'Europe',        lat:49,  lng:32,  zoom:5},
     {label:'Latin America', lat:5,   lng:-75, zoom:3},
     {label:'World',         lat:15,  lng:10,  zoom:2},
-  ];
-  zoomRegions.forEach(r => {
+  ].forEach(r => {
     const btn = document.createElement('button');
     btn.textContent = r.label;
     btn.style.cssText = 'font-size:11px;padding:4px 10px;border-radius:20px;';
@@ -4253,76 +4252,147 @@ function initMap() {
   });
   container.appendChild(shortcuts);
 
-  // Map wrapper
+  // Map div
   const mapDiv = document.createElement('div');
   mapDiv.id = 'leaflet-map';
   container.appendChild(mapDiv);
 
-  // Load Leaflet JS then initialize
-  const script = document.createElement('script');
-  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
-  script.onload = () => {
-    const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  // Load Leaflet then init
+  if (window.L) { initLeafletMap(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+  s.onload = initLeafletMap;
+  document.head.appendChild(s);
+}
 
-    const map = L.map('leaflet-map', {
-      center: [15, 10],
-      zoom: 2,
-      minZoom: 2,
-      maxZoom: 12,
-      zoomControl: true,
-    });
-    window.leafletMap = map;
-
-    // OpenStreetMap tile layer - clean style with country labels
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 19,
-    }).addTo(map);
-
-    // Add ministry pins
-    MINISTRY_LOCATIONS.forEach(m => {
-      const color = REGION_COLORS[m.region] || '#534AB7';
-
-      // Custom circle marker
-      const icon = L.divIcon({
-        className: '',
-        html: `<div class="ministry-pin" style="background:${color};"></div>`,
-        iconSize: [14, 14],
-        iconAnchor: [7, 7],
-        popupAnchor: [0, -10],
-      });
-
-      const marker = L.marker([m.lat, m.lng], { icon }).addTo(map);
-
-      // Build popup content
-      const buildPopup = () => {
-        const mData = ministriesData.find(d => d.ministry_id === m.id);
-        const visits = mData ? (mData.total_consultations||0).toLocaleString() : '—';
-        const director = mData ? (mData.director_name || '—') : '—';
-        const status = mData ? mData.report_status : '—';
-        const statusColor = status === 'submitted' || status === 'approved' ? '#1D9E75' : '#BA7517';
-        return `<div>
-          <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${m.name}</div>
-          <div style="font-size:12px;color:#888;margin-bottom:8px;">${m.country} &middot; <span style="color:${color};">${m.region}</span></div>
-          ${director !== '—' ? `<div style="font-size:12px;margin-bottom:4px;">Director: <strong>${director}</strong></div>` : ''}
-          <div style="font-size:12px;margin-bottom:4px;">Consultations: <strong>${visits}</strong></div>
-          <div style="font-size:12px;margin-bottom:10px;">Report: <strong style="color:${statusColor};">${status}</strong></div>
-          <button onclick="window.leafletMap && window.leafletMap.closePopup(); showMinistryDetail(${m.id});"
-            style="font-size:12px;padding:5px 12px;border-radius:6px;background:#534AB7;color:#fff;border:none;cursor:pointer;width:100%;">
-            View ministry →
-          </button>
-        </div>`;
-      };
-
-      marker.bindPopup(buildPopup, { maxWidth: 220, minWidth: 200 });
-
-      // Refresh popup content when opened (in case data loaded after map init)
-      marker.on('popupopen', () => {
-        marker.getPopup().setContent(buildPopup());
-      });
-    });
+function initLeafletMap() {
+  // Country ISO codes that have Luke Society ministries, mapped to region
+  const MINISTRY_COUNTRIES = {
+    'PH':'Asia','IN':'Asia','MM':'Asia','ID':'Asia','NP':'Asia','LK':'Asia','KG':'Asia','CN':'Asia','BD':'Asia',
+    'GH':'Africa','KE':'Africa','CM':'Africa','ML':'Africa','NE':'Africa','LR':'Africa','TD':'Africa','EG':'Africa','SS':'Africa',
+    'UA':'Europe',
+    'GT':'Latin America','NI':'Latin America','EC':'Latin America','MX':'Latin America','HT':'Latin America',
+    'BO':'Latin America','DO':'Latin America','SV':'Latin America',
   };
-  document.head.appendChild(script);
+
+  // World bounds to prevent infinite scrolling
+  const worldBounds = L.latLngBounds(L.latLng(-85, -180), L.latLng(85, 180));
+
+  const map = L.map('leaflet-map', {
+    center: [15, 10],
+    zoom: 2,
+    minZoom: 2,
+    maxZoom: 12,
+    maxBounds: worldBounds,
+    maxBoundsViscosity: 1.0,
+    worldCopyJump: false,
+  });
+  window.leafletMap = map;
+
+  // Tile layer — CartoDB Positron is cleaner and lighter than OSM
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19,
+    noWrap: true,
+    bounds: worldBounds,
+  }).addTo(map);
+
+  // Load GeoJSON country boundaries and shade ministry countries
+  fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
+    .then(r => r.json())
+    .then(geojson => {
+      L.geoJSON(geojson, {
+        style: feature => {
+          const iso = feature.properties.ISO_A2;
+          const region = MINISTRY_COUNTRIES[iso];
+          if (!region) return { fillOpacity: 0, stroke: false };
+          const color = REGION_COLORS[region] || '#888';
+          return {
+            fillColor: color,
+            fillOpacity: 0.18,
+            color: color,
+            weight: 1.2,
+            opacity: 0.5,
+          };
+        },
+        onEachFeature: (feature, layer) => {
+          const iso = feature.properties.ISO_A2;
+          if (!MINISTRY_COUNTRIES[iso]) return;
+          const region = MINISTRY_COUNTRIES[iso];
+          const color = REGION_COLORS[region];
+          layer.on('mouseover', function() {
+            layer.setStyle({ fillOpacity: 0.32, weight: 2 });
+          });
+          layer.on('mouseout', function() {
+            layer.setStyle({ fillOpacity: 0.18, weight: 1.2 });
+          });
+        }
+      }).addTo(map);
+    })
+    .catch(() => {}); // Silently fail if offline
+
+  // Hover tooltip element
+  const tooltip = document.createElement('div');
+  tooltip.style.cssText = 'position:absolute;background:var(--surface);border:0.5px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:12px;font-weight:500;color:var(--text);pointer-events:none;opacity:0;transition:opacity .15s;z-index:1000;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.12);';
+  document.getElementById('map-container').appendChild(tooltip);
+
+  // Add ministry pins
+  MINISTRY_LOCATIONS.forEach(m => {
+    const color = REGION_COLORS[m.region] || '#534AB7';
+
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="ministry-pin" style="background:${color};"></div>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7],
+      popupAnchor: [0, -10],
+    });
+
+    const marker = L.marker([m.lat, m.lng], { icon }).addTo(map);
+
+    // Hover tooltip — show ministry name
+    marker.on('mouseover', e => {
+      tooltip.textContent = m.name;
+      tooltip.style.opacity = '1';
+    });
+    marker.on('mousemove', e => {
+      const mapRect = document.getElementById('leaflet-map').getBoundingClientRect();
+      const containerRect = document.getElementById('map-container').getBoundingClientRect();
+      let x = e.originalEvent.clientX - containerRect.left + 12;
+      let y = e.originalEvent.clientY - containerRect.top - 30;
+      if (x + 200 > containerRect.width) x -= 210;
+      tooltip.style.left = x + 'px';
+      tooltip.style.top = y + 'px';
+    });
+    marker.on('mouseout', () => { tooltip.style.opacity = '0'; });
+
+    // Click popup
+    const buildPopup = () => {
+      const mData = ministriesData.find(d => d.ministry_id === m.id);
+      const visits = mData ? (mData.total_consultations||0).toLocaleString() : '—';
+      const director = mData ? (mData.director_name || '—') : '—';
+      const status = mData ? mData.report_status : '—';
+      const statusColor = (status === 'submitted' || status === 'approved') ? '#1D9E75' : '#BA7517';
+      return `<div>
+        <div style="font-weight:600;font-size:14px;margin-bottom:3px;">${m.name}</div>
+        <div style="font-size:12px;color:#888;margin-bottom:8px;">${m.country} &middot; <span style="color:${color};">${m.region}</span></div>
+        ${director !== '—' ? `<div style="font-size:12px;margin-bottom:3px;">Director: <strong>${director}</strong></div>` : ''}
+        <div style="font-size:12px;margin-bottom:3px;">Consultations: <strong>${visits}</strong></div>
+        <div style="font-size:12px;margin-bottom:10px;">Report: <strong style="color:${statusColor};">${status}</strong></div>
+        <button onclick="window.leafletMap && window.leafletMap.closePopup(); showMinistryDetail(${m.id});"
+          style="font-size:12px;padding:5px 12px;border-radius:6px;background:#534AB7;color:#fff;border:none;cursor:pointer;width:100%;">
+          View ministry &#8594;
+        </button>
+      </div>`;
+    };
+
+    marker.bindPopup(buildPopup, { maxWidth: 220, minWidth: 200 });
+    marker.on('popupopen', () => {
+      tooltip.style.opacity = '0';
+      marker.getPopup().setContent(buildPopup());
+    });
+  });
 }
 
 
