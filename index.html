@@ -4261,35 +4261,41 @@ function initMap() {
   container.appendChild(mapDiv);
 
   // Country label positions for ministry countries only
+  // Label positions offset from ministry pins to avoid overlap
+  // [lng, lat, dx_offset, dy_offset] — dx/dy in projected pixels
   const COUNTRY_LABELS = {
-    'Philippines':      [122.0, 12.5],
-    'India':            [79.0,  22.0],
-    'Myanmar':          [96.0,  19.0],
-    'Indonesia':        [117.0, -2.5],
-    'Nepal':            [84.0,  28.0],
-    'Sri Lanka':        [80.7,   7.5],
-    'Kyrgyzstan':       [74.5,  41.5],
-    'China':            [104.0, 35.0],
-    'Bangladesh':       [90.3,  23.7],
-    'Ghana':            [-1.0,   7.9],
-    'Kenya':            [37.9,  -0.5],
-    'Cameroon':         [12.3,   5.7],
-    'Mali':             [-2.0,  17.0],
-    'Niger':            [8.0,   17.0],
-    'Liberia':          [-9.5,   6.4],
-    'Chad':             [18.5,  15.5],
-    'Egypt':            [30.0,  26.0],
-    'South Sudan':      [31.5,   7.0],
-    'Benin':            [2.3,    9.3],
-    'Ukraine':          [31.0,  49.0],
-    'Guatemala':        [-90.2, 15.5],
-    'Nicaragua':        [-85.0, 12.8],
-    'Ecuador':          [-78.2, -1.8],
-    'Mexico':           [-102.0,23.0],
-    'Haiti':            [-72.3, 18.9],
-    'Bolivia':          [-64.0,-16.5],
-    'Dominican Republic':[-70.2,18.7],
-    'El Salvador':      [-88.9, 13.8],
+    // Asia
+    'Philippines':       [122.0, 12.5,   18,  0],
+    'India':             [79.0,  22.0,    0,  0],
+    'Myanmar':           [96.0,  19.0,  -20,  0],
+    'Indonesia':         [117.0, -2.5,    0,  0],
+    'Nepal':             [84.0,  28.5,    0, -10],
+    'Sri Lanka':         [80.7,   7.5,   16,   0],
+    'Kyrgyzstan':        [74.5,  41.5,    0,  0],
+    'China':             [104.0, 35.0,    0,  0],
+    'Bangladesh':        [90.3,  24.5,   18,  0],
+    // Africa
+    'Ghana':             [-1.0,   8.5,    0, -12],
+    'Kenya':             [37.9,   0.5,   18,   0],
+    'Cameroon':          [12.3,   5.7,   20,   0],
+    'Mali':              [-2.0,  17.0,    0,  0],
+    'Niger':             [8.0,   17.0,    0,  0],
+    'Liberia':           [-9.5,   6.4,  -22,  0],
+    'Chad':              [18.5,  15.5,    0,  0],
+    'Egypt':             [30.0,  26.0,    0,  0],
+    'South Sudan':       [31.5,   7.0,   22,  0],
+    'Benin':             [2.3,    9.3,   16,  0],
+    // Europe
+    'Ukraine':           [31.0,  49.0,    0,  0],
+    // Latin America — carefully spaced
+    'Mexico':            [-102.0,23.0,    0,  0],
+    'Guatemala':         [-90.2, 14.8,  -24,  0],
+    'El Salvador':       [-88.9, 13.2,   22,  0],
+    'Nicaragua':         [-85.0, 12.2,    0, 12],
+    'Haiti':             [-72.3, 18.2,  -26,  0],
+    'Dominican Republic':[-70.2, 19.6,   12,  0],
+    'Ecuador':           [-78.2, -1.8,  -22,  0],
+    'Bolivia':           [-64.0,-16.5,    0,  0],
   };
 
   const loadScript = src => new Promise(res => {
@@ -4394,24 +4400,43 @@ function initMap() {
         .attr('stroke-width', 0.3);
 
       // Country name labels — only for ministry countries, hidden until zoom > 1.5
-      Object.entries(COUNTRY_LABELS).forEach(([country, coords]) => {
+      Object.entries(COUNTRY_LABELS).forEach(([country, coordsArr]) => {
         if (!ministryCountrySet.has(country)) return;
-        const proj = projection(coords);
+        const [lng, lat, dx, dy] = coordsArr;
+        const proj = projection([lng, lat]);
         if (!proj) return;
         const ministry = MINISTRY_LOCATIONS.find(m => m.country === country);
         const color = ministry ? REGION_COLORS[ministry.region] : '#888';
+        const px = proj[0] + (dx || 0);
+        const py = proj[1] + (dy || 0);
+        // White halo behind text for readability over shaded countries
         mapGroup.append('text')
           .attr('class', 'country-label')
-          .attr('x', proj[0])
-          .attr('y', proj[1])
+          .attr('x', px).attr('y', py)
           .attr('text-anchor', 'middle')
           .attr('dominant-baseline', 'middle')
           .attr('font-size', 9)
           .attr('font-family', 'system-ui, sans-serif')
-          .attr('font-weight', '500')
+          .attr('font-weight', '700')
+          .attr('fill', 'white')
+          .attr('stroke', 'white')
+          .attr('stroke-width', 3)
+          .attr('stroke-linejoin', 'round')
+          .attr('pointer-events', 'none')
+          .style('display', 'none')
+          .text(country);
+        // Colored text on top
+        mapGroup.append('text')
+          .attr('class', 'country-label')
+          .attr('x', px).attr('y', py)
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'middle')
+          .attr('font-size', 9)
+          .attr('font-family', 'system-ui, sans-serif')
+          .attr('font-weight', '600')
           .attr('fill', color)
           .attr('pointer-events', 'none')
-          .style('display', 'none') // hidden until zoomed in
+          .style('display', 'none')
           .text(country);
       });
 
