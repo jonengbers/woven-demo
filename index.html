@@ -493,6 +493,13 @@ button:hover{background:var(--surface2);}
         </div>
         <button class="btn-primary" style="margin-top:14px;" onclick="saveAccountSettings()" data-i18n="settings_save">Save changes</button>
         <div id="settings-saved" style="font-size:12px;color:var(--green);margin-top:8px;display:none;" data-i18n="settings_saved">Saved successfully</div>
+        <div style="margin-top:16px;padding-top:14px;border-top:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--text);">Password</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px;">Update your account password</div>
+          </div>
+          <button onclick="openChangePasswordModal()" style="font-size:12px;padding:6px 14px;">Change password</button>
+        </div>
       </div>
 
       <div class="card">
@@ -502,24 +509,32 @@ button:hover{background:var(--surface2);}
     </div>
   </div>
 
-  <!-- Change password -->
-<div class="card">
-  <div style="font-size:15px;font-weight:600;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">Change password</div>
-  <div class="form-row-1" style="margin-bottom:10px;">
-    <div class="flabel">Current password</div>
-    <input type="password" id="settings-current-password" placeholder="Enter current password"/>
+  <!-- Change password modal -->
+  <div id="change-password-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:200;">
+    <div class="card" style="width:100%;max-width:400px;margin:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:0.5px solid var(--border);">
+        <div style="font-size:15px;font-weight:600;">Change password</div>
+        <button onclick="closeChangePasswordModal()" style="border:none;background:transparent;font-size:18px;color:var(--text2);padding:2px 6px;line-height:1;">×</button>
+      </div>
+      <div class="form-row-1" style="margin-bottom:10px;">
+        <div class="flabel">Current password</div>
+        <input type="password" id="settings-current-password" placeholder="Enter current password"/>
+      </div>
+      <div class="form-row-1" style="margin-bottom:10px;">
+        <div class="flabel">New password</div>
+        <input type="password" id="settings-new-password" placeholder="At least 8 characters"/>
+      </div>
+      <div class="form-row-1" style="margin-bottom:16px;">
+        <div class="flabel">Confirm new password</div>
+        <input type="password" id="settings-confirm-password" placeholder="Repeat new password"/>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-primary" onclick="changePassword()">Update password</button>
+        <button onclick="closeChangePasswordModal()">Cancel</button>
+      </div>
+      <div id="password-message" style="font-size:12px;margin-top:10px;display:none;"></div>
+    </div>
   </div>
-  <div class="form-row-1" style="margin-bottom:10px;">
-    <div class="flabel">New password</div>
-    <input type="password" id="settings-new-password" placeholder="At least 8 characters"/>
-  </div>
-  <div class="form-row-1" style="margin-bottom:14px;">
-    <div class="flabel">Confirm new password</div>
-    <input type="password" id="settings-confirm-password" placeholder="Repeat new password"/>
-  </div>
-  <button class="btn-primary" onclick="changePassword()">Update password</button>
-  <div id="password-message" style="font-size:12px;margin-top:8px;display:none;"></div>
-</div>
   
   <!-- ADMIN PANEL -->
   <div class="screen" id="screen-admin">
@@ -5464,6 +5479,20 @@ function triggerDownload(rows, yearFilter) {
   toast('Export downloaded', 'success');
 }
 
+  function openChangePasswordModal() {
+    ['settings-current-password','settings-new-password','settings-confirm-password'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    const msg = document.getElementById('password-message');
+    msg.style.display = 'none';
+    msg.textContent = '';
+    document.getElementById('change-password-modal').classList.remove('hidden');
+  }
+
+  function closeChangePasswordModal() {
+    document.getElementById('change-password-modal').classList.add('hidden');
+  }
+
   async function changePassword() {
   const currentPw = document.getElementById('settings-current-password').value;
   const newPw     = document.getElementById('settings-new-password').value;
@@ -5478,16 +5507,18 @@ function triggerDownload(rows, yearFilter) {
   if (newPw.length < 8) { showMsg('New password must be at least 8 characters.', false); return; }
   if (newPw !== confirmPw) { showMsg('New passwords do not match.', false); return; }
   if (currentPw === newPw) { showMsg('New password must differ from current password.', false); return; }
-  if (DEMO_MODE) { showMsg('Password updated (demo mode).', true); return; }
+  if (DEMO_MODE) {
+    showMsg('Password updated successfully.', true);
+    setTimeout(closeChangePasswordModal, 1200);
+    return;
+  }
   try {
     const { error: signInError } = await sb.auth.signInWithPassword({ email: currentUser.email, password: currentPw });
     if (signInError) { showMsg('Current password is incorrect.', false); return; }
     const { error: updateError } = await sb.auth.updateUser({ password: newPw });
     if (updateError) throw updateError;
-    document.getElementById('settings-current-password').value = '';
-    document.getElementById('settings-new-password').value = '';
-    document.getElementById('settings-confirm-password').value = '';
     showMsg('Password updated successfully.', true);
+    setTimeout(closeChangePasswordModal, 1200);
   } catch(e) {
     showMsg('Error: ' + e.message, false);
   }
