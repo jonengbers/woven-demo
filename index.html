@@ -4261,41 +4261,41 @@ function initMap() {
   container.appendChild(mapDiv);
 
   // Country label positions for ministry countries only
-  // Label positions offset from ministry pins to avoid overlap
-  // [lng, lat, dx_offset, dy_offset] — dx/dy in projected pixels
+  // Label positions — geographic centroids placed for readability, no pixel offsets needed
+  // [lng, lat] — placed at good visual center of each country, away from ministry pins
   const COUNTRY_LABELS = {
     // Asia
-    'Philippines':       [122.0, 12.5,   18,  0],
-    'India':             [79.0,  22.0,    0,  0],
-    'Myanmar':           [96.0,  19.0,  -20,  0],
-    'Indonesia':         [117.0, -2.5,    0,  0],
-    'Nepal':             [84.0,  28.5,    0, -10],
-    'Sri Lanka':         [80.7,   7.5,   16,   0],
-    'Kyrgyzstan':        [74.5,  41.5,    0,  0],
-    'China':             [104.0, 35.0,    0,  0],
-    'Bangladesh':        [90.3,  24.5,   18,  0],
+    'Philippines':    [122.5, 11.5],
+    'India':          [79.0,  22.5],
+    'Myanmar':        [95.5,  21.0],
+    'Indonesia':      [117.0, -2.0],
+    'Nepal':          [84.0,  28.3],
+    'Sri Lanka':      [80.7,   7.8],
+    'Kyrgyzstan':     [74.5,  41.5],
+    'China':          [104.0, 35.0],
+    'Bangladesh':     [90.3,  24.0],
     // Africa
-    'Ghana':             [-1.0,   8.5,    0, -12],
-    'Kenya':             [37.9,   0.5,   18,   0],
-    'Cameroon':          [12.3,   5.7,   20,   0],
-    'Mali':              [-2.0,  17.0,    0,  0],
-    'Niger':             [8.0,   17.0,    0,  0],
-    'Liberia':           [-9.5,   6.4,  -22,  0],
-    'Chad':              [18.5,  15.5,    0,  0],
-    'Egypt':             [30.0,  26.0,    0,  0],
-    'South Sudan':       [31.5,   7.0,   22,  0],
-    'Benin':             [2.3,    9.3,   16,  0],
+    'Ghana':          [-1.0,   7.2],
+    'Kenya':          [38.0,   0.5],
+    'Cameroon':       [12.3,   5.5],
+    'Mali':           [-2.0,  17.5],
+    'Niger':          [8.0,   17.5],
+    'Liberia':        [-9.4,   6.5],
+    'Chad':           [18.5,  15.0],
+    'Egypt':          [30.0,  26.5],
+    'South Sudan':    [31.5,   7.5],
+    'Benin':          [2.3,    9.5],
     // Europe
-    'Ukraine':           [31.0,  49.0,    0,  0],
-    // Latin America — carefully spaced
-    'Mexico':            [-102.0,23.0,    0,   0],
-    'Guatemala':         [-90.5, 15.6,    0,   0],
-    'El Salvador':       [-88.9, 13.2,   22,   0],
-    'Nicaragua':         [-85.0, 12.2,    0,  14],
-    'Haiti':             [-72.3, 18.9,    6, -14],
-    'Dominican Republic':[-70.5, 18.6,   18,   0],
-    'Ecuador':           [-78.2, -1.8,  -22,   0],
-    'Bolivia':           [-64.0,-17.5,    0,  14],
+    'Ukraine':        [31.0,  49.0],
+    // Latin America
+    'Mexico':         [-102.0,23.5],
+    'Guatemala':      [-90.3, 15.8],
+    'El Salvador':    [-88.9, 13.9],
+    'Nicaragua':      [-85.2, 13.0],
+    'Haiti':          [-73.0, 19.1],
+    'Dominican Republic':[-70.5,18.8],
+    'Ecuador':        [-78.5, -1.5],
+    'Bolivia':        [-65.0,-16.5],
   };
 
   const loadScript = src => new Promise(res => {
@@ -4340,7 +4340,7 @@ function initMap() {
       // Show labels above zoom 1.5, always fixed font size
       svg.selectAll('.country-label')
         .style('display', k > 1.5 ? 'block' : 'none')
-        .attr('font-size', 9);
+        .attr('font-size', 11);
     });
 
     svg.call(zoomBehavior);
@@ -4403,13 +4403,13 @@ function initMap() {
       // Country name labels — only for ministry countries, hidden until zoom > 1.5
       Object.entries(COUNTRY_LABELS).forEach(([country, coordsArr]) => {
         if (!ministryCountrySet.has(country)) return;
-        const [lng, lat, dx, dy] = coordsArr;
+        const [lng, lat] = coordsArr;
         const proj = projection([lng, lat]);
         if (!proj) return;
         const ministry = MINISTRY_LOCATIONS.find(m => m.country === country);
         const color = ministry ? REGION_COLORS[ministry.region] : '#888';
-        const px = proj[0] + (dx || 0);
-        const py = proj[1] + (dy || 0);
+        const px = proj[0];
+        const py = proj[1];
         // Label group in separate overlay (not scaled by zoom)
         const lg = svg.append('g')
           .attr('class', 'country-label-g')
@@ -4421,7 +4421,7 @@ function initMap() {
           .attr('class', 'country-label')
           .attr('text-anchor', 'middle')
           .attr('dominant-baseline', 'middle')
-          .attr('font-size', 9)
+          .attr('font-size', 11)
           .attr('font-family', 'system-ui, sans-serif')
           .attr('font-weight', '700')
           .attr('fill', 'white')
@@ -4436,7 +4436,7 @@ function initMap() {
           .attr('class', 'country-label')
           .attr('text-anchor', 'middle')
           .attr('dominant-baseline', 'middle')
-          .attr('font-size', 9)
+          .attr('font-size', 11)
           .attr('font-family', 'system-ui, sans-serif')
           .attr('font-weight', '600')
           .attr('fill', color)
@@ -4456,7 +4456,7 @@ function initMap() {
         return { m, x: p ? p[0] : null, y: p ? p[1] : null };
       });
 
-      // Separate pins that are within 12px of each other at default zoom
+      // Gently separate pins that are within 8px — small push only
       projectedPins.forEach((pin, i) => {
         if (!pin.x) return;
         for (let j = i+1; j < projectedPins.length; j++) {
@@ -4464,9 +4464,9 @@ function initMap() {
           if (!other.x) continue;
           const dx = pin.x - other.x, dy = pin.y - other.y;
           const dist = Math.sqrt(dx*dx + dy*dy);
-          if (dist < 12) {
+          if (dist < 8 && dist > 0) {
             const angle = Math.atan2(dy, dx);
-            const push = (12 - dist) / 2;
+            const push = Math.min(3, (8 - dist) / 2); // cap at 3px push
             pin.x  += Math.cos(angle) * push;
             pin.y  += Math.sin(angle) * push;
             other.x -= Math.cos(angle) * push;
