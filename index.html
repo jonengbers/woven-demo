@@ -207,11 +207,12 @@ button:hover{background:var(--surface2);}
         <select id="signup-role">
           <option value="pmt_member">PMT Member</option>
           <option value="director">Ministry Director</option>
-          <option value="admin">Admin Staff</option>
-          <option value="board">Board Member</option>
         </select>
       </div>
-      <button class="btn-primary" style="width:100%;margin-top:12px;" onclick="handleSignup()">Create account</button>
+      <div style="font-size:12px;color:var(--text2);margin-top:12px;padding:10px;background:var(--surface2);border-radius:var(--r-md);line-height:1.5;">
+        Woven is currently in beta. New accounts require admin approval before access is granted. You will be notified once your account is activated.
+      </div>
+      <button class="btn-primary" style="width:100%;margin-top:10px;" onclick="handleSignup()">Request account</button>
       <div id="signup-error" style="font-size:12px;color:var(--red);margin-top:8px;"></div>
       <div id="signup-success" style="font-size:12px;color:var(--green);margin-top:8px;"></div>
     </div>
@@ -513,10 +514,10 @@ button:hover{background:var(--surface2);}
   <div id="change-password-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:200;">
     <div class="card" style="width:100%;max-width:400px;margin:20px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:0.5px solid var(--border);">
-        <div style="font-size:15px;font-weight:600;">Change password</div>
-        <button onclick="closeChangePasswordModal()" style="border:none;background:transparent;font-size:18px;color:var(--text2);padding:2px 6px;line-height:1;">×</button>
+        <div class="pw-modal-title" style="font-size:15px;font-weight:600;">Change password</div>
+        <button class="pw-close-btn" onclick="closeChangePasswordModal()" style="border:none;background:transparent;font-size:18px;color:var(--text2);padding:2px 6px;line-height:1;">×</button>
       </div>
-      <div class="form-row-1" style="margin-bottom:10px;">
+      <div id="current-pw-row" class="form-row-1" style="margin-bottom:10px;">
         <div class="flabel">Current password</div>
         <input type="password" id="settings-current-password" placeholder="Enter current password"/>
       </div>
@@ -530,7 +531,7 @@ button:hover{background:var(--surface2);}
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn-primary" onclick="changePassword()">Update password</button>
-        <button onclick="closeChangePasswordModal()">Cancel</button>
+        <button class="pw-cancel-btn" onclick="closeChangePasswordModal()">Cancel</button>
       </div>
       <div id="password-message" style="font-size:12px;margin-top:10px;display:none;"></div>
     </div>
@@ -868,6 +869,17 @@ function enterApp(profile) {
   }
   if (profile.status === 'deactivated') {
     showDeactivatedScreen();
+    return;
+  }
+  // Force password change on first login for admin-created accounts
+  if (profile.must_change_password) {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'block';
+    const initials = profile.initials || (profile.full_name || profile.name || '?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('user-av').textContent = initials;
+    document.getElementById('user-name').textContent = profile.full_name || profile.name || '';
+    document.getElementById('user-role').textContent = (profile.role||'').replace('_',' ');
+    showForcedPasswordChange();
     return;
   }
   document.getElementById('auth-screen').style.display = 'none';
@@ -5479,14 +5491,37 @@ function triggerDownload(rows, yearFilter) {
   toast('Export downloaded', 'success');
 }
 
+  function showForcedPasswordChange() {
+    const modal = document.getElementById('change-password-modal');
+    modal.classList.remove('hidden');
+    modal.querySelector('.pw-cancel-btn').classList.add('hidden');
+    modal.querySelector('.pw-close-btn').classList.add('hidden');
+    const title = modal.querySelector('.pw-modal-title');
+    if (title) title.textContent = 'Set your password';
+    const currentPwRow = document.getElementById('current-pw-row');
+    if (currentPwRow) currentPwRow.style.display = 'none';
+    const msg = document.getElementById('password-message');
+    msg.textContent = 'Your account was created by an administrator. Please set a new password to continue.';
+    msg.style.color = 'var(--text2)';
+    msg.style.display = 'block';
+  }
+
   function openChangePasswordModal() {
     ['settings-current-password','settings-new-password','settings-confirm-password'].forEach(id => {
       document.getElementById(id).value = '';
     });
+    // Restore modal to normal state in case it was used for forced change
+    const modal = document.getElementById('change-password-modal');
+    modal.querySelector('.pw-cancel-btn').classList.remove('hidden');
+    modal.querySelector('.pw-close-btn').classList.remove('hidden');
+    const title = modal.querySelector('.pw-modal-title');
+    if (title) title.textContent = 'Change password';
+    const currentPwRow = document.getElementById('current-pw-row');
+    if (currentPwRow) currentPwRow.style.display = '';
     const msg = document.getElementById('password-message');
     msg.style.display = 'none';
     msg.textContent = '';
-    document.getElementById('change-password-modal').classList.remove('hidden');
+    modal.classList.remove('hidden');
   }
 
   function closeChangePasswordModal() {
@@ -5494,7 +5529,10 @@ function triggerDownload(rows, yearFilter) {
   }
 
   async function changePassword() {
-  const currentPw = document.getElementById('settings-current-password').value;
+  const isForcedChange = userProfile && userProfile.must_change_password;
+  const currentPwRow = document.getElementById('current-pw-row');
+  const currentPwHidden = currentPwRow && currentPwRow.style.display === 'none';
+  const currentPw = currentPwHidden ? null : document.getElementById('settings-current-password').value;
   const newPw     = document.getElementById('settings-new-password').value;
   const confirmPw = document.getElementById('settings-confirm-password').value;
   const msgEl     = document.getElementById('password-message');
@@ -5503,22 +5541,34 @@ function triggerDownload(rows, yearFilter) {
     msgEl.style.color = ok ? 'var(--green)' : 'var(--red)';
     msgEl.style.display = 'block';
   };
-  if (!currentPw || !newPw || !confirmPw) { showMsg('Please fill in all three fields.', false); return; }
+  if (!currentPwHidden && !currentPw) { showMsg('Please fill in all three fields.', false); return; }
+  if (!newPw || !confirmPw) { showMsg('Please fill in all fields.', false); return; }
   if (newPw.length < 8) { showMsg('New password must be at least 8 characters.', false); return; }
   if (newPw !== confirmPw) { showMsg('New passwords do not match.', false); return; }
-  if (currentPw === newPw) { showMsg('New password must differ from current password.', false); return; }
+  if (currentPw && currentPw === newPw) { showMsg('New password must differ from current password.', false); return; }
   if (DEMO_MODE) {
     showMsg('Password updated successfully.', true);
     setTimeout(closeChangePasswordModal, 1200);
     return;
   }
   try {
-    const { error: signInError } = await sb.auth.signInWithPassword({ email: currentUser.email, password: currentPw });
-    if (signInError) { showMsg('Current password is incorrect.', false); return; }
+    if (!currentPwHidden) {
+      const { error: signInError } = await sb.auth.signInWithPassword({ email: currentUser.email, password: currentPw });
+      if (signInError) { showMsg('Current password is incorrect.', false); return; }
+    }
     const { error: updateError } = await sb.auth.updateUser({ password: newPw });
     if (updateError) throw updateError;
+    // Clear the forced change flag if this was a forced reset
+    if (isForcedChange) {
+      await sb.from('user_profiles').update({ must_change_password: false }).eq('id', currentUser.id);
+      if (userProfile) userProfile.must_change_password = false;
+    }
     showMsg('Password updated successfully.', true);
-    setTimeout(closeChangePasswordModal, 1200);
+    setTimeout(() => {
+      closeChangePasswordModal();
+      // If this was a forced change, complete the login flow
+      if (isForcedChange) loadDashboard();
+    }, 1200);
   } catch(e) {
     showMsg('Error: ' + e.message, false);
   }
