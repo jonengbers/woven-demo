@@ -207,11 +207,12 @@ button:hover{background:var(--surface2);}
         <select id="signup-role">
           <option value="pmt_member">PMT Member</option>
           <option value="director">Ministry Director</option>
-          <option value="admin">Admin Staff</option>
-          <option value="board">Board Member</option>
         </select>
       </div>
-      <button class="btn-primary" style="width:100%;margin-top:12px;" onclick="handleSignup()">Create account</button>
+      <div style="font-size:12px;color:var(--text2);margin-top:12px;padding:10px;background:var(--surface2);border-radius:var(--r-md);line-height:1.5;">
+        Woven is currently in beta. New accounts require admin approval before access is granted. You will be notified once your account is activated.
+      </div>
+      <button class="btn-primary" style="width:100%;margin-top:10px;" onclick="handleSignup()">Request account</button>
       <div id="signup-error" style="font-size:12px;color:var(--red);margin-top:8px;"></div>
       <div id="signup-success" style="font-size:12px;color:var(--green);margin-top:8px;"></div>
     </div>
@@ -1310,7 +1311,6 @@ function showMinistryDetail(id, period) {
       active.style.color = '#fff';
       active.style.fontWeight = '500';
     }
-    // Show Transfers tab only for permitted roles
     const _role = userProfile && userProfile.role;
     const _canSeeTransfers = _role === 'admin' || _role === 'board' ||
       ((_role === 'pmt_member' || _role === 'director') && userProfile.ministry_id === m.ministry_id);
@@ -2518,7 +2518,7 @@ function renderNarrativeCard(r) {
       ${needsLiveTranslation ? `
         <div class="narrative-live-translation" style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border);display:none;">
           <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Auto-translated to ${LANG_NAMES[userLang]||userLang}</div>
-          <div style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;" class="narrative-translated-text"></div>
+          <div style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;white-space:pre-wrap;" class="narrative-translated-text"></div>
         </div>` : ''}
     ` : '<div style="color:var(--text2);font-size:13px;">No narrative submitted for this month.</div>'}
   </div>`;
@@ -2538,18 +2538,11 @@ async function loadTransfers(ministryId) {
         <div class="card" style="margin-bottom:14px;padding:16px;">
           <div style="font-size:13px;font-weight:600;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">Record transfer</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-            <div>
-              <div class="flabel">Date</div>
-              <input type="date" id="tr-date" style="width:100%;"/>
-            </div>
-            <div>
-              <div class="flabel">Amount (USD)</div>
-              <input type="number" id="tr-amount" placeholder="0.00" min="0" step="0.01" style="width:100%;"/>
-            </div>
+            <div><div class="flabel">Date</div><input type="date" id="tr-date" style="width:100%;"/></div>
+            <div><div class="flabel">Amount (USD)</div><input type="number" id="tr-amount" placeholder="0.00" min="0" step="0.01" style="width:100%;"/></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-            <div>
-              <div class="flabel">Method</div>
+            <div><div class="flabel">Method</div>
               <select id="tr-method" style="width:100%;">
                 <option value="">Select method...</option>
                 <option value="Wire transfer">Wire transfer</option>
@@ -2559,8 +2552,7 @@ async function loadTransfers(ministryId) {
                 <option value="Other">Other</option>
               </select>
             </div>
-            <div>
-              <div class="flabel">Purpose</div>
+            <div><div class="flabel">Purpose</div>
               <select id="tr-purpose" style="width:100%;">
                 <option value="">Select purpose...</option>
                 <option value="Monthly support">Monthly support</option>
@@ -2572,8 +2564,7 @@ async function loadTransfers(ministryId) {
               </select>
             </div>
           </div>
-          <div style="margin-bottom:12px;">
-            <div class="flabel">Notes</div>
+          <div style="margin-bottom:12px;"><div class="flabel">Notes</div>
             <textarea id="tr-notes" placeholder="Optional notes..." rows="2" style="width:100%;resize:vertical;"></textarea>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
@@ -2617,10 +2608,7 @@ async function loadTransfers(ministryId) {
         .in('id', recorderIds);
       (profiles || []).forEach(p => { nameMap[p.id] = p.full_name; });
     }
-    const enriched = transfers.map(t => ({
-      ...t,
-      created_by_name: nameMap[t.recorded_by] || '—'
-    }));
+    const enriched = transfers.map(t => ({ ...t, created_by_name: nameMap[t.recorded_by] || '—' }));
     renderTransfers(enriched);
   } catch(e) {
     container.innerHTML = `<div style="padding:20px;color:var(--red);font-size:13px;">Error loading transfers: ${e.message}</div>`;
@@ -2637,7 +2625,6 @@ function renderTransfers(transfers) {
   }
 
   const total = transfers.reduce((sum, t) => sum + (parseFloat(t.amount_usd) || 0), 0);
-
   const rows = transfers.map(t => {
     const date = new Date(t.transfer_date + 'T00:00:00').toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
     const amount = '$' + parseFloat(t.amount_usd).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
@@ -2659,11 +2646,7 @@ function renderTransfers(transfers) {
       </div>
       <div style="overflow-x:auto;">
         <table class="mtable">
-          <thead>
-            <tr>
-              <th>Date</th><th>Amount</th><th>Method</th><th>Purpose</th><th>Notes</th><th>Recorded by</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Purpose</th><th>Notes</th><th>Recorded by</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -2677,11 +2660,7 @@ async function submitTransfer(ministryId) {
   const purpose = document.getElementById('tr-purpose').value;
   const notes   = document.getElementById('tr-notes').value.trim();
   const msgEl   = document.getElementById('tr-msg');
-  const showMsg = (text, ok) => {
-    msgEl.textContent = text;
-    msgEl.style.color = ok ? 'var(--green)' : 'var(--red)';
-    msgEl.style.display = 'block';
-  };
+  const showMsg = (text, ok) => { msgEl.textContent = text; msgEl.style.color = ok ? 'var(--green)' : 'var(--red)'; msgEl.style.display = 'block'; };
   if (!date || !amount || !method || !purpose) { showMsg('Please fill in date, amount, method, and purpose.', false); return; }
   if (parseFloat(amount) <= 0) { showMsg('Amount must be greater than zero.', false); return; }
   if (DEMO_MODE) { showMsg('Transfer recorded (demo mode).', true); return; }
@@ -2789,7 +2768,7 @@ async function loadPrayerRequests(ministryId) {
           <div style="font-size:13px;line-height:1.8;color:var(--text);white-space:pre-wrap;" class="prayer-original">${r.prayer_requests}</div>
           <div class="prayer-translation" style="display:none;margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border);">
             <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">English translation</div>
-            <div style="font-size:13px;line-height:1.8;color:var(--text2);font-style:italic;" class="prayer-translated-text"></div>
+            <div style="font-size:13px;line-height:1.8;color:var(--text2);font-style:italic;white-space:pre-wrap;" class="prayer-translated-text"></div>
           </div>
         </div>`;
       }).join('');
@@ -5399,35 +5378,48 @@ async function translateText(text, fromLang, toLang) {
 
   const MAX_CHUNK = 400;
 
-  // If short enough, translate directly
-  if (text.length <= MAX_CHUNK) {
-    return await translateChunk(text, fromLang, toLang);
-  }
+  // Split into paragraphs first so line breaks are preserved after translation
+  const paragraphs = text.split(/\n/);
 
-  // Split into chunks by words, keeping under MAX_CHUNK chars
-  const words = text.split(' ');
-  const chunks = [];
-  let current = '';
+  async function translateParagraph(para) {
+    if (!para.trim()) return para; // preserve blank lines as-is
 
-  for (const word of words) {
-    const candidate = current ? current + ' ' + word : word;
-    if (candidate.length <= MAX_CHUNK) {
-      current = candidate;
-    } else {
-      if (current) chunks.push(current);
-      current = word;
+    // If paragraph is short enough, translate directly
+    if (para.length <= MAX_CHUNK) {
+      return await translateChunk(para, fromLang, toLang);
     }
-  }
-  if (current) chunks.push(current);
 
-  // Translate each chunk with a small delay to avoid rate limiting
-  const translated = [];
-  for (let i = 0; i < chunks.length; i++) {
+    // Otherwise split long paragraphs by words
+    const words = para.split(' ');
+    const chunks = [];
+    let current = '';
+    for (const word of words) {
+      const candidate = current ? current + ' ' + word : word;
+      if (candidate.length <= MAX_CHUNK) {
+        current = candidate;
+      } else {
+        if (current) chunks.push(current);
+        current = word;
+      }
+    }
+    if (current) chunks.push(current);
+
+    const translated = [];
+    for (let i = 0; i < chunks.length; i++) {
+      if (i > 0) await new Promise(r => setTimeout(r, 150));
+      translated.push(await translateChunk(chunks[i], fromLang, toLang));
+    }
+    return translated.join(' ');
+  }
+
+  // Translate each paragraph with a small delay between them
+  const translatedParas = [];
+  for (let i = 0; i < paragraphs.length; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, 150));
-    translated.push(await translateChunk(chunks[i], fromLang, toLang));
+    translatedParas.push(await translateParagraph(paragraphs[i]));
   }
 
-  return translated.join(' ');
+  return translatedParas.join('\n');
 }
 
 async function translateMessage(msgEl, originalText, originalLang) {
@@ -5726,7 +5718,10 @@ function triggerDownload(rows, yearFilter) {
   }
 
   async function changePassword() {
-  const currentPw = document.getElementById('settings-current-password').value;
+  const isForcedChange = userProfile && userProfile.must_change_password;
+  const currentPwRow = document.getElementById('current-pw-row');
+  const currentPwHidden = currentPwRow && currentPwRow.style.display === 'none';
+  const currentPw = currentPwHidden ? null : document.getElementById('settings-current-password').value;
   const newPw     = document.getElementById('settings-new-password').value;
   const confirmPw = document.getElementById('settings-confirm-password').value;
   const msgEl     = document.getElementById('password-message');
@@ -5735,13 +5730,11 @@ function triggerDownload(rows, yearFilter) {
     msgEl.style.color = ok ? 'var(--green)' : 'var(--red)';
     msgEl.style.display = 'block';
   };
-  if (!currentPw || !newPw || !confirmPw) { showMsg('Please fill in all three fields.', false); return; }
+  if (!currentPwHidden && !currentPw) { showMsg('Please fill in all three fields.', false); return; }
+  if (!newPw || !confirmPw) { showMsg('Please fill in all fields.', false); return; }
   if (newPw.length < 8) { showMsg('New password must be at least 8 characters.', false); return; }
   if (newPw !== confirmPw) { showMsg('New passwords do not match.', false); return; }
-  if (currentPw === newPw) { showMsg('New password must differ from current password.', false); return; }
-  const isForcedChange = userProfile && userProfile.must_change_password;
-  const currentPwRow = document.getElementById('current-pw-row');
-  const currentPwHidden = currentPwRow && currentPwRow.style.display === 'none';
+  if (currentPw && currentPw === newPw) { showMsg('New password must differ from current password.', false); return; }
   if (DEMO_MODE) {
     showMsg('Password updated successfully.', true);
     setTimeout(closeChangePasswordModal, 1200);
