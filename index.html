@@ -493,6 +493,13 @@ button:hover{background:var(--surface2);}
         </div>
         <button class="btn-primary" style="margin-top:14px;" onclick="saveAccountSettings()" data-i18n="settings_save">Save changes</button>
         <div id="settings-saved" style="font-size:12px;color:var(--green);margin-top:8px;display:none;" data-i18n="settings_saved">Saved successfully</div>
+        <div style="margin-top:16px;padding-top:14px;border-top:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--text);">Password</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px;">Update your account password</div>
+          </div>
+          <button onclick="openChangePasswordModal()" style="font-size:12px;padding:6px 14px;">Change password</button>
+        </div>
       </div>
 
       <div class="card">
@@ -502,24 +509,32 @@ button:hover{background:var(--surface2);}
     </div>
   </div>
 
-  <!-- Change password -->
-<div class="card">
-  <div style="font-size:15px;font-weight:600;margin-bottom:14px;padding-bottom:10px;border-bottom:0.5px solid var(--border);">Change password</div>
-  <div class="form-row-1" style="margin-bottom:10px;">
-    <div class="flabel">Current password</div>
-    <input type="password" id="settings-current-password" placeholder="Enter current password"/>
+  <!-- Change password modal -->
+  <div id="change-password-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:200;">
+    <div class="card" style="width:100%;max-width:400px;margin:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:0.5px solid var(--border);">
+        <div class="pw-modal-title" style="font-size:15px;font-weight:600;">Change password</div>
+        <button class="pw-close-btn" onclick="closeChangePasswordModal()" style="border:none;background:transparent;font-size:18px;color:var(--text2);padding:2px 6px;line-height:1;">×</button>
+      </div>
+      <div id="current-pw-row" class="form-row-1" style="margin-bottom:10px;">
+        <div class="flabel">Current password</div>
+        <input type="password" id="settings-current-password" placeholder="Enter current password"/>
+      </div>
+      <div class="form-row-1" style="margin-bottom:10px;">
+        <div class="flabel">New password</div>
+        <input type="password" id="settings-new-password" placeholder="At least 8 characters"/>
+      </div>
+      <div class="form-row-1" style="margin-bottom:16px;">
+        <div class="flabel">Confirm new password</div>
+        <input type="password" id="settings-confirm-password" placeholder="Repeat new password"/>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-primary" onclick="changePassword()">Update password</button>
+        <button class="pw-cancel-btn" onclick="closeChangePasswordModal()">Cancel</button>
+      </div>
+      <div id="password-message" style="font-size:12px;margin-top:10px;display:none;"></div>
+    </div>
   </div>
-  <div class="form-row-1" style="margin-bottom:10px;">
-    <div class="flabel">New password</div>
-    <input type="password" id="settings-new-password" placeholder="At least 8 characters"/>
-  </div>
-  <div class="form-row-1" style="margin-bottom:14px;">
-    <div class="flabel">Confirm new password</div>
-    <input type="password" id="settings-confirm-password" placeholder="Repeat new password"/>
-  </div>
-  <button class="btn-primary" onclick="changePassword()">Update password</button>
-  <div id="password-message" style="font-size:12px;margin-top:8px;display:none;"></div>
-</div>
   
   <!-- ADMIN PANEL -->
   <div class="screen" id="screen-admin">
@@ -853,6 +868,16 @@ function enterApp(profile) {
   }
   if (profile.status === 'deactivated') {
     showDeactivatedScreen();
+    return;
+  }
+  if (profile.must_change_password) {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'block';
+    const initials = (profile.full_name || profile.name || '?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('user-av').textContent = initials;
+    document.getElementById('user-name').textContent = profile.full_name || profile.name || '';
+    document.getElementById('user-role').textContent = (profile.role||'').replace('_',' ');
+    showForcedPasswordChange();
     return;
   }
   document.getElementById('auth-screen').style.display = 'none';
@@ -1263,9 +1288,7 @@ function showMinistryDetail(id, period) {
 
         <!-- Transfers tab -->
         <div id="dtab-transfers-content" style="display:none;">
-          <!-- Add transfer form — admin only, rendered by JS -->
           <div id="transfer-form-container"></div>
-          <!-- Transfer history -->
           <div id="transfers-list">
             <div style="text-align:center;padding:20px;color:var(--text2);"><span class="spinner"></span></div>
           </div>
@@ -1287,13 +1310,12 @@ function showMinistryDetail(id, period) {
       active.style.color = '#fff';
       active.style.fontWeight = '500';
     }
-    // Show transfers tab for admin, board, PMT assigned to this ministry, and the ministry's director
-    const role = userProfile && userProfile.role;
-    const canSeeTransfers = role === 'admin' || role === 'board' ||
-      (role === 'pmt_member' && userProfile.ministry_id === m.ministry_id) ||
-      (role === 'director' && userProfile.ministry_id === m.ministry_id);
-    const transfersBtn = document.getElementById('dtab-transfers');
-    if (transfersBtn) transfersBtn.style.display = canSeeTransfers ? '' : 'none';
+    // Show Transfers tab only for permitted roles
+    const _role = userProfile && userProfile.role;
+    const _canSeeTransfers = _role === 'admin' || _role === 'board' ||
+      ((_role === 'pmt_member' || _role === 'director') && userProfile.ministry_id === m.ministry_id);
+    const _transfersBtn = document.getElementById('dtab-transfers');
+    if (_transfersBtn) _transfersBtn.style.display = _canSeeTransfers ? '' : 'none';
   }, 10);
 
   narrativeReportsLoaded = false;
@@ -2355,6 +2377,7 @@ async function sendMsg(convoId) {
 let currentDetailMinistryId = null;
 let narrativeReportsLoaded = false;
 let prayerRequestsLoaded = false;
+let transfersLoaded = false;
 
 function switchDetailTab(tab) {
   ['stats','reports','prayer','transfers'].forEach(t => {
@@ -2501,7 +2524,6 @@ function renderNarrativeCard(r) {
   </div>`;
 }
 
-
 async function loadTransfers(ministryId) {
   const container = document.getElementById('transfers-list');
   const formContainer = document.getElementById('transfer-form-container');
@@ -2510,7 +2532,6 @@ async function loadTransfers(ministryId) {
   const role = userProfile && userProfile.role;
   const isAdmin = role === 'admin';
 
-  // Render admin entry form
   if (formContainer) {
     if (isAdmin) {
       formContainer.innerHTML = `
@@ -2580,16 +2601,27 @@ async function loadTransfers(ministryId) {
   try {
     const { data, error } = await sb
       .from('ministry_transfers')
-      .select('*, recorded_by_profile:user_profiles!ministry_transfers_recorded_by_fkey(full_name)')
+      .select('*')
       .eq('ministry_id', ministryId)
       .order('transfer_date', { ascending: false });
 
     if (error) throw error;
-    const transfers = (data || []).map(t => ({
+
+    const transfers = data || [];
+    const recorderIds = [...new Set(transfers.map(t => t.recorded_by).filter(Boolean))];
+    let nameMap = {};
+    if (recorderIds.length > 0) {
+      const { data: profiles } = await sb
+        .from('user_profiles')
+        .select('id, full_name')
+        .in('id', recorderIds);
+      (profiles || []).forEach(p => { nameMap[p.id] = p.full_name; });
+    }
+    const enriched = transfers.map(t => ({
       ...t,
-      created_by_name: t.recorded_by_profile?.full_name || '—'
+      created_by_name: nameMap[t.recorded_by] || '—'
     }));
-    renderTransfers(transfers);
+    renderTransfers(enriched);
   } catch(e) {
     container.innerHTML = `<div style="padding:20px;color:var(--red);font-size:13px;">Error loading transfers: ${e.message}</div>`;
   }
@@ -2609,19 +2641,15 @@ function renderTransfers(transfers) {
   const rows = transfers.map(t => {
     const date = new Date(t.transfer_date + 'T00:00:00').toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
     const amount = '$' + parseFloat(t.amount_usd).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
-    return `
-      <tr>
-        <td style="color:var(--text2);">${date}</td>
-        <td style="font-weight:500;color:var(--green);">${amount}</td>
-        <td>${t.method || '—'}</td>
-        <td>${t.purpose || '—'}</td>
-        <td style="color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.notes||''}">${t.notes || '—'}</td>
-        <td style="color:var(--text2);font-size:11px;">${t.created_by_name}</td>
-      </tr>`;
+    return `<tr>
+      <td style="color:var(--text2);">${date}</td>
+      <td style="font-weight:500;color:var(--green);">${amount}</td>
+      <td>${t.method || '—'}</td>
+      <td>${t.purpose || '—'}</td>
+      <td style="color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.notes||''}">${t.notes || '—'}</td>
+      <td style="color:var(--text2);font-size:11px;">${t.created_by_name}</td>
+    </tr>`;
   }).join('');
-
-  const role = userProfile && userProfile.role;
-  const isAdmin = role === 'admin';
 
   container.innerHTML = `
     <div class="card" style="padding:0;overflow:hidden;">
@@ -2633,12 +2661,7 @@ function renderTransfers(transfers) {
         <table class="mtable">
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Amount</th>
-              <th>Method</th>
-              <th>Purpose</th>
-              <th>Notes</th>
-              <th>Recorded by</th>
+              <th>Date</th><th>Amount</th><th>Method</th><th>Purpose</th><th>Notes</th><th>Recorded by</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -2654,47 +2677,27 @@ async function submitTransfer(ministryId) {
   const purpose = document.getElementById('tr-purpose').value;
   const notes   = document.getElementById('tr-notes').value.trim();
   const msgEl   = document.getElementById('tr-msg');
-
   const showMsg = (text, ok) => {
     msgEl.textContent = text;
     msgEl.style.color = ok ? 'var(--green)' : 'var(--red)';
     msgEl.style.display = 'block';
   };
-
-  if (!date || !amount || !method || !purpose) {
-    showMsg('Please fill in date, amount, method, and purpose.', false); return;
-  }
-  if (parseFloat(amount) <= 0) {
-    showMsg('Amount must be greater than zero.', false); return;
-  }
-
-  if (DEMO_MODE) {
-    showMsg('Transfer recorded (demo mode).', true);
-    return;
-  }
-
+  if (!date || !amount || !method || !purpose) { showMsg('Please fill in date, amount, method, and purpose.', false); return; }
+  if (parseFloat(amount) <= 0) { showMsg('Amount must be greater than zero.', false); return; }
+  if (DEMO_MODE) { showMsg('Transfer recorded (demo mode).', true); return; }
   try {
     const { error } = await sb.from('ministry_transfers').insert({
-      ministry_id:   ministryId,
-      transfer_date: date,
-      amount_usd:    parseFloat(amount),
-      method,
-      purpose,
-      notes,
-      recorded_by:   currentUser.id
+      ministry_id: ministryId, transfer_date: date,
+      amount_usd: parseFloat(amount), method, purpose, notes,
+      recorded_by: currentUser.id
     });
     if (error) throw error;
     showMsg('Transfer recorded successfully.', true);
-    // Reset form
     ['tr-date','tr-amount','tr-notes'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('tr-method').value = '';
     document.getElementById('tr-purpose').value = '';
-    // Reload the list
     transfersLoaded = false;
-    setTimeout(() => {
-      loadTransfers(ministryId);
-      transfersLoaded = true;
-    }, 500);
+    setTimeout(() => { loadTransfers(ministryId); transfersLoaded = true; }, 500);
   } catch(e) {
     showMsg('Error: ' + e.message, false);
   }
@@ -5686,6 +5689,42 @@ function triggerDownload(rows, yearFilter) {
   toast('Export downloaded', 'success');
 }
 
+  function showForcedPasswordChange() {
+    const modal = document.getElementById('change-password-modal');
+    modal.classList.remove('hidden');
+    modal.querySelector('.pw-cancel-btn').classList.add('hidden');
+    modal.querySelector('.pw-close-btn').classList.add('hidden');
+    const title = modal.querySelector('.pw-modal-title');
+    if (title) title.textContent = 'Set your password';
+    const currentPwRow = document.getElementById('current-pw-row');
+    if (currentPwRow) currentPwRow.style.display = 'none';
+    const msg = document.getElementById('password-message');
+    msg.textContent = 'Your account was created by an administrator. Please set a new password to continue.';
+    msg.style.color = 'var(--text2)';
+    msg.style.display = 'block';
+  }
+
+  function openChangePasswordModal() {
+    ['settings-current-password','settings-new-password','settings-confirm-password'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    const modal = document.getElementById('change-password-modal');
+    modal.querySelector('.pw-cancel-btn').classList.remove('hidden');
+    modal.querySelector('.pw-close-btn').classList.remove('hidden');
+    const title = modal.querySelector('.pw-modal-title');
+    if (title) title.textContent = 'Change password';
+    const currentPwRow = document.getElementById('current-pw-row');
+    if (currentPwRow) currentPwRow.style.display = '';
+    const msg = document.getElementById('password-message');
+    msg.style.display = 'none';
+    msg.textContent = '';
+    modal.classList.remove('hidden');
+  }
+
+  function closeChangePasswordModal() {
+    document.getElementById('change-password-modal').classList.add('hidden');
+  }
+
   async function changePassword() {
   const currentPw = document.getElementById('settings-current-password').value;
   const newPw     = document.getElementById('settings-new-password').value;
@@ -5700,16 +5739,30 @@ function triggerDownload(rows, yearFilter) {
   if (newPw.length < 8) { showMsg('New password must be at least 8 characters.', false); return; }
   if (newPw !== confirmPw) { showMsg('New passwords do not match.', false); return; }
   if (currentPw === newPw) { showMsg('New password must differ from current password.', false); return; }
-  if (DEMO_MODE) { showMsg('Password updated (demo mode).', true); return; }
+  const isForcedChange = userProfile && userProfile.must_change_password;
+  const currentPwRow = document.getElementById('current-pw-row');
+  const currentPwHidden = currentPwRow && currentPwRow.style.display === 'none';
+  if (DEMO_MODE) {
+    showMsg('Password updated successfully.', true);
+    setTimeout(closeChangePasswordModal, 1200);
+    return;
+  }
   try {
-    const { error: signInError } = await sb.auth.signInWithPassword({ email: currentUser.email, password: currentPw });
-    if (signInError) { showMsg('Current password is incorrect.', false); return; }
+    if (!currentPwHidden) {
+      const { error: signInError } = await sb.auth.signInWithPassword({ email: currentUser.email, password: currentPw });
+      if (signInError) { showMsg('Current password is incorrect.', false); return; }
+    }
     const { error: updateError } = await sb.auth.updateUser({ password: newPw });
     if (updateError) throw updateError;
-    document.getElementById('settings-current-password').value = '';
-    document.getElementById('settings-new-password').value = '';
-    document.getElementById('settings-confirm-password').value = '';
+    if (isForcedChange) {
+      await sb.from('user_profiles').update({ must_change_password: false }).eq('id', currentUser.id);
+      if (userProfile) userProfile.must_change_password = false;
+    }
     showMsg('Password updated successfully.', true);
+    setTimeout(() => {
+      closeChangePasswordModal();
+      if (isForcedChange) loadDashboard();
+    }, 1200);
   } catch(e) {
     showMsg('Error: ' + e.message, false);
   }
