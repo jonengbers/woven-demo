@@ -2513,7 +2513,7 @@ function renderNarrativeCard(r) {
       ${hasStoredTranslation ? `
         <div style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border);">
           <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">English translation</div>
-          <div style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;">${r.english}</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;white-space:pre-wrap;">${r.english}</div>
         </div>` : ''}
       ${needsLiveTranslation ? `
         <div class="narrative-live-translation" style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border);display:none;">
