@@ -1242,11 +1242,15 @@ function showMinistryDetail(id, period) {
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <div style="display:flex;gap:4px;background:var(--surface);border:0.5px solid var(--border);border-radius:20px;padding:3px;">
-            <button onclick="showMinistryDetail(${m.ministry_id},'current')" id="period-current" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">Current month</button>
+            <button onclick="showMinistryDetail(${m.ministry_id},'current')" id="period-current" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">Current</button>
             <button onclick="showMinistryDetail(${m.ministry_id},'ytd')" id="period-ytd" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">YTD</button>
             <button onclick="showMinistryDetail(${m.ministry_id},'prev')" id="period-prev" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">Prior year</button>
             <button onclick="showMinistryDetail(${m.ministry_id},'all')" id="period-all" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">All time</button>
           </div>
+          <select id="period-month-select" onchange="selectSpecificMonth(${m.ministry_id}, this.value)"
+            style="font-size:11px;padding:4px 8px;border:0.5px solid var(--border);border-radius:16px;background:var(--surface);color:var(--text);cursor:pointer;">
+            <option value="">Specific month...</option>
+          </select>
           <span id="current-period-badge" class="badge b-teal" style="font-size:12px;padding:4px 10px;">${period === 'current' ? 'Current month' : period === 'ytd' ? 'YTD' : period === 'prev' ? 'Prior year' : 'All time'}</span>
           <span class="badge ${m.report_status==='submitted'||m.report_status==='approved'?'b-green':'b-amber'}" style="font-size:12px;padding:4px 10px;">${m.report_status||'—'}</span>
         </div>
@@ -1393,17 +1397,79 @@ function showMinistryDetail(id, period) {
   loadMinistryPeriodData(m.ministry_id, period);
 }
 
+async function populateMonthDropdown(ministryId) {
+  const sel = document.getElementById('period-month-select');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Specific month...</option>';
+
+  if (DEMO_MODE) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun'];
+    const now = new Date();
+    months.forEach((m, i) => {
+      const opt = document.createElement('option');
+      opt.value = `month:${now.getFullYear()}:${i+1}`;
+      opt.textContent = `${m} ${now.getFullYear()}`;
+      sel.appendChild(opt);
+    });
+    return;
+  }
+
+  try {
+    const { data } = await sb.from('monthly_reports')
+      .select('report_year, report_month')
+      .eq('ministry_id', ministryId)
+      .order('report_year', { ascending: false })
+      .order('report_month', { ascending: false });
+
+    const monthNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    (data || []).forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = `month:${r.report_year}:${r.report_month}`;
+      opt.textContent = `${monthNames[r.report_month]} ${r.report_year}`;
+      sel.appendChild(opt);
+    });
+  } catch(e) {
+    console.error('Month dropdown error:', e);
+  }
+}
+
+function selectSpecificMonth(ministryId, value) {
+  if (!value) return;
+  // Deactivate all period buttons
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.style.background = 'transparent';
+    btn.style.color = 'var(--text2)';
+    btn.style.fontWeight = '400';
+  });
+  showMinistryDetail(ministryId, value);
+}
+
 async function loadMinistryPeriodData(ministryId, period) {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
+
+  // Parse specific month period (format: "month:2026:3")
+  let specificYear = null, specificMonth = null;
+  if (period && period.startsWith('month:')) {
+    const parts = period.split(':');
+    specificYear = parseInt(parts[1]);
+    specificMonth = parseInt(parts[2]);
+  }
+
+  // Update badge for specific month
+  if (specificYear && specificMonth) {
+    const monthNames = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+    const badge = document.getElementById('current-period-badge');
+    if (badge) badge.textContent = `${monthNames[specificMonth]} ${specificYear}`;
+  }
 
   let reports = [];
 
   if (DEMO_MODE) {
     // Generate demo aggregated data based on period
     const baseVisits = Math.floor(Math.random() * 500) + 200;
-    const multiplier = period === 'current' ? 1 : period === 'ytd' ? currentMonth : period === 'prev' ? 12 : 24;
+    const multiplier = (period === 'current' || specificMonth) ? 1 : period === 'ytd' ? currentMonth : period === 'prev' ? 12 : 24;
     reports = [{
       total_consultations: baseVisits * multiplier,
       consult_clinic: Math.floor(baseVisits * 0.55 * multiplier),
@@ -1426,7 +1492,9 @@ async function loadMinistryPeriodData(ministryId, period) {
     // Build date filter based on period
     let yearFilter = null, monthFilter = null, yearFrom = null;
 
-    if (period === 'current') {
+    if (specificYear && specificMonth) {
+      yearFilter = specificYear; monthFilter = specificMonth;
+    } else if (period === 'current') {
       yearFilter = currentYear; monthFilter = currentMonth;
     } else if (period === 'ytd') {
       yearFilter = currentYear;
@@ -1498,7 +1566,10 @@ async function loadMinistryPeriodData(ministryId, period) {
 
   const totalConsults = agg.consult_clinic + agg.consult_community + agg.consult_dental + agg.consult_spiritual;
   const totalPay = agg.pay_full + agg.pay_partial + agg.pay_charity;
-  const periodLabel = {current:'Current month',ytd:'Year to date',prev:'Prior year',all:'All time'}[period];
+  const monthNames2 = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+  const periodLabel = specificYear && specificMonth
+    ? `${monthNames2[specificMonth]} ${specificYear}`
+    : {current:'Current month',ytd:'Year to date',prev:'Prior year',all:'All time'}[period] || period;
   const reportCount = DEMO_MODE ? 1 : reports.length;
 
   // Render stats
@@ -1554,7 +1625,9 @@ async function loadMinistryPeriodData(ministryId, period) {
   // Trend chart title
   const trendTitles = {current:'Consultation breakdown',ytd:'Monthly trend (YTD)',prev:'Monthly trend (prior year)',all:'Monthly trend (all time)'};
   const titleEl = document.getElementById('dp-trend-title');
-  if (titleEl) titleEl.textContent = trendTitles[period];
+  if (titleEl) titleEl.textContent = (specificYear && specificMonth)
+    ? 'Consultation breakdown'
+    : (trendTitles[period] || 'Consultation breakdown');
 
   // Payment legend
   const legendEl = document.getElementById('dp-pay-legend');
@@ -1566,7 +1639,9 @@ async function loadMinistryPeriodData(ministryId, period) {
   }
 
   // Load financial line item detail in parallel
-  loadFinancialDetail(ministryId, period);
+  loadFinancialDetail(ministryId, specificYear && specificMonth ? period : period);
+  // Populate month dropdown with available reports
+  populateMonthDropdown(ministryId);
 
   // Build trend chart
   setTimeout(async () => {
@@ -1678,6 +1753,14 @@ async function loadFinancialDetail(ministryId, period) {
   try {
     // Fetch reports with their line items
     const now = new Date();
+    // Parse specific month
+    let finSpecificYear = null, finSpecificMonth = null;
+    if (period && period.startsWith('month:')) {
+      const pts = period.split(':');
+      finSpecificYear = parseInt(pts[1]);
+      finSpecificMonth = parseInt(pts[2]);
+    }
+
     let q = sb.from('monthly_reports')
       .select(`
         id, report_year, report_month, status,
@@ -1690,7 +1773,9 @@ async function loadFinancialDetail(ministryId, period) {
       .order('report_year', { ascending: true })
       .order('report_month', { ascending: true });
 
-    if (period === 'current') {
+    if (finSpecificYear && finSpecificMonth) {
+      q = q.eq('report_year', finSpecificYear).eq('report_month', finSpecificMonth);
+    } else if (period === 'current') {
       q = q.eq('report_year', now.getFullYear()).eq('report_month', now.getMonth()+1);
     } else if (period === 'ytd') {
       q = q.eq('report_year', now.getFullYear());
