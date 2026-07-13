@@ -1033,6 +1033,7 @@ async function loadDashboard() {
         const reports = m.monthly_reports || [];
         let totalConsults = 0, pharmacy = 0, lab = 0;
         let income = 0, expenses = 0, balance = 0, lsSupport = 0;
+        let currentMonthStatus = null;
         let payFull = 0, payPartial = 0, payCharity = 0;
         let filed = 0;
         reports.forEach(r => {
@@ -1053,6 +1054,11 @@ async function loadDashboard() {
             balance = fs.ending_balance_usd||0; // use last month's balance
           }
           if (r.status === 'submitted' || r.status === 'approved') filed++;
+          // Track current month status specifically
+          const now2 = new Date();
+          if (r.report_year === now2.getFullYear() && r.report_month === now2.getMonth()+1) {
+            currentMonthStatus = r.status;
+          }
         });
         const budgetPct = income > 0 ? Math.round(expenses/income*100) : 0;
         return {
@@ -1063,7 +1069,7 @@ async function loadDashboard() {
           country_code: m.country_code,
           region: m.region,
           director_name: m.director_name,
-          report_status: filed > 0 ? 'submitted' : 'pending',
+          report_status: currentMonthStatus || (filed > 0 ? 'filed' : 'pending'),
           report_year: parseInt(year),
           total_consultations: totalConsults,
           services_pharmacy: pharmacy,
@@ -1109,7 +1115,8 @@ function renderTable() {
   document.getElementById('ministry-tbody').innerHTML = ministriesData.map(m => {
     const bal = m.ending_balance_usd || 0;
     const budg = m.budget_utilization_pct || 0;
-    const statusClass = m.report_status === 'submitted' || m.report_status === 'approved' ? 'b-green' : m.report_status === 'draft' ? 'b-amber' : 'b-red';
+    const statusClass = m.report_status === 'submitted' || m.report_status === 'approved' ? 'b-green' : m.report_status === 'filed' ? 'b-teal' : m.report_status === 'draft' ? 'b-amber' : 'b-red';
+    const statusLabel = m.report_status === 'filed' ? 'Prior filed' : m.report_status || '—';
     const dotClass = bal < 500 ? 's-r' : budg > 90 ? 's-a' : 's-g';
     return `<tr class="clickable" onclick="showMinistryDetail(${m.ministry_id})">
       <td><strong style="font-weight:500;">${m.ministry_name}</strong><br><span style="font-size:11px;color:var(--text2);">${m.country}</span></td>
@@ -1117,7 +1124,7 @@ function renderTable() {
       <td>${(m.total_consultations||0).toLocaleString()}</td>
       <td><div class="bar-wrap"><div class="bar-inner" style="width:${Math.min(budg,100)}%;background:${budg>90?'#E24B4A':budg>75?'#BA7517':'#534AB7'};"></div></div><span style="font-size:11px;color:var(--text2);margin-left:4px;">${budg}%</span></td>
       <td style="font-size:12px;${bal<500?'color:#A32D2D;font-weight:600;':''}">$${bal.toLocaleString()}</td>
-      <td><span class="badge ${statusClass}">${m.report_status||'—'}</span></td>
+      <td><span class="badge ${statusClass}">${statusLabel}</span></td>
       <td><span class="sdot ${dotClass}"></span></td>
     </tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text2);">No ministries found.</td></tr>';
@@ -1252,7 +1259,7 @@ function showMinistryDetail(id, period) {
             <option value="">Specific month...</option>
           </select>
           <span id="current-period-badge" class="badge b-teal" style="font-size:12px;padding:4px 10px;">${period === 'current' ? 'Current month' : period === 'ytd' ? 'YTD' : period === 'prev' ? 'Prior year' : 'All time'}</span>
-          <span class="badge ${m.report_status==='submitted'||m.report_status==='approved'?'b-green':'b-amber'}" style="font-size:12px;padding:4px 10px;">${m.report_status||'—'}</span>
+          <span id="ministry-report-status-badge" class="badge ${m.report_status==='submitted'||m.report_status==='approved'?'b-green':m.report_status==='filed'?'b-teal':'b-amber'}" style="font-size:12px;padding:4px 10px;">${m.report_status==='filed'?'Prior months filed':m.report_status==='submitted'?'Submitted':m.report_status==='approved'?'Approved':'No report yet'}</span>
         </div>
       </div>
       <div id="dp-loading" style="text-align:center;padding:30px;color:var(--text2);"><span class="spinner"></span> Loading ${period} data...</div>
@@ -1600,15 +1607,16 @@ async function loadMinistryPeriodData(ministryId, period) {
       lsCard.innerHTML = `
         <div class="dp-stat-label">Luke Society support</div>
         <div class="dp-stat-val">$${Math.round(lsSupport).toLocaleString()}</div>
+        ${(period === 'ytd' || period === 'all' || period === 'prev') ? `
         <div style="margin-top:6px;">
           <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:3px;">
-            <span>LS funded: ${lsPct}%</span>
+            <span>LS funded: ${lsPct}% (${period === 'ytd' ? 'YTD' : period === 'prev' ? 'prior year' : 'all time'})</span>
             <span>Self-sustaining: ${selfSustainPct}%</span>
           </div>
           <div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;">
             <div style="background:#534AB7;height:6px;width:${lsPct}%;border-radius:4px;transition:width .5s;"></div>
           </div>
-        </div>`;
+        </div>` : `<div style="font-size:10px;color:var(--text2);margin-top:4px;">LS support is paid quarterly — see YTD for funding %</div>`}`;
       statsGrid.appendChild(lsCard);
     }
   }, 10);
