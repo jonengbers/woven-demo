@@ -1279,6 +1279,63 @@ function showMinistryDetail(id, period) {
               <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;" id="dp-pay-legend"></div>
             </div>
           </div>
+
+          <!-- Financial detail section -->
+          <div id="financial-detail-section" style="margin-top:14px;display:none;">
+
+            <!-- Income breakdown chart -->
+            <div class="card" style="padding:14px;margin-bottom:14px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <div style="font-size:13px;font-weight:600;">Income breakdown</div>
+                <div id="income-period-label" style="font-size:11px;color:var(--text2);"></div>
+              </div>
+              <div style="position:relative;height:180px;"><canvas id="dc-income"></canvas></div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;" id="income-legend"></div>
+            </div>
+
+            <!-- Expense breakdown by category -->
+            <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
+              <div style="padding:12px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+                <div style="font-size:13px;font-weight:600;">Expense breakdown</div>
+                <div id="expense-total-label" style="font-size:13px;color:var(--red);font-weight:500;"></div>
+              </div>
+              <div id="expense-categories" style="padding:8px 0;"></div>
+            </div>
+
+            <!-- Month-to-month comparison tool -->
+            <div class="card" style="padding:14px;margin-bottom:14px;">
+              <div style="font-size:13px;font-weight:600;margin-bottom:12px;">Month-to-month comparison</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin-bottom:14px;">
+                <div>
+                  <div class="flabel">Month A</div>
+                  <select id="cmp-month-a" style="width:100%;"></select>
+                </div>
+                <div>
+                  <div class="flabel">Month B</div>
+                  <select id="cmp-month-b" style="width:100%;"></select>
+                </div>
+                <button onclick="runMonthComparison()" style="white-space:nowrap;">Compare</button>
+              </div>
+              <div id="cmp-result"></div>
+            </div>
+
+            <!-- Expense trend chart (by category over time) -->
+            <div class="card" style="padding:14px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <div style="font-size:13px;font-weight:600;">Expense trend by category</div>
+                <select id="expense-trend-category" onchange="updateExpenseTrendChart()" style="font-size:12px;padding:4px 8px;">
+                  <option value="Salaries">Salaries</option>
+                  <option value="Community Health">Community Health</option>
+                  <option value="Supplies">Supplies</option>
+                  <option value="Transportation">Transportation</option>
+                  <option value="Facility Costs">Facility Costs</option>
+                  <option value="Financial Services">Financial Services</option>
+                  <option value="Capital Purchases">Capital Purchases</option>
+                </select>
+              </div>
+              <div style="position:relative;height:180px;"><canvas id="dc-expense-trend"></canvas></div>
+            </div>
+          </div>
         </div>
 
         <!-- Narrative reports tab -->
@@ -1508,6 +1565,9 @@ async function loadMinistryPeriodData(ministryId, period) {
       <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#AFA9EC;display:inline-block;"></span>Charity ${totalPay?Math.round(agg.pay_charity/totalPay*100):0}%</span>`;
   }
 
+  // Load financial line item detail in parallel
+  loadFinancialDetail(ministryId, period);
+
   // Build trend chart
   setTimeout(async () => {
     // For current: bar chart breakdown; for others: line trend
@@ -1551,6 +1611,406 @@ async function loadMinistryPeriodData(ministryId, period) {
   }, 80);
 }
 
+
+
+// ── FINANCIAL DETAIL ──────────────────────────────────────────────────────
+
+let financialDetailData = { incomeLines: [], expenseLines: [], reports: [], ministryId: null };
+let expenseTrendChart = null;
+let incomeChart = null;
+
+async function loadFinancialDetail(ministryId, period) {
+  financialDetailData.ministryId = ministryId;
+  const section = document.getElementById('financial-detail-section');
+  if (!section) return;
+
+  if (DEMO_MODE) {
+    // Build demo income and expense line data
+    const months = ['Jan','Feb','Mar','Apr','May','Jun'];
+    financialDetailData.reports = months.map((label, i) => ({
+      label,
+      year: 2026, month: i + 1,
+      income: {
+        'Luke Society': 12500,
+        'Clinic': 142 + Math.random()*50|0,
+        'Pharmacy': 491 + Math.random()*100|0,
+        'Lab': 213 + Math.random()*60|0,
+        'Dental': 213 + Math.random()*60|0,
+        'Other': 389 + Math.random()*80|0,
+      },
+      expenses: {
+        'Salaries':          { total: 1952, lines: [
+          { label:'Ministry director', amount: 1051 },
+          { label:'Dentist', amount: 410 },
+          { label:'Nurse', amount: 109 },
+          { label:'Bookkeeper', amount: 164 },
+          { label:'Lab technician', amount: 218 },
+        ]},
+        'Community Health':  { total: 683, lines: [
+          { label:'Medicines & first aid', amount: 631 },
+          { label:'Dental materials', amount: 52 },
+        ]},
+        'Supplies':          { total: 122, lines: [
+          { label:'Office supplies', amount: 28 },
+          { label:'Medical supplies', amount: 49 },
+          { label:'Lab supplies', amount: 45 },
+        ]},
+        'Transportation':    { total: 18, lines: [{ label:'Fuel & additives', amount: 18 }]},
+        'Facility Costs':    { total: 106, lines: [
+          { label:'Water & electricity', amount: 54 },
+          { label:'Telephone', amount: 26 },
+          { label:'Internet', amount: 26 },
+        ]},
+        'Financial Services':{ total: 169, lines: [
+          { label:'Bank charges & taxes', amount: 169 },
+        ]},
+        'Capital Purchases': { total: 612 + (i===2?800:0), lines: [
+          { label:'Capital purchases', amount: 612 + (i===2?800:0) },
+        ]},
+      }
+    }));
+
+    renderFinancialDetail(period);
+    section.style.display = 'block';
+    return;
+  }
+
+  try {
+    // Fetch reports with their line items
+    const now = new Date();
+    let q = sb.from('monthly_reports')
+      .select(`
+        id, report_year, report_month, status,
+        financial_summary(total_income_usd, total_expenses_usd, ending_balance_usd,
+          luke_society_support_usd, total_salary_usd, total_operating_usd, total_capital_usd),
+        income_lines(category, subcategory, label, amount_usd, sort_order),
+        expense_lines(category, subcategory, label, amount_usd, sort_order)
+      `)
+      .eq('ministry_id', ministryId)
+      .order('report_year', { ascending: true })
+      .order('report_month', { ascending: true });
+
+    if (period === 'current') {
+      q = q.eq('report_year', now.getFullYear()).eq('report_month', now.getMonth()+1);
+    } else if (period === 'ytd') {
+      q = q.eq('report_year', now.getFullYear());
+    } else if (period === 'prev') {
+      q = q.eq('report_year', now.getFullYear()-1);
+    }
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    // Shape data into per-month objects
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    financialDetailData.reports = (data || []).map(r => {
+      const incomeByCategory = {};
+      (r.income_lines || []).forEach(l => {
+        incomeByCategory[l.category] = (incomeByCategory[l.category] || 0) + (l.amount_usd || 0);
+      });
+      const expenseByCategory = {};
+      (r.expense_lines || []).forEach(l => {
+        if (!expenseByCategory[l.category]) expenseByCategory[l.category] = { total: 0, lines: [] };
+        expenseByCategory[l.category].total += l.amount_usd || 0;
+        expenseByCategory[l.category].lines.push({ label: l.label, amount: l.amount_usd || 0, subcategory: l.subcategory });
+      });
+      return {
+        label: monthNames[(r.report_month||1)-1] + ' ' + r.report_year,
+        year: r.report_year, month: r.report_month,
+        income: incomeByCategory,
+        expenses: expenseByCategory,
+        summary: r.financial_summary,
+      };
+    });
+
+    if (financialDetailData.reports.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+
+    renderFinancialDetail(period);
+    section.style.display = 'block';
+  } catch(e) {
+    console.error('Financial detail error:', e);
+  }
+}
+
+function renderFinancialDetail(period) {
+  const reports = financialDetailData.reports;
+  if (!reports.length) return;
+
+  // ── Income breakdown chart ────────────────────────────────────────────
+  const incomeCategories = ['Luke Society','Clinic','Pharmacy','Lab','Dental','Other Agencies','Other'];
+  const incomeColors = ['#534AB7','#1D9E75','#EF9F27','#185FA5','#A32D2D','#0F6E56','#AFA9EC'];
+  const labels = reports.map(r => r.label);
+
+  const incomeDatasets = incomeCategories.map((cat, i) => ({
+    label: cat,
+    data: reports.map(r => Math.round((r.income[cat] || 0) * 100) / 100),
+    backgroundColor: incomeColors[i],
+    borderRadius: 3,
+  })).filter(ds => ds.data.some(v => v > 0));
+
+  const incomeLegend = document.getElementById('income-legend');
+  if (incomeLegend) {
+    incomeLegend.innerHTML = incomeDatasets.map((ds, i) =>
+      `<span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:3px;">
+        <span style="width:8px;height:8px;border-radius:2px;background:${ds.backgroundColor};display:inline-block;"></span>${ds.label}
+      </span>`
+    ).join('');
+  }
+
+  const periodLabel = document.getElementById('income-period-label');
+  if (periodLabel) periodLabel.textContent = {current:'Current month',ytd:'Year to date',prev:'Prior year',all:'All reports'}[period] || '';
+
+  if (incomeChart) { incomeChart.destroy(); incomeChart = null; }
+  const incCtx = document.getElementById('dc-income');
+  if (incCtx && incomeDatasets.length > 0) {
+    incomeChart = new Chart(incCtx, {
+      type: 'bar',
+      data: { labels, datasets: incomeDatasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 }, color: '#888780' }},
+          y: { stacked: true, grid: { color: 'rgba(136,135,128,0.12)' }, ticks: { font: { size: 10 }, color: '#888780',
+            callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v) }}
+        }
+      }
+    });
+  }
+
+  // ── Expense breakdown by category ─────────────────────────────────────
+  // Aggregate across all reports in the period
+  const aggExpenses = {};
+  reports.forEach(r => {
+    Object.entries(r.expenses).forEach(([cat, data]) => {
+      if (!aggExpenses[cat]) aggExpenses[cat] = { total: 0, lines: {} };
+      aggExpenses[cat].total += data.total || 0;
+      (data.lines || []).forEach(l => {
+        aggExpenses[cat].lines[l.label] = (aggExpenses[cat].lines[l.label] || 0) + l.amount;
+      });
+    });
+  });
+
+  const totalExpenses = Object.values(aggExpenses).reduce((s, c) => s + c.total, 0);
+  const expTotalLabel = document.getElementById('expense-total-label');
+  if (expTotalLabel) expTotalLabel.textContent = '$' + Math.round(totalExpenses).toLocaleString();
+
+  const catOrder = ['Salaries','Community Health','Supplies','Transportation','Facility Costs','Financial Services','Employee Benefits','Evangelism','Capital Purchases','Other'];
+  const expCatEl = document.getElementById('expense-categories');
+  if (expCatEl) {
+    expCatEl.innerHTML = catOrder
+      .filter(cat => aggExpenses[cat] && aggExpenses[cat].total > 0)
+      .map(cat => {
+        const data = aggExpenses[cat];
+        const pct = totalExpenses > 0 ? Math.round(data.total / totalExpenses * 100) : 0;
+        const lineItems = Object.entries(data.lines)
+          .sort((a,b) => b[1]-a[1])
+          .map(([label, amt]) =>
+            `<div style="display:flex;justify-content:space-between;padding:4px 16px 4px 32px;font-size:12px;color:var(--text2);">
+              <span>${label}</span>
+              <span>$${Math.round(amt).toLocaleString()}</span>
+            </div>`
+          ).join('');
+        const catId = 'exp-cat-' + cat.replace(/\s+/g,'-').toLowerCase();
+        return `
+          <div>
+            <div onclick="toggleExpenseCategory('${catId}')" style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;cursor:pointer;user-select:none;" class="exp-cat-header">
+              <div style="display:flex;align-items:center;gap:10px;flex:1;">
+                <span style="font-size:13px;font-weight:500;">${cat}</span>
+                <div style="flex:1;max-width:120px;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
+                  <div style="background:#534AB7;height:4px;width:${pct}%;"></div>
+                </div>
+                <span style="font-size:11px;color:var(--text2);">${pct}%</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:13px;font-weight:500;">$${Math.round(data.total).toLocaleString()}</span>
+                <span id="${catId}-arrow" style="font-size:10px;color:var(--text2);">▼</span>
+              </div>
+            </div>
+            <div id="${catId}" style="display:none;background:var(--surface2);border-top:0.5px solid var(--border);">${lineItems}</div>
+          </div>`;
+      }).join('<div style="height:0.5px;background:var(--border);margin:0 16px;"></div>');
+  }
+
+  // ── Populate month comparison selects ────────────────────────────────
+  const selA = document.getElementById('cmp-month-a');
+  const selB = document.getElementById('cmp-month-b');
+  if (selA && selB) {
+    const opts = reports.map((r, i) => `<option value="${i}">${r.label}</option>`).join('');
+    selA.innerHTML = opts;
+    selB.innerHTML = opts;
+    if (reports.length >= 2) selB.selectedIndex = reports.length - 1;
+  }
+
+  // ── Expense trend chart ───────────────────────────────────────────────
+  updateExpenseTrendChart();
+}
+
+function toggleExpenseCategory(id) {
+  const el = document.getElementById(id);
+  const arrow = document.getElementById(id + '-arrow');
+  if (!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.textContent = isOpen ? '▼' : '▲';
+}
+
+function updateExpenseTrendChart() {
+  const reports = financialDetailData.reports;
+  const cat = document.getElementById('expense-trend-category')?.value || 'Salaries';
+  const labels = reports.map(r => r.label);
+  const values = reports.map(r => Math.round((r.expenses[cat]?.total || 0) * 100) / 100);
+
+  if (expenseTrendChart) { expenseTrendChart.destroy(); expenseTrendChart = null; }
+  const ctx = document.getElementById('dc-expense-trend');
+  if (!ctx) return;
+
+  expenseTrendChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: cat,
+        data: values,
+        backgroundColor: '#534AB7',
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => '$' + ctx.parsed.y.toLocaleString() } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#888780' }},
+        y: { grid: { color: 'rgba(136,135,128,0.12)' },
+          ticks: { font: { size: 10 }, color: '#888780',
+            callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v) }}
+      }
+    }
+  });
+}
+
+function runMonthComparison() {
+  const reports = financialDetailData.reports;
+  const idxA = parseInt(document.getElementById('cmp-month-a')?.value || 0);
+  const idxB = parseInt(document.getElementById('cmp-month-b')?.value || 1);
+  const rA = reports[idxA];
+  const rB = reports[idxB];
+  if (!rA || !rB) return;
+
+  const result = document.getElementById('cmp-result');
+  if (!result) return;
+
+  const catOrder = ['Salaries','Community Health','Supplies','Transportation','Facility Costs','Financial Services','Employee Benefits','Capital Purchases','Other'];
+
+  // Income comparison
+  const allIncCats = new Set([...Object.keys(rA.income||{}), ...Object.keys(rB.income||{})]);
+  const incRows = [...allIncCats].map(cat => {
+    const a = rA.income[cat] || 0;
+    const b = rB.income[cat] || 0;
+    const diff = b - a;
+    const diffColor = diff >= 0 ? 'var(--green)' : 'var(--red)';
+    const diffStr = (diff >= 0 ? '+' : '') + '$' + Math.round(Math.abs(diff)).toLocaleString();
+    return `<tr>
+      <td style="font-size:12px;color:var(--text2);">${cat}</td>
+      <td style="font-size:12px;text-align:right;">$${Math.round(a).toLocaleString()}</td>
+      <td style="font-size:12px;text-align:right;">$${Math.round(b).toLocaleString()}</td>
+      <td style="font-size:12px;text-align:right;color:${diffColor};">${diff===0?'—':diffStr}</td>
+    </tr>`;
+  }).join('');
+
+  // Expense comparison by category
+  const allExpCats = new Set([...catOrder.filter(c => (rA.expenses||{})[c] || (rB.expenses||{})[c])]);
+  const expRows = [...allExpCats].map(cat => {
+    const a = rA.expenses?.[cat]?.total || 0;
+    const b = rB.expenses?.[cat]?.total || 0;
+    const diff = b - a;
+    const diffColor = diff > 0 ? 'var(--red)' : diff < 0 ? 'var(--green)' : 'var(--text2)';
+    const diffStr = (diff > 0 ? '+' : '') + '$' + Math.round(Math.abs(diff)).toLocaleString();
+
+    // Line item detail
+    const allLines = new Set([
+      ...Object.keys(rA.expenses?.[cat]?.lines?.reduce?.((o,l)=>{o[l.label]=l.amount;return o;},{}) || {}),
+      ...Object.keys(rB.expenses?.[cat]?.lines?.reduce?.((o,l)=>{o[l.label]=l.amount;return o;},{}) || {}),
+    ]);
+    const linesA = (rA.expenses?.[cat]?.lines||[]).reduce((o,l)=>{o[l.label]=l.amount;return o;},{});
+    const linesB = (rB.expenses?.[cat]?.lines||[]).reduce((o,l)=>{o[l.label]=l.amount;return o;},{});
+
+    const lineRows = [...allLines].filter(l => (linesA[l]||0)>0 || (linesB[l]||0)>0).map(l => {
+      const la = linesA[l]||0, lb = linesB[l]||0, ld = lb-la;
+      const lc = ld > 0 ? 'var(--red)' : ld < 0 ? 'var(--green)' : 'var(--text2)';
+      return `<tr style="background:var(--surface2);">
+        <td style="font-size:11px;color:var(--text2);padding-left:24px;">${l}</td>
+        <td style="font-size:11px;text-align:right;color:var(--text2);">$${Math.round(la).toLocaleString()}</td>
+        <td style="font-size:11px;text-align:right;color:var(--text2);">$${Math.round(lb).toLocaleString()}</td>
+        <td style="font-size:11px;text-align:right;color:${lc};">${ld===0?'—':(ld>0?'+':'')+'\$'+Math.round(Math.abs(ld)).toLocaleString()}</td>
+      </tr>`;
+    }).join('');
+
+    return `<tr style="font-weight:500;">
+      <td style="font-size:12px;">${cat}</td>
+      <td style="font-size:12px;text-align:right;">$${Math.round(a).toLocaleString()}</td>
+      <td style="font-size:12px;text-align:right;">$${Math.round(b).toLocaleString()}</td>
+      <td style="font-size:12px;text-align:right;color:${diffColor};">${diff===0?'—':diffStr}</td>
+    </tr>${lineRows}`;
+  }).join('');
+
+  const totalA = Object.values(rA.expenses||{}).reduce((s,c)=>s+c.total,0);
+  const totalB = Object.values(rB.expenses||{}).reduce((s,c)=>s+c.total,0);
+  const totalDiff = totalB - totalA;
+  const totalIncA = Object.values(rA.income||{}).reduce((s,v)=>s+v,0);
+  const totalIncB = Object.values(rB.income||{}).reduce((s,v)=>s+v,0);
+
+  result.innerHTML = `
+    <div style="overflow-x:auto;">
+      <table class="mtable">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Income</th>
+            <th style="text-align:right;">${rA.label}</th>
+            <th style="text-align:right;">${rB.label}</th>
+            <th style="text-align:right;">Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${incRows}
+          <tr style="font-weight:600;border-top:1px solid var(--border);">
+            <td>Total income</td>
+            <td style="text-align:right;">$${Math.round(totalIncA).toLocaleString()}</td>
+            <td style="text-align:right;">$${Math.round(totalIncB).toLocaleString()}</td>
+            <td style="text-align:right;color:${totalIncB>=totalIncA?'var(--green)':'var(--red)'};">
+              ${totalIncB===totalIncA?'—':(totalIncB>totalIncA?'+':'')+'\$'+Math.round(Math.abs(totalIncB-totalIncA)).toLocaleString()}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <table class="mtable" style="margin-top:16px;">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Expenses</th>
+            <th style="text-align:right;">${rA.label}</th>
+            <th style="text-align:right;">${rB.label}</th>
+            <th style="text-align:right;">Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${expRows}
+          <tr style="font-weight:600;border-top:1px solid var(--border);">
+            <td>Total expenses</td>
+            <td style="text-align:right;">$${Math.round(totalA).toLocaleString()}</td>
+            <td style="text-align:right;">$${Math.round(totalB).toLocaleString()}</td>
+            <td style="text-align:right;color:${totalDiff<=0?'var(--green)':'var(--red)'};">
+              ${totalDiff===0?'—':(totalDiff>0?'+':'')+'\$'+Math.round(Math.abs(totalDiff)).toLocaleString()}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+}
 
 // ── COMPARE ──
 async function loadCompareSelects() {
