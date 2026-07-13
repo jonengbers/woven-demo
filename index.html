@@ -554,6 +554,7 @@ button:hover{background:var(--surface2);}
             <div class="flabel">Role</div>
             <select id="edit-user-role">
               <option value="pmt_member">PMT Member</option>
+              <option value="regional_coordinator">Regional Coordinator</option>
               <option value="director">Ministry Director</option>
               <option value="admin">Staff (Admin)</option>
               <option value="board">Board Member</option>
@@ -891,11 +892,16 @@ function enterApp(profile) {
   const menuRole = document.getElementById('user-menu-role');
   if (menuName) menuName.textContent = profile.full_name || profile.name || '';
   if (menuRole) menuRole.textContent = (profile.role||'').replace('_',' ');
-  if (profile.role === 'director' || profile.role === 'admin') {
+  if (profile.role === 'director' || profile.role === 'admin' || profile.role === 'regional_coordinator') {
     document.getElementById('nav-submit').classList.remove('hidden');
   }
   if (profile.role === 'admin' || profile.role === 'board') {
     document.getElementById('nav-admin').classList.remove('hidden');
+  }
+  // Hide region toggle buttons for regional coordinators — locked to their region
+  if (profile.role === 'regional_coordinator') {
+    const toggles = document.getElementById('region-toggles');
+    if (toggles) toggles.style.display = 'none';
   }
   loadDashboard();
   loadCompareSelects();
@@ -1002,7 +1008,11 @@ function setRegion(region) {
 async function loadDashboard() {
   document.getElementById('dash-loading').classList.remove('hidden');
   const regionInput = document.getElementById('region-filter');
-  const region = regionInput ? regionInput.value : '';
+  // Regional coordinators are locked to their assigned region
+  const isCoord = userProfile?.role === 'regional_coordinator';
+  const coordRegion = isCoord ? (userProfile.region || '') : '';
+  let region = regionInput ? regionInput.value : '';
+  if (coordRegion) region = coordRegion;
   const year = document.getElementById('year-filter')?.value || '';
   if (DEMO_MODE) {
     ministriesData = region ? DEMO_MINISTRIES.filter(m => m.region === region) : [...DEMO_MINISTRIES];
@@ -1313,7 +1323,7 @@ function showMinistryDetail(id, period) {
     }
     const _role = userProfile && userProfile.role;
     const _canSeeTransfers = _role === 'admin' || _role === 'board' ||
-      ((_role === 'pmt_member' || _role === 'director') && userProfile.ministry_id === m.ministry_id);
+      ((_role === 'pmt_member' || _role === 'director' || _role === 'regional_coordinator') && userProfile.ministry_id === m.ministry_id);
     const _transfersBtn = document.getElementById('dtab-transfers');
     if (_transfersBtn) _transfersBtn.style.display = _canSeeTransfers ? '' : 'none';
   }, 10);
@@ -2007,6 +2017,7 @@ function openConvo(id) {
   // Only show delete to conversation creator or admin/board
   const isCreator = c.created_by === (currentUser?.id || 'current') || c.created_by === 'current';
   const isAdmin = userProfile?.role === 'admin' || userProfile?.role === 'board';
+  const isRegionalCoord = userProfile?.role === 'regional_coordinator';
   if (isCreator || isAdmin) {
     archiveItem.style.borderBottom = '0.5px solid var(--border)';
     const deleteItem = document.createElement('div');
@@ -2513,7 +2524,7 @@ function renderNarrativeCard(r) {
       ${hasStoredTranslation ? `
         <div style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border);">
           <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">English translation</div>
-          <div style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;white-space:pre-wrap;">${r.english}</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;">${r.english}</div>
         </div>` : ''}
       ${needsLiveTranslation ? `
         <div class="narrative-live-translation" style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border);display:none;">
@@ -2528,10 +2539,8 @@ async function loadTransfers(ministryId) {
   const container = document.getElementById('transfers-list');
   const formContainer = document.getElementById('transfer-form-container');
   if (!container) return;
-
   const role = userProfile && userProfile.role;
   const isAdmin = role === 'admin';
-
   if (formContainer) {
     if (isAdmin) {
       formContainer.innerHTML = `
@@ -2572,44 +2581,27 @@ async function loadTransfers(ministryId) {
             <div id="tr-msg" style="font-size:12px;display:none;"></div>
           </div>
         </div>`;
-    } else {
-      formContainer.innerHTML = '';
-    }
+    } else { formContainer.innerHTML = ''; }
   }
-
   if (DEMO_MODE) {
-    const demoTransfers = [
+    renderTransfers([
       { id:1, transfer_date:'2026-03-01', amount_usd:4500, method:'Wire transfer', purpose:'Monthly support', notes:'March monthly disbursement', created_by_name:'Jon Erickson' },
       { id:2, transfer_date:'2026-02-01', amount_usd:4500, method:'Wire transfer', purpose:'Monthly support', notes:'February monthly disbursement', created_by_name:'Jon Erickson' },
       { id:3, transfer_date:'2026-01-15', amount_usd:2800, method:'Check', purpose:'Equipment', notes:'Ultrasound machine replacement', created_by_name:'Jon Erickson' },
-      { id:4, transfer_date:'2026-01-01', amount_usd:4500, method:'Wire transfer', purpose:'Monthly support', notes:'January monthly disbursement', created_by_name:'Jon Erickson' },
-      { id:5, transfer_date:'2025-12-01', amount_usd:4500, method:'Wire transfer', purpose:'Monthly support', notes:'', created_by_name:'Jon Erickson' },
-    ];
-    renderTransfers(demoTransfers);
+    ]);
     return;
   }
-
   try {
-    const { data, error } = await sb
-      .from('ministry_transfers')
-      .select('*')
-      .eq('ministry_id', ministryId)
-      .order('transfer_date', { ascending: false });
-
+    const { data, error } = await sb.from('ministry_transfers').select('*').eq('ministry_id', ministryId).order('transfer_date', { ascending: false });
     if (error) throw error;
-
     const transfers = data || [];
     const recorderIds = [...new Set(transfers.map(t => t.recorded_by).filter(Boolean))];
     let nameMap = {};
     if (recorderIds.length > 0) {
-      const { data: profiles } = await sb
-        .from('user_profiles')
-        .select('id, full_name')
-        .in('id', recorderIds);
+      const { data: profiles } = await sb.from('user_profiles').select('id, full_name').in('id', recorderIds);
       (profiles || []).forEach(p => { nameMap[p.id] = p.full_name; });
     }
-    const enriched = transfers.map(t => ({ ...t, created_by_name: nameMap[t.recorded_by] || '—' }));
-    renderTransfers(enriched);
+    renderTransfers(transfers.map(t => ({ ...t, created_by_name: nameMap[t.recorded_by] || '—' })));
   } catch(e) {
     container.innerHTML = `<div style="padding:20px;color:var(--red);font-size:13px;">Error loading transfers: ${e.message}</div>`;
   }
@@ -2618,68 +2610,36 @@ async function loadTransfers(ministryId) {
 function renderTransfers(transfers) {
   const container = document.getElementById('transfers-list');
   if (!container) return;
-
   if (!transfers || transfers.length === 0) {
     container.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text2);font-size:13px;">No transfers recorded yet.</div>`;
     return;
   }
-
   const total = transfers.reduce((sum, t) => sum + (parseFloat(t.amount_usd) || 0), 0);
   const rows = transfers.map(t => {
     const date = new Date(t.transfer_date + 'T00:00:00').toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
     const amount = '$' + parseFloat(t.amount_usd).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
-    return `<tr>
-      <td style="color:var(--text2);">${date}</td>
-      <td style="font-weight:500;color:var(--green);">${amount}</td>
-      <td>${t.method || '—'}</td>
-      <td>${t.purpose || '—'}</td>
-      <td style="color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.notes||''}">${t.notes || '—'}</td>
-      <td style="color:var(--text2);font-size:11px;">${t.created_by_name}</td>
-    </tr>`;
+    return `<tr><td style="color:var(--text2);">${date}</td><td style="font-weight:500;color:var(--green);">${amount}</td><td>${t.method||'—'}</td><td>${t.purpose||'—'}</td><td style="color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.notes||''}">${t.notes||'—'}</td><td style="color:var(--text2);font-size:11px;">${t.created_by_name}</td></tr>`;
   }).join('');
-
-  container.innerHTML = `
-    <div class="card" style="padding:0;overflow:hidden;">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid var(--border);">
-        <div style="font-size:13px;font-weight:600;">Transfer history</div>
-        <div style="font-size:13px;color:var(--green);font-weight:500;">Total: $${total.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 })}</div>
-      </div>
-      <div style="overflow-x:auto;">
-        <table class="mtable">
-          <thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Purpose</th><th>Notes</th><th>Recorded by</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>`;
+  container.innerHTML = `<div class="card" style="padding:0;overflow:hidden;"><div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid var(--border);"><div style="font-size:13px;font-weight:600;">Transfer history</div><div style="font-size:13px;color:var(--green);font-weight:500;">Total: $${total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div><div style="overflow-x:auto;"><table class="mtable"><thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Purpose</th><th>Notes</th><th>Recorded by</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 async function submitTransfer(ministryId) {
-  const date    = document.getElementById('tr-date').value;
-  const amount  = document.getElementById('tr-amount').value;
-  const method  = document.getElementById('tr-method').value;
-  const purpose = document.getElementById('tr-purpose').value;
-  const notes   = document.getElementById('tr-notes').value.trim();
-  const msgEl   = document.getElementById('tr-msg');
-  const showMsg = (text, ok) => { msgEl.textContent = text; msgEl.style.color = ok ? 'var(--green)' : 'var(--red)'; msgEl.style.display = 'block'; };
-  if (!date || !amount || !method || !purpose) { showMsg('Please fill in date, amount, method, and purpose.', false); return; }
-  if (parseFloat(amount) <= 0) { showMsg('Amount must be greater than zero.', false); return; }
-  if (DEMO_MODE) { showMsg('Transfer recorded (demo mode).', true); return; }
+  const date=document.getElementById('tr-date').value, amount=document.getElementById('tr-amount').value,
+        method=document.getElementById('tr-method').value, purpose=document.getElementById('tr-purpose').value,
+        notes=document.getElementById('tr-notes').value.trim(), msgEl=document.getElementById('tr-msg');
+  const showMsg=(text,ok)=>{msgEl.textContent=text;msgEl.style.color=ok?'var(--green)':'var(--red)';msgEl.style.display='block';};
+  if (!date||!amount||!method||!purpose){showMsg('Please fill in date, amount, method, and purpose.',false);return;}
+  if (parseFloat(amount)<=0){showMsg('Amount must be greater than zero.',false);return;}
+  if (DEMO_MODE){showMsg('Transfer recorded (demo mode).',true);return;}
   try {
-    const { error } = await sb.from('ministry_transfers').insert({
-      ministry_id: ministryId, transfer_date: date,
-      amount_usd: parseFloat(amount), method, purpose, notes,
-      recorded_by: currentUser.id
-    });
+    const {error}=await sb.from('ministry_transfers').insert({ministry_id:ministryId,transfer_date:date,amount_usd:parseFloat(amount),method,purpose,notes,recorded_by:currentUser.id});
     if (error) throw error;
-    showMsg('Transfer recorded successfully.', true);
-    ['tr-date','tr-amount','tr-notes'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('tr-method').value = '';
-    document.getElementById('tr-purpose').value = '';
-    transfersLoaded = false;
-    setTimeout(() => { loadTransfers(ministryId); transfersLoaded = true; }, 500);
-  } catch(e) {
-    showMsg('Error: ' + e.message, false);
-  }
+    showMsg('Transfer recorded successfully.',true);
+    ['tr-date','tr-amount','tr-notes'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('tr-method').value='';document.getElementById('tr-purpose').value='';
+    transfersLoaded=false;
+    setTimeout(()=>{loadTransfers(ministryId);transfersLoaded=true;},500);
+  } catch(e){showMsg('Error: '+e.message,false);}
 }
 
 async function loadPrayerRequests(ministryId) {
@@ -4957,8 +4917,8 @@ function renderUserList(filter = '') {
     const isMember = currentMembers.includes(u.id);
     const initials = (u.full_name||'?').split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase();
     const roleLabel = (u.role||'').replace('_',' ');
-    const roleColor = u.role === 'director' ? 'var(--teal-d)' : u.role === 'admin' ? 'var(--amber)' : 'var(--purple-d)';
-    const roleBg = u.role === 'director' ? 'var(--teal-l)' : u.role === 'admin' ? 'var(--amber-l)' : 'var(--purple-l)';
+    const roleColor = u.role === 'director' ? 'var(--teal-d)' : u.role === 'admin' ? 'var(--amber)' : u.role === 'regional_coordinator' ? 'var(--green)' : 'var(--purple-d)';
+    const roleBg = u.role === 'director' ? 'var(--teal-l)' : u.role === 'admin' ? 'var(--amber-l)' : u.role === 'regional_coordinator' ? 'var(--green-l,#e6f4ea)' : 'var(--purple-l)';
 
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:0.5px solid var(--border);${isMember?'opacity:0.6':''}">
       <div style="width:34px;height:34px;border-radius:50%;background:var(--purple-l);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--purple-d);flex-shrink:0;">${initials}</div>
@@ -5378,32 +5338,20 @@ async function translateText(text, fromLang, toLang) {
 
   const MAX_CHUNK = 400;
 
-  // Split into paragraphs first so line breaks are preserved after translation
-  const paragraphs = text.split(/\n/);
+  const paragraphs = text.split('\n');
 
   async function translateParagraph(para) {
-    if (!para.trim()) return para; // preserve blank lines as-is
-
-    // If paragraph is short enough, translate directly
-    if (para.length <= MAX_CHUNK) {
-      return await translateChunk(para, fromLang, toLang);
-    }
-
-    // Otherwise split long paragraphs by words
+    if (!para.trim()) return para;
+    if (para.length <= MAX_CHUNK) return await translateChunk(para, fromLang, toLang);
     const words = para.split(' ');
     const chunks = [];
     let current = '';
     for (const word of words) {
       const candidate = current ? current + ' ' + word : word;
-      if (candidate.length <= MAX_CHUNK) {
-        current = candidate;
-      } else {
-        if (current) chunks.push(current);
-        current = word;
-      }
+      if (candidate.length <= MAX_CHUNK) { current = candidate; }
+      else { if (current) chunks.push(current); current = word; }
     }
     if (current) chunks.push(current);
-
     const translated = [];
     for (let i = 0; i < chunks.length; i++) {
       if (i > 0) await new Promise(r => setTimeout(r, 150));
@@ -5412,13 +5360,11 @@ async function translateText(text, fromLang, toLang) {
     return translated.join(' ');
   }
 
-  // Translate each paragraph with a small delay between them
   const translatedParas = [];
   for (let i = 0; i < paragraphs.length; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, 150));
     translatedParas.push(await translateParagraph(paragraphs[i]));
   }
-
   return translatedParas.join('\n');
 }
 
