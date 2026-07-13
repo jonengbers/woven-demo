@@ -898,7 +898,6 @@ function enterApp(profile) {
   if (profile.role === 'admin' || profile.role === 'board') {
     document.getElementById('nav-admin').classList.remove('hidden');
   }
-  // Hide region toggle buttons for regional coordinators — locked to their region
   if (profile.role === 'regional_coordinator') {
     const toggles = document.getElementById('region-toggles');
     if (toggles) toggles.style.display = 'none';
@@ -1008,7 +1007,6 @@ function setRegion(region) {
 async function loadDashboard() {
   document.getElementById('dash-loading').classList.remove('hidden');
   const regionInput = document.getElementById('region-filter');
-  // Regional coordinators are locked to their assigned region
   const isCoord = userProfile?.role === 'regional_coordinator';
   const coordRegion = isCoord ? (userProfile.region || '') : '';
   let region = regionInput ? regionInput.value : '';
@@ -1703,19 +1701,41 @@ const FORM_CONTENT = {
     </div>`;
   },
   2:`<div class="form-section"><div class="form-section-title">Income (local currency)</div>
-    <div class="form-row"><div><div class="flabel">Luke Society USA support</div><input type="number" id="f-ls-support" placeholder="0"/></div><div><div class="flabel">Clinic consultation income</div><input type="number" id="f-clinic-income" placeholder="0"/></div></div>
-    <div class="form-row"><div><div class="flabel">Pharmacy income</div><input type="number" id="f-pharmacy-income" placeholder="0"/></div><div><div class="flabel">Laboratory income</div><input type="number" id="f-lab-income" placeholder="0"/></div></div>
-    <div class="form-row"><div><div class="flabel">Dental income</div><input type="number" id="f-dental-income" placeholder="0"/></div><div><div class="flabel">Other income</div><input type="number" id="f-other-income" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Luke Society USA support</div><input type="number" id="f-ls-support" placeholder="0"/></div><div><div class="flabel">Other agencies / bank interest</div><input type="number" id="f-other-agencies" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Clinic consultation income</div><input type="number" id="f-clinic-income" placeholder="0"/></div><div><div class="flabel">Pharmacy income</div><input type="number" id="f-pharmacy-income" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Laboratory income</div><input type="number" id="f-lab-income" placeholder="0"/></div><div><div class="flabel">Dental income</div><input type="number" id="f-dental-income" placeholder="0"/></div></div>
+    <div class="form-row-1"><div class="flabel">Other income</div><input type="number" id="f-other-income" placeholder="0"/></div>
     </div>
     <div class="form-section"><div class="form-section-title">Salary expenses (local currency)</div>
-    <div class="form-row"><div><div class="flabel">Ministry director</div><input type="number" id="f-sal-director" placeholder="0"/></div><div><div class="flabel">Dentist / dental assistant</div><input type="number" id="f-sal-dentist" placeholder="0"/></div></div>
-    <div class="form-row"><div><div class="flabel">Nurse</div><input type="number" id="f-sal-nurse" placeholder="0"/></div><div><div class="flabel">Bookkeeper / accountant</div><input type="number" id="f-sal-book" placeholder="0"/></div></div>
-    <div class="form-row"><div><div class="flabel">Lab technician</div><input type="number" id="f-sal-lab" placeholder="0"/></div><div><div class="flabel">Other staff</div><input type="number" id="f-sal-other" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Ministry director</div><input type="number" id="f-sal-director" placeholder="0"/></div><div><div class="flabel">Clinic physician</div><input type="number" id="f-sal-physician" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Dentist / dental assistant</div><input type="number" id="f-sal-dentist" placeholder="0"/></div><div><div class="flabel">Nurse</div><input type="number" id="f-sal-nurse" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Lab technician</div><input type="number" id="f-sal-lab" placeholder="0"/></div><div><div class="flabel">Bookkeeper / accountant</div><input type="number" id="f-sal-book" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Community health facilitator</div><input type="number" id="f-sal-chf" placeholder="0"/></div><div><div class="flabel">Other staff</div><input type="number" id="f-sal-other" placeholder="0"/></div></div>
     </div>
-    <div class="form-section"><div class="form-section-title">Operating expenses (local currency)</div>
-    <div class="form-row"><div><div class="flabel">Medicines & first aid</div><input type="number" id="f-medicines" placeholder="0"/></div><div><div class="flabel">Facility costs (rent, utilities)</div><input type="number" id="f-facility" placeholder="0"/></div></div>
-    <div class="form-row"><div><div class="flabel">Supplies & office</div><input type="number" id="f-supplies" placeholder="0"/></div><div><div class="flabel">Transportation & fuel</div><input type="number" id="f-transport" placeholder="0"/></div></div>
-    <div class="form-row"><div><div class="flabel">Bank charges & taxes</div><input type="number" id="f-bank" placeholder="0"/></div><div><div class="flabel">Other expenses</div><input type="number" id="f-other-exp" placeholder="0"/></div></div>
+    <div class="form-section"><div class="form-section-title">Community health expenses (local currency)</div>
+    <div class="form-row"><div><div class="flabel">Medicines & first aid packs</div><input type="number" id="f-medicines" placeholder="0"/></div><div><div class="flabel">Dental materials & supplies</div><input type="number" id="f-dental-mat" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Community health materials</div><input type="number" id="f-comm-mat" placeholder="0"/></div><div><div class="flabel">Water systems (wells, pumps)</div><input type="number" id="f-water" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Dentistry stipend</div><input type="number" id="f-stip-dent" placeholder="0"/></div><div><div class="flabel">Health promoters stipend</div><input type="number" id="f-stip-health" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Leadership training stipend</div><input type="number" id="f-stip-leader" placeholder="0"/></div><div><div class="flabel">Midwives training stipend</div><input type="number" id="f-stip-midwife" placeholder="0"/></div></div>
+    </div>
+    <div class="form-section"><div class="form-section-title">Supplies (local currency)</div>
+    <div class="form-row"><div><div class="flabel">General ministry supplies</div><input type="number" id="f-sup-general" placeholder="0"/></div><div><div class="flabel">Office supplies & stationery</div><input type="number" id="f-sup-office" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Medical supplies</div><input type="number" id="f-sup-medical" placeholder="0"/></div><div><div class="flabel">Lab supplies (reagents)</div><input type="number" id="f-sup-lab" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Dental supplies</div><input type="number" id="f-sup-dental" placeholder="0"/></div><div><div class="flabel">Janitorial supplies</div><input type="number" id="f-sup-janitor" placeholder="0"/></div></div>
+    </div>
+    <div class="form-section"><div class="form-section-title">Transportation (local currency)</div>
+    <div class="form-row"><div><div class="flabel">Fuel & additives</div><input type="number" id="f-fuel" placeholder="0"/></div><div><div class="flabel">Maintenance & parts</div><input type="number" id="f-maint" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Vehicle insurance</div><input type="number" id="f-veh-ins" placeholder="0"/></div><div><div class="flabel">Travel / airfare / visas</div><input type="number" id="f-travel" placeholder="0"/></div></div>
+    </div>
+    <div class="form-section"><div class="form-section-title">Facility & administrative costs (local currency)</div>
+    <div class="form-row"><div><div class="flabel">Facility rent</div><input type="number" id="f-rent" placeholder="0"/></div><div><div class="flabel">Water & electricity</div><input type="number" id="f-utilities" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Telephone</div><input type="number" id="f-phone" placeholder="0"/></div><div><div class="flabel">Internet</div><input type="number" id="f-internet" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Bank charges & taxes</div><input type="number" id="f-bank" placeholder="0"/></div><div><div class="flabel">External audit / consultations</div><input type="number" id="f-audit" placeholder="0"/></div></div>
+    </div>
+    <div class="form-section"><div class="form-section-title">Other expenses (local currency)</div>
+    <div class="form-row"><div><div class="flabel">Evangelism & church planting</div><input type="number" id="f-evangelism" placeholder="0"/></div><div><div class="flabel">Benevolence & gifts to poor</div><input type="number" id="f-benevolence" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Employee benefits / social security</div><input type="number" id="f-benefits" placeholder="0"/></div><div><div class="flabel">STEM / short-term missions</div><input type="number" id="f-stem" placeholder="0"/></div></div>
+    <div class="form-row"><div><div class="flabel">Capital purchases</div><input type="number" id="f-capital" placeholder="0"/></div><div><div class="flabel">Other expenses</div><input type="number" id="f-other-exp" placeholder="0"/></div></div>
     </div>`,
   3:`<div class="form-section"><div class="form-section-title">Patient consultations</div>
     <div class="form-row"><div><div class="flabel">Clinic consultations</div><input type="number" id="f-c-clinic" placeholder="0"/></div><div><div class="flabel">Community consultations</div><input type="number" id="f-c-comm" placeholder="0"/></div></div>
@@ -1725,6 +1745,7 @@ const FORM_CONTENT = {
     <div class="form-row"><div><div class="flabel">Lab tests performed</div><input type="number" id="f-s-lab" placeholder="0"/></div><div><div class="flabel">Pharmacy patients served</div><input type="number" id="f-s-pharm" placeholder="0"/></div></div>
     <div class="form-row"><div><div class="flabel">X-rays / dental x-rays</div><input type="number" id="f-s-xray" placeholder="0"/></div><div><div class="flabel">Immunizations given</div><input type="number" id="f-s-immun" placeholder="0"/></div></div>
     <div class="form-row"><div><div class="flabel">Surgeries / extractions</div><input type="number" id="f-p-surg" placeholder="0"/></div><div><div class="flabel">Births attended</div><input type="number" id="f-p-birth" placeholder="0"/></div></div>
+    <div class="form-row-1"><div class="flabel">PAP smears</div><input type="number" id="f-p-pap" placeholder="0" style="max-width:200px;"/></div>
     </div>
     <div class="form-section"><div class="form-section-title">Community health education</div>
     <div class="form-row"><div><div class="flabel">Community meetings held</div><input type="number" id="f-comm-meet" placeholder="0"/></div><div><div class="flabel">People receiving health education</div><input type="number" id="f-comm-health" placeholder="0"/></div></div>
@@ -1789,24 +1810,120 @@ async function submitReport() {
     }).select().single();
     if (rErr) throw rErr;
 
-    const toUSD = v => Math.round(parseFloat(v||0) / exchange * 100) / 100;
+    const toUSD = v => exchange > 0 ? Math.round(parseFloat(v||0) / exchange * 100) / 100 : 0;
     const g = id => parseFloat(document.getElementById(id)?.value || 0);
+
+    // ── Income line items ──────────────────────────────────────────────────
+    const incomeLines = [
+      { category:'Luke Society',    label:'The Luke Society, USA',          amount_local: g('f-ls-support') },
+      { category:'Other Agencies',  label:'Other agencies / bank interest', amount_local: g('f-other-agencies') },
+      { category:'Clinic',          label:'Clinic consultation income',     amount_local: g('f-clinic-income') },
+      { category:'Pharmacy',        label:'Pharmacy income',                amount_local: g('f-pharmacy-income') },
+      { category:'Lab',             label:'Laboratory income',              amount_local: g('f-lab-income') },
+      { category:'Dental',          label:'Dental income',                  amount_local: g('f-dental-income') },
+      { category:'Other',           label:'Other income',                   amount_local: g('f-other-income') },
+    ].filter(l => l.amount_local > 0).map((l, i) => ({
+      report_id: report.id, ...l, amount_usd: toUSD(l.amount_local), sort_order: i
+    }));
+
+    const totalIncomeLocal = incomeLines.reduce((s,l) => s + l.amount_local, 0);
+    const totalIncomeUSD   = toUSD(totalIncomeLocal);
+    const lsUSD            = toUSD(g('f-ls-support'));
+    const localIncomeUSD   = toUSD(g('f-clinic-income')+g('f-pharmacy-income')+g('f-lab-income')+g('f-dental-income'));
+
+    // ── Expense line items ─────────────────────────────────────────────────
+    const expenseLines = [
+      // Salaries
+      { category:'Salaries', subcategory:'Ministry Director',        label:'Ministry director',              amount_local: g('f-sal-director') },
+      { category:'Salaries', subcategory:'Clinic Physician',         label:'Clinic physician',               amount_local: g('f-sal-physician') },
+      { category:'Salaries', subcategory:'Dentist',                  label:'Dentist / dental assistant',     amount_local: g('f-sal-dentist') },
+      { category:'Salaries', subcategory:'Nurse',                    label:'Nurse',                          amount_local: g('f-sal-nurse') },
+      { category:'Salaries', subcategory:'Lab Technician',           label:'Lab technician',                 amount_local: g('f-sal-lab') },
+      { category:'Salaries', subcategory:'Bookkeeper',               label:'Bookkeeper / accountant',        amount_local: g('f-sal-book') },
+      { category:'Salaries', subcategory:'Community Health',         label:'Community health facilitator',   amount_local: g('f-sal-chf') },
+      { category:'Salaries', subcategory:'Other',                    label:'Other staff',                    amount_local: g('f-sal-other') },
+      // Community Health
+      { category:'Community Health', subcategory:'Materials',        label:'Medicines & first aid packs',    amount_local: g('f-medicines') },
+      { category:'Community Health', subcategory:'Materials',        label:'Dental materials & supplies',    amount_local: g('f-dental-mat') },
+      { category:'Community Health', subcategory:'Materials',        label:'Community health materials',     amount_local: g('f-comm-mat') },
+      { category:'Community Health', subcategory:'Materials',        label:'Water systems',                  amount_local: g('f-water') },
+      { category:'Community Health', subcategory:'Stipends',         label:'Dentistry stipend',              amount_local: g('f-stip-dent') },
+      { category:'Community Health', subcategory:'Stipends',         label:'Health promoters stipend',       amount_local: g('f-stip-health') },
+      { category:'Community Health', subcategory:'Stipends',         label:'Leadership training stipend',    amount_local: g('f-stip-leader') },
+      { category:'Community Health', subcategory:'Stipends',         label:'Midwives training stipend',      amount_local: g('f-stip-midwife') },
+      // Supplies
+      { category:'Supplies', subcategory:'General',                  label:'General ministry supplies',      amount_local: g('f-sup-general') },
+      { category:'Supplies', subcategory:'Office',                   label:'Office supplies & stationery',   amount_local: g('f-sup-office') },
+      { category:'Supplies', subcategory:'Medical',                  label:'Medical supplies',               amount_local: g('f-sup-medical') },
+      { category:'Supplies', subcategory:'Lab',                      label:'Lab supplies (reagents)',        amount_local: g('f-sup-lab') },
+      { category:'Supplies', subcategory:'Dental',                   label:'Dental supplies',                amount_local: g('f-sup-dental') },
+      { category:'Supplies', subcategory:'Janitorial',               label:'Janitorial supplies',            amount_local: g('f-sup-janitor') },
+      // Transportation
+      { category:'Transportation', subcategory:'Fuel',               label:'Fuel & additives',               amount_local: g('f-fuel') },
+      { category:'Transportation', subcategory:'Maintenance',        label:'Maintenance & parts',            amount_local: g('f-maint') },
+      { category:'Transportation', subcategory:'Insurance',          label:'Vehicle insurance',              amount_local: g('f-veh-ins') },
+      { category:'Transportation', subcategory:'Travel',             label:'Travel / airfare / visas',       amount_local: g('f-travel') },
+      // Facility
+      { category:'Facility Costs', subcategory:'Rent',               label:'Facility rent',                  amount_local: g('f-rent') },
+      { category:'Facility Costs', subcategory:'Utilities',          label:'Water & electricity',            amount_local: g('f-utilities') },
+      { category:'Facility Costs', subcategory:'Communications',     label:'Telephone',                      amount_local: g('f-phone') },
+      { category:'Facility Costs', subcategory:'Communications',     label:'Internet',                       amount_local: g('f-internet') },
+      // Financial
+      { category:'Financial Services', subcategory:'Bank',           label:'Bank charges & taxes',           amount_local: g('f-bank') },
+      { category:'Financial Services', subcategory:'Audit',          label:'External audit / consultations', amount_local: g('f-audit') },
+      // Other
+      { category:'Employee Benefits', subcategory:'Benefits',        label:'Employee benefits / social security', amount_local: g('f-benefits') },
+      { category:'Evangelism',        subcategory:'Evangelism',      label:'Evangelism & church planting',   amount_local: g('f-evangelism') },
+      { category:'Evangelism',        subcategory:'Benevolence',     label:'Benevolence & gifts to poor',    amount_local: g('f-benevolence') },
+      { category:'Capital Purchases', subcategory:'Capital',         label:'Capital purchases',              amount_local: g('f-capital') },
+      { category:'Other',             subcategory:'STEM',            label:'STEM / short-term missions',     amount_local: g('f-stem') },
+      { category:'Other',             subcategory:'Other',           label:'Other expenses',                 amount_local: g('f-other-exp') },
+    ].filter(l => l.amount_local > 0).map((l, i) => ({
+      report_id: report.id, ...l, amount_usd: toUSD(l.amount_local), sort_order: i
+    }));
+
+    const totalExpensesLocal = expenseLines.reduce((s,l) => s + l.amount_local, 0);
+    const totalExpensesUSD   = toUSD(totalExpensesLocal);
+    const openingLocal       = g('f-opening');
+    const endingBalanceUSD   = toUSD(openingLocal) + totalIncomeUSD - totalExpensesUSD;
+
+    // Compute salary and operating subtotals
+    const salaryUSD    = expenseLines.filter(l=>l.category==='Salaries').reduce((s,l)=>s+l.amount_usd,0);
+    const operatingUSD = expenseLines.filter(l=>!['Salaries','Capital Purchases'].includes(l.category)).reduce((s,l)=>s+l.amount_usd,0);
+    const capitalUSD   = expenseLines.filter(l=>l.category==='Capital Purchases').reduce((s,l)=>s+l.amount_usd,0);
 
     await sb.from('financial_summary').insert({
       report_id: report.id,
-      beginning_balance_local: g('f-opening'), beginning_balance_usd: toUSD(g('f-opening')),
-      total_income_local: g('f-ls-support')+g('f-clinic-income')+g('f-pharmacy-income')+g('f-lab-income')+g('f-dental-income')+g('f-other-income'),
-      total_income_usd: toUSD(g('f-ls-support')+g('f-clinic-income')+g('f-pharmacy-income')+g('f-lab-income')+g('f-dental-income')+g('f-other-income')),
-      luke_society_support_usd: toUSD(g('f-ls-support')),
-      local_income_usd: toUSD(g('f-clinic-income')+g('f-pharmacy-income')+g('f-lab-income')+g('f-dental-income')),
+      exchange_rate: exchange,
+      local_currency: document.getElementById('f-currency')?.value || '',
+      beginning_balance_local: openingLocal,
+      beginning_balance_usd:   toUSD(openingLocal),
+      total_income_usd:        totalIncomeUSD,
+      total_expenses_usd:      totalExpensesUSD,
+      ending_balance_usd:      endingBalanceUSD,
+      luke_society_support_usd: lsUSD,
+      local_income_usd:         localIncomeUSD,
+      total_salary_usd:         Math.round(salaryUSD*100)/100,
+      total_operating_usd:      Math.round(operatingUSD*100)/100,
+      total_capital_usd:        Math.round(capitalUSD*100)/100,
     });
+
+    if (incomeLines.length > 0) await sb.from('income_lines').insert(incomeLines);
+    if (expenseLines.length > 0) await sb.from('expense_lines').insert(expenseLines);
 
     await sb.from('clinical_stats').insert({
       report_id: report.id,
-      consult_clinic:g('f-c-clinic'),consult_community:g('f-c-comm'),consult_dental:g('f-c-dental'),consult_spiritual:g('f-c-spiritual'),
-      services_lab:g('f-s-lab'),services_pharmacy:g('f-s-pharm'),services_xray:g('f-s-xray'),services_immunization:g('f-s-immun'),
-      proc_surgeries:g('f-p-surg'),proc_deliveries:g('f-p-birth'),
-      pay_full:g('f-pay-full'),pay_partial:g('f-pay-part'),pay_charity:g('f-pay-char'),
+      consult_clinic:g('f-c-clinic'), consult_community:g('f-c-comm'),
+      consult_dental:g('f-c-dental'), consult_spiritual:g('f-c-spiritual'),
+      services_lab:g('f-s-lab'),      services_pharmacy:g('f-s-pharm'),
+      services_xray:g('f-s-xray'),    services_immunization:g('f-s-immun'),
+      proc_surgeries:g('f-p-surg'),   proc_deliveries:g('f-p-birth'),
+      proc_pap_smears:g('f-p-pap'),
+      pay_full:g('f-pay-full'),        pay_partial:g('f-pay-part'),
+      pay_charity:g('f-pay-char'),
+      comm_meetings:g('f-comm-meet'),  comm_health_ed:g('f-comm-health'),
+      comm_spiritual_ed:g('f-comm-spirit'), comm_prenatal:g('f-comm-prenatal'),
+      comm_health_workers:g('f-comm-workers'), comm_hygiene_projects:g('f-comm-hygiene'),
     });
 
     await sb.from('written_reports').insert({
@@ -2401,19 +2518,9 @@ function switchDetailTab(tab) {
     }
     if (content) content.style.display = t === tab ? 'block' : 'none';
   });
-
-  if (tab === 'reports' && !narrativeReportsLoaded) {
-    loadNarrativeReports(currentDetailMinistryId);
-    narrativeReportsLoaded = true;
-  }
-  if (tab === 'prayer' && !prayerRequestsLoaded) {
-    loadPrayerRequests(currentDetailMinistryId);
-    prayerRequestsLoaded = true;
-  }
-  if (tab === 'transfers' && !transfersLoaded) {
-    loadTransfers(currentDetailMinistryId);
-    transfersLoaded = true;
-  }
+  if (tab === 'reports' && !narrativeReportsLoaded) { loadNarrativeReports(currentDetailMinistryId); narrativeReportsLoaded = true; }
+  if (tab === 'prayer' && !prayerRequestsLoaded) { loadPrayerRequests(currentDetailMinistryId); prayerRequestsLoaded = true; }
+  if (tab === 'transfers' && !transfersLoaded) { loadTransfers(currentDetailMinistryId); transfersLoaded = true; }
 }
 
 async function loadNarrativeReports(ministryId) {
@@ -5335,17 +5442,12 @@ async function translateChunk(text, fromLang, toLang) {
 async function translateText(text, fromLang, toLang) {
   if (!text || !text.trim()) return text;
   if (fromLang === toLang) return text;
-
   const MAX_CHUNK = 400;
-
   const paragraphs = text.split('\n');
-
   async function translateParagraph(para) {
     if (!para.trim()) return para;
     if (para.length <= MAX_CHUNK) return await translateChunk(para, fromLang, toLang);
-    const words = para.split(' ');
-    const chunks = [];
-    let current = '';
+    const words = para.split(' '); const chunks = []; let current = '';
     for (const word of words) {
       const candidate = current ? current + ' ' + word : word;
       if (candidate.length <= MAX_CHUNK) { current = candidate; }
@@ -5359,7 +5461,6 @@ async function translateText(text, fromLang, toLang) {
     }
     return translated.join(' ');
   }
-
   const translatedParas = [];
   for (let i = 0; i < paragraphs.length; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, 150));
@@ -5654,8 +5755,7 @@ function triggerDownload(rows, yearFilter) {
     const currentPwRow = document.getElementById('current-pw-row');
     if (currentPwRow) currentPwRow.style.display = '';
     const msg = document.getElementById('password-message');
-    msg.style.display = 'none';
-    msg.textContent = '';
+    msg.style.display = 'none'; msg.textContent = '';
     modal.classList.remove('hidden');
   }
 
@@ -5668,24 +5768,16 @@ function triggerDownload(rows, yearFilter) {
   const currentPwRow = document.getElementById('current-pw-row');
   const currentPwHidden = currentPwRow && currentPwRow.style.display === 'none';
   const currentPw = currentPwHidden ? null : document.getElementById('settings-current-password').value;
-  const newPw     = document.getElementById('settings-new-password').value;
+  const newPw = document.getElementById('settings-new-password').value;
   const confirmPw = document.getElementById('settings-confirm-password').value;
-  const msgEl     = document.getElementById('password-message');
-  const showMsg = (text, ok) => {
-    msgEl.textContent = text;
-    msgEl.style.color = ok ? 'var(--green)' : 'var(--red)';
-    msgEl.style.display = 'block';
-  };
+  const msgEl = document.getElementById('password-message');
+  const showMsg = (text, ok) => { msgEl.textContent=text; msgEl.style.color=ok?'var(--green)':'var(--red)'; msgEl.style.display='block'; };
   if (!currentPwHidden && !currentPw) { showMsg('Please fill in all three fields.', false); return; }
   if (!newPw || !confirmPw) { showMsg('Please fill in all fields.', false); return; }
   if (newPw.length < 8) { showMsg('New password must be at least 8 characters.', false); return; }
   if (newPw !== confirmPw) { showMsg('New passwords do not match.', false); return; }
   if (currentPw && currentPw === newPw) { showMsg('New password must differ from current password.', false); return; }
-  if (DEMO_MODE) {
-    showMsg('Password updated successfully.', true);
-    setTimeout(closeChangePasswordModal, 1200);
-    return;
-  }
+  if (DEMO_MODE) { showMsg('Password updated successfully.', true); setTimeout(closeChangePasswordModal, 1200); return; }
   try {
     if (!currentPwHidden) {
       const { error: signInError } = await sb.auth.signInWithPassword({ email: currentUser.email, password: currentPw });
@@ -5698,13 +5790,8 @@ function triggerDownload(rows, yearFilter) {
       if (userProfile) userProfile.must_change_password = false;
     }
     showMsg('Password updated successfully.', true);
-    setTimeout(() => {
-      closeChangePasswordModal();
-      if (isForcedChange) loadDashboard();
-    }, 1200);
-  } catch(e) {
-    showMsg('Error: ' + e.message, false);
-  }
+    setTimeout(() => { closeChangePasswordModal(); if (isForcedChange) loadDashboard(); }, 1200);
+  } catch(e) { showMsg('Error: ' + e.message, false); }
 }
   
 </script>
