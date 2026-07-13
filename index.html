@@ -2053,6 +2053,10 @@ function updateExpenseTrendChart() {
   const ctx = document.getElementById('dc-expense-trend');
   if (!ctx) return;
 
+  // Set Y axis max to at least 20% above max value, always starting from 0
+  const maxVal = Math.max(...values, 0);
+  const suggestedMax = Math.ceil(maxVal * 1.2 / 500) * 500 || 1000;
+
   expenseTrendChart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -2076,8 +2080,9 @@ function updateExpenseTrendChart() {
       },
       scales: {
         x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#888780' }},
-        y: { grid: { color: 'rgba(136,135,128,0.12)' },
-          ticks: { font: { size: 10 }, color: '#888780',
+        y: { min: 0, max: suggestedMax,
+          grid: { color: 'rgba(136,135,128,0.12)' },
+          ticks: { font: { size: 10 }, color: '#888780', maxTicksLimit: 5,
             callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v) }}
       }
     }
