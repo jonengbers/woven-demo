@@ -1758,6 +1758,10 @@ async function loadFinancialDetail(ministryId, period) {
     return;
   }
 
+  // Show loading indicator
+  section.style.display = 'block';
+  section.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;"><span class="spinner"></span> Loading financial detail...</div>';
+
   try {
     // Fetch reports with their line items
     const now = new Date();
@@ -1769,40 +1773,104 @@ async function loadFinancialDetail(ministryId, period) {
       finSpecificMonth = parseInt(pts[2]);
     }
 
-    let q = sb.from('monthly_reports')
-      .select(`
-        id, report_year, report_month, status,
-        financial_summary(total_income_usd, total_expenses_usd, ending_balance_usd,
-          luke_society_support_usd, total_salary_usd, total_operating_usd, total_capital_usd),
-        income_lines(category, subcategory, label, amount_usd, sort_order),
-        expense_lines(category, subcategory, label, amount_usd, sort_order)
-      `)
+    // Fetch income and expense lines separately to avoid nested query issues
+    let mrQuery = sb.from('monthly_reports')
+      .select('id, report_year, report_month, status')
       .eq('ministry_id', ministryId)
       .order('report_year', { ascending: true })
       .order('report_month', { ascending: true });
 
     if (finSpecificYear && finSpecificMonth) {
-      q = q.eq('report_year', finSpecificYear).eq('report_month', finSpecificMonth);
+      mrQuery = mrQuery.eq('report_year', finSpecificYear).eq('report_month', finSpecificMonth);
     } else if (period === 'current') {
-      q = q.eq('report_year', now.getFullYear()).eq('report_month', now.getMonth()+1);
+      mrQuery = mrQuery.eq('report_year', now.getFullYear()).eq('report_month', now.getMonth()+1);
     } else if (period === 'ytd') {
-      q = q.eq('report_year', now.getFullYear());
+      mrQuery = mrQuery.eq('report_year', now.getFullYear());
     } else if (period === 'prev') {
-      q = q.eq('report_year', now.getFullYear()-1);
+      mrQuery = mrQuery.eq('report_year', now.getFullYear()-1);
     }
 
-    const { data, error } = await q;
-    if (error) throw error;
+    const { data: mrData, error: mrError } = await mrQuery;
+    if (mrError) throw mrError;
+    if (!mrData || mrData.length === 0) { section.style.display = 'none'; return; }
 
-    // Shape data into per-month objects
+    const reportIds = mrData.map(r => r.id);
+
+    // Fetch related data in parallel
+    const [incResult, expResult] = await Promise.all([
+      sb.from('income_lines').select('report_id, category, label, amount_usd, sort_order').in('report_id', reportIds),
+      sb.from('expense_lines').select('report_id, category, subcategory, label, amount_usd, sort_order').in('report_id', reportIds),
+    ]);
+
+    if (incResult.error) throw incResult.error;
+    if (expResult.error) throw expResult.error;
+
+    // Group lines by report_id
+    const incByReport = {};
+    const expByReport = {};
+    (incResult.data || []).forEach(l => {
+      if (!incByReport[l.report_id]) incByReport[l.report_id] = [];
+      incByReport[l.report_id].push(l);
+    });
+    (expResult.data || []).forEach(l => {
+      if (!expByReport[l.report_id]) expByReport[l.report_id] = [];
+      expByReport[l.report_id].push(l);
+    });
+
+    // Rebuild section HTML (was replaced by spinner)
+    section.innerHTML = \`
+      <div class="card" style="padding:14px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:600;">Income breakdown</div>
+          <div id="income-period-label" style="font-size:11px;color:var(--text2);"></div>
+        </div>
+        <div style="position:relative;height:180px;"><canvas id="dc-income"></canvas></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;" id="income-legend"></div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
+        <div style="padding:12px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:13px;font-weight:600;">Expense breakdown</div>
+          <div id="expense-total-label" style="font-size:13px;color:var(--red);font-weight:500;"></div>
+        </div>
+        <div id="expense-categories" style="padding:8px 0;"></div>
+      </div>
+      <div class="card" style="padding:14px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:12px;">Month-to-month comparison</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin-bottom:14px;">
+          <div><div class="flabel">Month A</div><select id="cmp-month-a" style="width:100%;"></select></div>
+          <div><div class="flabel">Month B</div><select id="cmp-month-b" style="width:100%;"></select></div>
+          <button onclick="runMonthComparison()" style="white-space:nowrap;">Compare</button>
+        </div>
+        <div id="cmp-result"></div>
+      </div>
+      <div class="card" style="padding:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:13px;font-weight:600;">Expense trend by category</div>
+          <select id="expense-trend-category" onchange="updateExpenseTrendChart()" style="font-size:12px;padding:4px 8px;">
+            <option value="Salaries">Salaries</option>
+            <option value="Community Health">Community Health</option>
+            <option value="Supplies">Supplies</option>
+            <option value="Transportation">Transportation</option>
+            <option value="Facility Costs">Facility Costs</option>
+            <option value="Financial Services">Financial Services</option>
+            <option value="Capital Purchases">Capital Purchases</option>
+          </select>
+        </div>
+        <div style="position:relative;height:180px;"><canvas id="dc-expense-trend"></canvas></div>
+      </div>\`;
+
+    // Destroy any existing charts that used these canvas IDs
+    if (incomeChart) { try { incomeChart.destroy(); } catch(e){} incomeChart = null; }
+    if (expenseTrendChart) { try { expenseTrendChart.destroy(); } catch(e){} expenseTrendChart = null; }
+
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    financialDetailData.reports = (data || []).map(r => {
+    financialDetailData.reports = mrData.map(r => {
       const incomeByCategory = {};
-      (r.income_lines || []).forEach(l => {
+      (incByReport[r.id] || []).forEach(l => {
         incomeByCategory[l.category] = (incomeByCategory[l.category] || 0) + (l.amount_usd || 0);
       });
       const expenseByCategory = {};
-      (r.expense_lines || []).forEach(l => {
+      (expByReport[r.id] || []).forEach(l => {
         if (!expenseByCategory[l.category]) expenseByCategory[l.category] = { total: 0, lines: [] };
         expenseByCategory[l.category].total += l.amount_usd || 0;
         expenseByCategory[l.category].lines.push({ label: l.label, amount: l.amount_usd || 0, subcategory: l.subcategory });
@@ -1812,7 +1880,6 @@ async function loadFinancialDetail(ministryId, period) {
         year: r.report_year, month: r.report_month,
         income: incomeByCategory,
         expenses: expenseByCategory,
-        summary: r.financial_summary,
       };
     });
 
@@ -1822,9 +1889,9 @@ async function loadFinancialDetail(ministryId, period) {
     }
 
     renderFinancialDetail(period);
-    section.style.display = 'block';
   } catch(e) {
     console.error('Financial detail error:', e);
+    section.innerHTML = `<div style="padding:14px;color:var(--red);font-size:13px;">Error loading financial detail: ${e.message}</div>`;
   }
 }
 
