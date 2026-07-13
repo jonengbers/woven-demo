@@ -1819,13 +1819,15 @@ async function loadFinancialDetail(ministryId, period) {
 
     // Rebuild section HTML (was replaced by spinner)
     section.innerHTML = `
-      <div class="card" style="padding:14px;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
+        <div style="padding:12px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
           <div style="font-size:13px;font-weight:600;">Income breakdown</div>
-          <div id="income-period-label" style="font-size:11px;color:var(--text2);"></div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div id="income-period-label" style="font-size:11px;color:var(--text2);"></div>
+            <div id="income-total-label" style="font-size:13px;color:var(--green);font-weight:500;"></div>
+          </div>
         </div>
-        <div style="position:relative;height:180px;"><canvas id="dc-income"></canvas></div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;" id="income-legend"></div>
+        <div id="income-categories" style="padding:8px 0;"></div>
       </div>
       <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
         <div style="padding:12px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
@@ -1843,7 +1845,7 @@ async function loadFinancialDetail(ministryId, period) {
         </div>
         <div id="cmp-result"></div>
       </div>
-      <div class="card" style="padding:14px;">
+      <div class="card" id="expense-trend-card" style="padding:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div style="font-size:13px;font-weight:600;">Expense trend by category</div>
           <select id="expense-trend-category" onchange="updateExpenseTrendChart()" style="font-size:12px;padding:4px 8px;">
@@ -1899,86 +1901,51 @@ function renderFinancialDetail(period) {
   const reports = financialDetailData.reports;
   if (!reports.length) return;
 
-  // ── Income breakdown chart ────────────────────────────────────────────
-  // Split LS support (shown separately as line) from local income (stacked bars)
-  const localIncomeCategories = ['Clinic','Pharmacy','Lab','Dental','Other Agencies','Other'];
-  const localIncomeColors = ['#1D9E75','#EF9F27','#185FA5','#A32D2D','#0F6E56','#AFA9EC'];
-  const labels = reports.map(r => r.label);
+  // ── Income breakdown — percentage bar list (matches expense layout) ───
+  const incomeCatOrder = ['Luke Society','Other Agencies','Clinic','Pharmacy','Lab','Dental','Other'];
+  const incomeCatColors = {
+    'Luke Society': '#534AB7', 'Clinic': '#1D9E75', 'Pharmacy': '#EF9F27',
+    'Lab': '#185FA5', 'Dental': '#A32D2D', 'Other Agencies': '#0F6E56', 'Other': '#AFA9EC'
+  };
 
-  const localDatasets = localIncomeCategories.map((cat, i) => ({
-    label: cat,
-    data: reports.map(r => Math.round((r.income[cat] || 0) * 100) / 100),
-    backgroundColor: localIncomeColors[i],
-    borderRadius: 3,
-    stack: 'local',
-    yAxisID: 'y',
-  })).filter(ds => ds.data.some(v => v > 0));
-
-  // LS support as a line on secondary axis
-  const lsData = reports.map(r => Math.round((r.income['Luke Society'] || 0) * 100) / 100);
-  if (lsData.some(v => v > 0)) {
-    localDatasets.push({
-      label: 'Luke Society',
-      data: lsData,
-      type: 'line',
-      borderColor: '#534AB7',
-      backgroundColor: 'rgba(83,74,183,0.08)',
-      borderWidth: 2,
-      pointRadius: 4,
-      fill: false,
-      tension: 0.3,
-      yAxisID: 'y2',
-      order: 0,
+  // Aggregate income across all reports in period
+  const aggIncome = {};
+  reports.forEach(r => {
+    Object.entries(r.income || {}).forEach(([cat, val]) => {
+      aggIncome[cat] = (aggIncome[cat] || 0) + val;
     });
-  }
+  });
+  const totalIncome = Object.values(aggIncome).reduce((s, v) => s + v, 0);
 
-  const incomeLegend = document.getElementById('income-legend');
-  if (incomeLegend) {
-    const legendItems = localIncomeCategories
-      .filter((cat, i) => localDatasets.find(d => d.label === cat))
-      .map((cat, i) => `<span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:3px;">
-        <span style="width:8px;height:8px;border-radius:2px;background:${localIncomeColors[localIncomeCategories.indexOf(cat)]};display:inline-block;"></span>${cat}
-      </span>`);
-    if (lsData.some(v => v > 0)) {
-      legendItems.push(`<span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:3px;">
-        <span style="width:16px;height:2px;background:#534AB7;display:inline-block;border-radius:2px;"></span>Luke Society (right axis)
-      </span>`);
-    }
-    incomeLegend.innerHTML = legendItems.join('');
-  }
+  const incTotalLabel = document.getElementById('income-total-label');
+  if (incTotalLabel) incTotalLabel.textContent = '$' + Math.round(totalIncome).toLocaleString();
 
   const periodLabel = document.getElementById('income-period-label');
   if (periodLabel) periodLabel.textContent = {current:'Current month',ytd:'Year to date',prev:'Prior year',all:'All reports'}[period] || '';
 
-  if (incomeChart) { try { incomeChart.destroy(); } catch(e){} incomeChart = null; }
-  const incCtx = document.getElementById('dc-income');
-  if (incCtx && localDatasets.length > 0) {
-    const hasLS = lsData.some(v => v > 0);
-    incomeChart = new Chart(incCtx, {
-      type: 'bar',
-      data: { labels, datasets: localDatasets },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false },
-          tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString() }}
-        },
-        scales: {
-          x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 }, color: '#888780' }},
-          y: { stacked: true, position: 'left',
-            grid: { color: 'rgba(136,135,128,0.12)' },
-            title: { display: true, text: 'Local income (USD)', font: { size: 9 }, color: '#888780' },
-            ticks: { font: { size: 10 }, color: '#888780',
-              callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v) }},
-          ...(hasLS ? { y2: {
-            position: 'right',
-            grid: { display: false },
-            title: { display: true, text: 'LS support (USD)', font: { size: 9 }, color: '#534AB7' },
-            ticks: { font: { size: 10 }, color: '#534AB7',
-              callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v) }
-          }} : {})
-        }
-      }
-    });
+  const incCatEl = document.getElementById('income-categories');
+  if (incCatEl) {
+    const rows = incomeCatOrder
+      .filter(cat => aggIncome[cat] && aggIncome[cat] > 0)
+      .map((cat, i, arr) => {
+        const amt = aggIncome[cat] || 0;
+        const pct = totalIncome > 0 ? Math.round(amt / totalIncome * 100) : 0;
+        const color = incomeCatColors[cat] || '#534AB7';
+        const isLast = i === arr.length - 1;
+        return `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;${isLast?'':'border-bottom:0.5px solid var(--border);'}">
+            <div style="display:flex;align-items:center;gap:10px;flex:1;">
+              <span style="width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block;"></span>
+              <span style="font-size:13px;">${cat}</span>
+              <div style="flex:1;max-width:140px;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
+                <div style="background:${color};height:4px;width:${pct}%;"></div>
+              </div>
+              <span style="font-size:11px;color:var(--text2);">${pct}%</span>
+            </div>
+            <span style="font-size:13px;font-weight:500;color:var(--green);min-width:80px;text-align:right;">$${Math.round(amt).toLocaleString()}</span>
+          </div>`;
+      }).join('');
+    incCatEl.innerHTML = rows || '<div style="padding:16px;text-align:center;color:var(--text2);font-size:13px;">No income data for this period.</div>';
   }
 
   // ── Expense breakdown by category ─────────────────────────────────────
@@ -2068,29 +2035,44 @@ function toggleExpenseCategory(id) {
 
 function updateExpenseTrendChart() {
   const reports = financialDetailData.reports;
+  const trendCard = document.getElementById('expense-trend-card');
+
+  // Hide trend chart for single-month view — a single point line is meaningless
+  if (reports.length <= 1) {
+    if (trendCard) trendCard.style.display = 'none';
+    if (expenseTrendChart) { try { expenseTrendChart.destroy(); } catch(e){} expenseTrendChart = null; }
+    return;
+  }
+  if (trendCard) trendCard.style.display = '';
+
   const cat = document.getElementById('expense-trend-category')?.value || 'Salaries';
-  const labels = reports.map(r => r.label);
+  const trendLabels = reports.map(r => r.label);
   const values = reports.map(r => Math.round((r.expenses[cat]?.total || 0) * 100) / 100);
 
-  if (expenseTrendChart) { expenseTrendChart.destroy(); expenseTrendChart = null; }
+  if (expenseTrendChart) { try { expenseTrendChart.destroy(); } catch(e){} expenseTrendChart = null; }
   const ctx = document.getElementById('dc-expense-trend');
   if (!ctx) return;
 
   expenseTrendChart = new Chart(ctx, {
-    type: 'bar',
+    type: 'line',
     data: {
-      labels,
+      labels: trendLabels,
       datasets: [{
         label: cat,
         data: values,
-        backgroundColor: '#534AB7',
-        borderRadius: 4,
+        borderColor: '#534AB7',
+        backgroundColor: 'rgba(83,74,183,0.08)',
+        borderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        fill: true,
+        tension: 0.3,
       }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false },
-        tooltip: { callbacks: { label: ctx => '$' + ctx.parsed.y.toLocaleString() } }
+        tooltip: { callbacks: { label: c => cat + ': $' + c.parsed.y.toLocaleString() } }
       },
       scales: {
         x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#888780' }},
@@ -2173,47 +2155,49 @@ function runMonthComparison() {
   const totalIncA = Object.values(rA.income||{}).reduce((s,v)=>s+v,0);
   const totalIncB = Object.values(rB.income||{}).reduce((s,v)=>s+v,0);
 
+  const fmt = v => '$' + Math.round(Math.abs(v)).toLocaleString();
+  const chg = (a, b, higherIsBetter=true) => {
+    const d = b - a;
+    if (d === 0) return '<span style="color:var(--text2);">—</span>';
+    const color = (d > 0) === higherIsBetter ? 'var(--green)' : 'var(--red)';
+    return `<span style="color:${color};">${d>0?'+':''}${fmt(d)}</span>`;
+  };
+
   result.innerHTML = `
     <div style="overflow-x:auto;">
-      <table class="mtable">
-        <thead>
-          <tr>
-            <th style="text-align:left;">Income</th>
-            <th style="text-align:right;">${rA.label}</th>
-            <th style="text-align:right;">${rB.label}</th>
-            <th style="text-align:right;">Change</th>
-          </tr>
-        </thead>
+      <div style="font-size:11px;font-weight:600;color:var(--text2);padding:4px 0 8px;letter-spacing:0.05em;text-transform:uppercase;">Income</div>
+      <table class="mtable" style="margin-bottom:20px;">
+        <thead><tr>
+          <th style="text-align:left;">Category</th>
+          <th style="text-align:right;">${rA.label}</th>
+          <th style="text-align:right;">${rB.label}</th>
+          <th style="text-align:right;">Change</th>
+        </tr></thead>
         <tbody>
           ${incRows}
-          <tr style="font-weight:600;border-top:1px solid var(--border);">
+          <tr style="font-weight:600;border-top:1.5px solid var(--border);">
             <td>Total income</td>
-            <td style="text-align:right;">$${Math.round(totalIncA).toLocaleString()}</td>
-            <td style="text-align:right;">$${Math.round(totalIncB).toLocaleString()}</td>
-            <td style="text-align:right;color:${totalIncB>=totalIncA?'var(--green)':'var(--red)'};">
-              ${totalIncB===totalIncA?'—':(totalIncB>totalIncA?'+':'')+'\$'+Math.round(Math.abs(totalIncB-totalIncA)).toLocaleString()}
-            </td>
+            <td style="text-align:right;">${fmt(totalIncA)}</td>
+            <td style="text-align:right;">${fmt(totalIncB)}</td>
+            <td style="text-align:right;">${chg(totalIncA, totalIncB, true)}</td>
           </tr>
         </tbody>
       </table>
-      <table class="mtable" style="margin-top:16px;">
-        <thead>
-          <tr>
-            <th style="text-align:left;">Expenses</th>
-            <th style="text-align:right;">${rA.label}</th>
-            <th style="text-align:right;">${rB.label}</th>
-            <th style="text-align:right;">Change</th>
-          </tr>
-        </thead>
+      <div style="font-size:11px;font-weight:600;color:var(--text2);padding:4px 0 8px;letter-spacing:0.05em;text-transform:uppercase;">Expenses</div>
+      <table class="mtable">
+        <thead><tr>
+          <th style="text-align:left;">Category</th>
+          <th style="text-align:right;">${rA.label}</th>
+          <th style="text-align:right;">${rB.label}</th>
+          <th style="text-align:right;">Change</th>
+        </tr></thead>
         <tbody>
           ${expRows}
-          <tr style="font-weight:600;border-top:1px solid var(--border);">
+          <tr style="font-weight:600;border-top:1.5px solid var(--border);">
             <td>Total expenses</td>
-            <td style="text-align:right;">$${Math.round(totalA).toLocaleString()}</td>
-            <td style="text-align:right;">$${Math.round(totalB).toLocaleString()}</td>
-            <td style="text-align:right;color:${totalDiff<=0?'var(--green)':'var(--red)'};">
-              ${totalDiff===0?'—':(totalDiff>0?'+':'')+'\$'+Math.round(Math.abs(totalDiff)).toLocaleString()}
-            </td>
+            <td style="text-align:right;">${fmt(totalA)}</td>
+            <td style="text-align:right;">${fmt(totalB)}</td>
+            <td style="text-align:right;">${chg(totalA, totalB, false)}</td>
           </tr>
         </tbody>
       </table>
