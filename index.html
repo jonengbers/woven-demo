@@ -1900,42 +1900,82 @@ function renderFinancialDetail(period) {
   if (!reports.length) return;
 
   // ── Income breakdown chart ────────────────────────────────────────────
-  const incomeCategories = ['Luke Society','Clinic','Pharmacy','Lab','Dental','Other Agencies','Other'];
-  const incomeColors = ['#534AB7','#1D9E75','#EF9F27','#185FA5','#A32D2D','#0F6E56','#AFA9EC'];
+  // Split LS support (shown separately as line) from local income (stacked bars)
+  const localIncomeCategories = ['Clinic','Pharmacy','Lab','Dental','Other Agencies','Other'];
+  const localIncomeColors = ['#1D9E75','#EF9F27','#185FA5','#A32D2D','#0F6E56','#AFA9EC'];
   const labels = reports.map(r => r.label);
 
-  const incomeDatasets = incomeCategories.map((cat, i) => ({
+  const localDatasets = localIncomeCategories.map((cat, i) => ({
     label: cat,
     data: reports.map(r => Math.round((r.income[cat] || 0) * 100) / 100),
-    backgroundColor: incomeColors[i],
+    backgroundColor: localIncomeColors[i],
     borderRadius: 3,
+    stack: 'local',
+    yAxisID: 'y',
   })).filter(ds => ds.data.some(v => v > 0));
+
+  // LS support as a line on secondary axis
+  const lsData = reports.map(r => Math.round((r.income['Luke Society'] || 0) * 100) / 100);
+  if (lsData.some(v => v > 0)) {
+    localDatasets.push({
+      label: 'Luke Society',
+      data: lsData,
+      type: 'line',
+      borderColor: '#534AB7',
+      backgroundColor: 'rgba(83,74,183,0.08)',
+      borderWidth: 2,
+      pointRadius: 4,
+      fill: false,
+      tension: 0.3,
+      yAxisID: 'y2',
+      order: 0,
+    });
+  }
 
   const incomeLegend = document.getElementById('income-legend');
   if (incomeLegend) {
-    incomeLegend.innerHTML = incomeDatasets.map((ds, i) =>
-      `<span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:3px;">
-        <span style="width:8px;height:8px;border-radius:2px;background:${ds.backgroundColor};display:inline-block;"></span>${ds.label}
-      </span>`
-    ).join('');
+    const legendItems = localIncomeCategories
+      .filter((cat, i) => localDatasets.find(d => d.label === cat))
+      .map((cat, i) => `<span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:3px;">
+        <span style="width:8px;height:8px;border-radius:2px;background:${localIncomeColors[localIncomeCategories.indexOf(cat)]};display:inline-block;"></span>${cat}
+      </span>`);
+    if (lsData.some(v => v > 0)) {
+      legendItems.push(`<span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:3px;">
+        <span style="width:16px;height:2px;background:#534AB7;display:inline-block;border-radius:2px;"></span>Luke Society (right axis)
+      </span>`);
+    }
+    incomeLegend.innerHTML = legendItems.join('');
   }
 
   const periodLabel = document.getElementById('income-period-label');
   if (periodLabel) periodLabel.textContent = {current:'Current month',ytd:'Year to date',prev:'Prior year',all:'All reports'}[period] || '';
 
-  if (incomeChart) { incomeChart.destroy(); incomeChart = null; }
+  if (incomeChart) { try { incomeChart.destroy(); } catch(e){} incomeChart = null; }
   const incCtx = document.getElementById('dc-income');
-  if (incCtx && incomeDatasets.length > 0) {
+  if (incCtx && localDatasets.length > 0) {
+    const hasLS = lsData.some(v => v > 0);
     incomeChart = new Chart(incCtx, {
       type: 'bar',
-      data: { labels, datasets: incomeDatasets },
+      data: { labels, datasets: localDatasets },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString() }}
+        },
         scales: {
           x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 }, color: '#888780' }},
-          y: { stacked: true, grid: { color: 'rgba(136,135,128,0.12)' }, ticks: { font: { size: 10 }, color: '#888780',
-            callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v) }}
+          y: { stacked: true, position: 'left',
+            grid: { color: 'rgba(136,135,128,0.12)' },
+            title: { display: true, text: 'Local income (USD)', font: { size: 9 }, color: '#888780' },
+            ticks: { font: { size: 10 }, color: '#888780',
+              callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v) }},
+          ...(hasLS ? { y2: {
+            position: 'right',
+            grid: { display: false },
+            title: { display: true, text: 'LS support (USD)', font: { size: 9 }, color: '#534AB7' },
+            ticks: { font: { size: 10 }, color: '#534AB7',
+              callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v) }
+          }} : {})
         }
       }
     });
@@ -1965,7 +2005,15 @@ function renderFinancialDetail(period) {
       .filter(cat => aggExpenses[cat] && aggExpenses[cat].total > 0)
       .map(cat => {
         const data = aggExpenses[cat];
-        const pct = totalExpenses > 0 ? Math.round(data.total / totalExpenses * 100) : 0;
+        // Calculate percentage against operating expenses only (exclude capital)
+        // so one-off capital purchases don't dwarf routine expense bars
+        const routineTotal = Object.entries(aggExpenses)
+          .filter(([c]) => c !== 'Capital Purchases')
+          .reduce((s, [,d]) => s + d.total, 0);
+        const isCapital = cat === 'Capital Purchases';
+        const pctBase = isCapital ? totalExpenses : (routineTotal || totalExpenses);
+        const pct = pctBase > 0 ? Math.round(data.total / pctBase * 100) : 0;
+        const pctLabel = isCapital ? `${pct}% of total` : `${pct}% of operating`;
         const lineItems = Object.entries(data.lines)
           .sort((a,b) => b[1]-a[1])
           .map(([label, amt]) =>
@@ -1981,9 +2029,9 @@ function renderFinancialDetail(period) {
               <div style="display:flex;align-items:center;gap:10px;flex:1;">
                 <span style="font-size:13px;font-weight:500;">${cat}</span>
                 <div style="flex:1;max-width:120px;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
-                  <div style="background:#534AB7;height:4px;width:${pct}%;"></div>
+                  <div style="background:${isCapital ? '#EF9F27' : '#534AB7'};height:4px;width:${Math.min(pct,100)}%;"></div>
                 </div>
-                <span style="font-size:11px;color:var(--text2);">${pct}%</span>
+                <span style="font-size:11px;color:var(--text2);">${pctLabel}</span>
               </div>
               <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-size:13px;font-weight:500;">$${Math.round(data.total).toLocaleString()}</span>
