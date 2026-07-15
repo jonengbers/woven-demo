@@ -3211,6 +3211,8 @@ async function loadNarrativeReports(ministryId) {
     ];
 
     container.innerHTML = demoReports.map(r => renderNarrativeCard(r)).join('');
+    // Load demo comments (using fake report IDs 1, 2)
+    demoReports.forEach((r, i) => loadComments(i + 1));
     return;
   }
 
@@ -3253,11 +3255,16 @@ async function loadNarrativeReports(ministryId) {
     const narrativeItems = sorted.map(({r, mr}) => {
       const month = mr ? new Date(mr.report_year, mr.report_month-1, 1).toLocaleString('default',{month:'long',year:'numeric'}) : 'Unknown period';
       return {
-        html: renderNarrativeCard({ month, lang: r.original_language, original: r.body_original, english: r.body_english, status: mr?.status }),
+        html: renderNarrativeCard({ month, lang: r.original_language, original: r.body_original, english: r.body_english, status: mr?.status, reportId: r.report_id, ministryId }),
         original: r.body_original, lang: r.original_language, month
       };
     });
     container.innerHTML = narrativeItems.map(x => x.html).join('');
+
+    // Load comments for each report card
+    sorted.forEach(({r}) => {
+      if (r.report_id) loadComments(r.report_id);
+    });
 
     // Live-translate any narratives without stored English translation
     if (autoTranslate) {
@@ -3292,6 +3299,32 @@ function renderNarrativeCard(r) {
   const hasStoredTranslation = r.english && r.english !== r.original && r.lang !== 'en';
   const needsLiveTranslation = !hasStoredTranslation && r.lang && r.lang !== 'en' && r.lang !== userLang;
   const cardUid = `narrative-${r.month.replace(/\s/g,'-')}`;
+  const reportId = r.reportId || null;
+
+  // Determine if current user can comment
+  const role = userProfile?.role;
+  const canComment = role === 'admin' || role === 'pmt_member' || role === 'regional_coordinator' || role === 'director';
+
+  const commentsSection = reportId ? `
+    <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid var(--border);">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Comments &amp; feedback</div>
+      <div id="comments-${reportId}" style="margin-bottom:10px;">
+        <div style="font-size:12px;color:var(--text2);text-align:center;padding:8px 0;"><span class="spinner"></span></div>
+      </div>
+      ${canComment ? `
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <textarea id="comment-input-${reportId}" placeholder="Add a comment or correction request..." rows="2"
+          style="font-size:13px;resize:vertical;width:100%;"></textarea>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;">
+            <input type="checkbox" id="comment-correction-${reportId}" style="margin:0;"/>
+            Mark as correction request
+          </label>
+          <button onclick="submitComment(${reportId})" style="font-size:12px;padding:5px 14px;">Post comment</button>
+        </div>
+        <div id="comment-msg-${reportId}" style="font-size:12px;display:none;"></div>
+      </div>` : ''}
+    </div>` : '';
 
   return `<div class="card" style="margin-bottom:12px;" id="${cardUid}">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -3306,7 +3339,7 @@ function renderNarrativeCard(r) {
       ${hasStoredTranslation ? `
         <div style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border);">
           <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">English translation</div>
-          <div style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;">${r.english}</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;white-space:pre-wrap;">${r.english}</div>
         </div>` : ''}
       ${needsLiveTranslation ? `
         <div class="narrative-live-translation" style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border);display:none;">
@@ -3314,7 +3347,105 @@ function renderNarrativeCard(r) {
           <div style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;white-space:pre-wrap;" class="narrative-translated-text"></div>
         </div>` : ''}
     ` : '<div style="color:var(--text2);font-size:13px;">No narrative submitted for this month.</div>'}
+    ${commentsSection}
   </div>`;
+}
+
+// ── REPORT COMMENTS ──────────────────────────────────────────────────────
+
+async function loadComments(reportId) {
+  const container = document.getElementById('comments-' + reportId);
+  if (!container) return;
+
+  if (DEMO_MODE) {
+    const demoComments = reportId % 2 === 0 ? [
+      { id:1, author:'Jon Engbers', role:'pmt_member', created_at:'2026-04-05T14:22:00Z', comment_text:'Great report Marwel — the pharmacy income increase is encouraging. Can you clarify the capital purchase line? Was this a one-time item?', is_correction:false },
+      { id:2, author:'Dr. Marwel Garcia', role:'director', created_at:'2026-04-06T09:15:00Z', comment_text:'Yes, this was the vehicle advance — a one-time payment this quarter. Regular monthly expenses should return to normal next month.', is_correction:false },
+    ] : [];
+    renderComments(container, demoComments);
+    return;
+  }
+
+  try {
+    const { data, error } = await sb
+      .from('report_comments')
+      .select('*, author:user_profiles!report_comments_author_id_fkey(full_name, role)')
+      .eq('report_id', reportId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    const comments = (data || []).map(c => ({
+      ...c,
+      author: c.author?.full_name || 'Unknown',
+      role: c.author?.role || '',
+    }));
+    renderComments(container, comments);
+  } catch(e) {
+    container.innerHTML = `<div style="font-size:12px;color:var(--red);">Error loading comments: ${e.message}</div>`;
+  }
+}
+
+function renderComments(container, comments) {
+  if (!comments || comments.length === 0) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:4px 0;">No comments yet.</div>';
+    return;
+  }
+  const roleLabel = { admin:'Staff', pmt_member:'PMT', regional_coordinator:'Regional Coord.', director:'Director', board:'Board' };
+  container.innerHTML = comments.map(c => {
+    const date = new Date(c.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+    const isCorrection = c.is_correction;
+    return `<div style="padding:10px 12px;border-radius:var(--r-md);background:${isCorrection ? 'rgba(239,159,39,0.08)' : 'var(--surface2)'};margin-bottom:8px;border:0.5px solid ${isCorrection ? 'rgba(239,159,39,0.3)' : 'transparent'};">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:12px;font-weight:600;color:var(--text);">${c.author}</span>
+          <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--surface);color:var(--text2);">${roleLabel[c.role] || c.role}</span>
+          ${isCorrection ? '<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(239,159,39,0.15);color:#8a6500;">Correction request</span>' : ''}
+        </div>
+        <span style="font-size:11px;color:var(--text2);">${date}</span>
+      </div>
+      <div style="font-size:13px;line-height:1.6;color:var(--text);white-space:pre-wrap;">${c.comment_text}</div>
+    </div>`;
+  }).join('');
+}
+
+async function submitComment(reportId) {
+  const input = document.getElementById('comment-input-' + reportId);
+  const isCorrection = document.getElementById('comment-correction-' + reportId)?.checked || false;
+  const msgEl = document.getElementById('comment-msg-' + reportId);
+  const text = input?.value?.trim();
+
+  const showMsg = (msg, ok) => {
+    if (!msgEl) return;
+    msgEl.textContent = msg;
+    msgEl.style.color = ok ? 'var(--green)' : 'var(--red)';
+    msgEl.style.display = 'block';
+  };
+
+  if (!text) { showMsg('Please enter a comment.', false); return; }
+
+  if (DEMO_MODE) {
+    showMsg('Comment posted (demo mode).', true);
+    if (input) input.value = '';
+    return;
+  }
+
+  try {
+    const { error } = await sb.from('report_comments').insert({
+      report_id: reportId,
+      author_id: currentUser.id,
+      comment_text: text,
+      is_correction: isCorrection,
+    });
+    if (error) throw error;
+    if (input) input.value = '';
+    const corrCheckbox = document.getElementById('comment-correction-' + reportId);
+    if (corrCheckbox) corrCheckbox.checked = false;
+    showMsg('Comment posted.', true);
+    setTimeout(() => { if (msgEl) msgEl.style.display = 'none'; }, 2000);
+    // Reload comments
+    loadComments(reportId);
+  } catch(e) {
+    showMsg('Error: ' + e.message, false);
+  }
 }
 
 async function loadTransfers(ministryId) {
