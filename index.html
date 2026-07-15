@@ -1632,11 +1632,11 @@ async function loadMinistryPeriodData(ministryId, period) {
   setTimeout(() => buildHealthScore(aggSnapshot, period, totalConsultsSnapshot, reportCountSnapshot), 50);
 
   // Trend chart title
-  const trendTitles = {current:'Consultation breakdown',ytd:'Monthly trend (YTD)',prev:'Monthly trend (prior year)',all:'Monthly trend (all time)'};
+  const trendTitles = {current:'Consultations by type',ytd:'Total consultations — YTD',prev:'Total consultations — prior year',all:'Total consultations — all time'};
   const titleEl = document.getElementById('dp-trend-title');
   if (titleEl) titleEl.textContent = (specificYear && specificMonth)
-    ? 'Consultation breakdown'
-    : (trendTitles[period] || 'Consultation breakdown');
+    ? 'Consultations by type'
+    : (trendTitles[period] || 'Consultations by type');
 
   // Payment legend
   const legendEl = document.getElementById('dp-pay-legend');
@@ -1658,8 +1658,10 @@ async function loadMinistryPeriodData(ministryId, period) {
     if (period === 'current' || DEMO_MODE) {
       detailCharts.push(new Chart(document.getElementById('dc1'), {
         type:'bar',
-        data:{labels:['Clinic','Community','Dental','Spiritual'],datasets:[{data:[agg.consult_clinic,agg.consult_community,agg.consult_dental,agg.consult_spiritual],backgroundColor:['#534AB7','#1D9E75','#EF9F27','#AFA9EC'],borderRadius:4}]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}
+        data:{labels:['Clinic','Community','Dental','Spiritual'],datasets:[{label:'Consultations by type',data:[agg.consult_clinic,agg.consult_community,agg.consult_dental,agg.consult_spiritual],backgroundColor:['#534AB7','#1D9E75','#EF9F27','#AFA9EC'],borderRadius:4}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.label+': '+ctx.parsed.y.toLocaleString()}}},
+          scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{min:0,grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}
       }));
     } else if (!DEMO_MODE && sb) {
       // Fetch monthly trend for line chart
@@ -1682,8 +1684,10 @@ async function loadMinistryPeriodData(ministryId, period) {
       }
       detailCharts.push(new Chart(document.getElementById('dc1'),{
         type:'line',
-        data:{labels:months.map(m=>m.label),datasets:[{data:trendVals,borderColor:'#534AB7',backgroundColor:'rgba(83,74,183,0.08)',fill:true,tension:0.4,pointRadius:4,borderWidth:2}]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}
+        data:{labels:months.map(m=>m.label),datasets:[{label:'Total consultations',data:trendVals,borderColor:'#534AB7',backgroundColor:'rgba(83,74,183,0.08)',fill:true,tension:0.4,pointRadius:4,borderWidth:2}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:true,labels:{font:{size:10},color:'#888780',boxWidth:12,boxHeight:2}}},
+          scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{min:0,grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}
       }));
     }
 
