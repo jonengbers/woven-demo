@@ -5438,11 +5438,12 @@ function initMap() {
           d3.select(this).select('circle:first-child').attr('r', 9).attr('opacity', 0.35);
           const mData = ministriesData.find(d => d.ministry_id === m.id);
           const visits = mData ? (mData.total_consultations||0).toLocaleString() : '—';
-          const status = mData ? mData.report_status : '—';
-          const statusColor = status === 'submitted' || status === 'approved' ? 'var(--green)' : 'var(--amber)';
-          tip.innerHTML = `<strong>${m.name}</strong><span>${m.country} · ${m.region}</span>
-            <span style="margin-top:4px;display:block;">Consultations: <strong style="color:var(--text);">${visits}</strong></span>
-            <span>Report: <strong style="color:${statusColor};">${status}</strong></span>`;
+          const status = mData ? mData.report_status : null;
+          const statusColor = status === 'submitted' || status === 'approved' ? 'var(--green)' : status === 'filed' ? 'var(--teal-d)' : 'var(--amber)';
+          const statusLabel = status === 'submitted' ? 'Submitted' : status === 'approved' ? 'Approved' : status === 'filed' ? 'Prior months filed' : null;
+          const reportLine = statusLabel ? `<span>Report: <strong style="color:${statusColor};">${statusLabel}</strong></span>` : '';
+          const visitsLine = mData ? `<span style="margin-top:4px;display:block;">Consultations: <strong style="color:var(--text);">${visits}</strong></span>` : '';
+          tip.innerHTML = `<strong>${m.name}</strong><span>${m.country} · ${m.region}</span>${visitsLine}${reportLine}`;
           const rect = container.getBoundingClientRect();
           let tx = event.clientX - rect.left + 12;
           let ty = event.clientY - rect.top - 10;
