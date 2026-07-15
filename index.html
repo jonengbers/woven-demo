@@ -1541,6 +1541,7 @@ async function loadMinistryPeriodData(ministryId, period) {
     pay_full: 0, pay_partial: 0, pay_charity: 0,
     total_income_usd: 0, total_expenses_usd: 0,
     ending_balance_usd: 0, luke_society_support_usd: 0,
+    total_income_local: 0, exchange_rate: null, local_currency: null,
   };
 
   if (DEMO_MODE) {
@@ -1566,8 +1567,12 @@ async function loadMinistryPeriodData(ministryId, period) {
         agg.total_income_usd        += fs.total_income_usd||0;
         agg.total_expenses_usd      += fs.total_expenses_usd||0;
         agg.luke_society_support_usd+= fs.luke_society_support_usd||0;
+        agg.total_income_local      += fs.total_income_local||0;
         // For balance, use the latest (last report)
         agg.ending_balance_usd = fs.ending_balance_usd||0;
+        // Store exchange rate and currency from most recent report
+        if (fs.exchange_rate) agg.exchange_rate = fs.exchange_rate;
+        if (fs.local_currency) agg.local_currency = fs.local_currency;
       }
     });
   }
@@ -1586,11 +1591,20 @@ async function loadMinistryPeriodData(ministryId, period) {
     <div class="dp-stat"><div class="dp-stat-label">Total consultations</div><div class="dp-stat-val">${totalConsults.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);margin-top:3px;">${periodLabel}${reportCount > 1 ? ' · '+reportCount+' reports' : ''}</div></div>
     <div class="dp-stat"><div class="dp-stat-label">Pharmacy patients</div><div class="dp-stat-val">${agg.services_pharmacy.toLocaleString()}</div></div>
     <div class="dp-stat"><div class="dp-stat-label">Lab tests</div><div class="dp-stat-val">${agg.services_lab.toLocaleString()}</div></div>
-    <div class="dp-stat"><div class="dp-stat-label">Total income (USD)</div><div class="dp-stat-val">$${Math.round(agg.total_income_usd).toLocaleString()}</div></div>
-    <div class="dp-stat"><div class="dp-stat-label">Total expenses (USD)</div><div class="dp-stat-val">$${Math.round(agg.total_expenses_usd).toLocaleString()}</div></div>
+    <div class="dp-stat">
+      <div class="dp-stat-label">Total income (USD)</div>
+      <div class="dp-stat-val">$${Math.round(agg.total_income_usd).toLocaleString()}</div>
+      ${agg.local_currency && agg.total_income_local ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${Math.round(agg.total_income_local).toLocaleString()} ${agg.local_currency}</div>` : ''}
+    </div>
+    <div class="dp-stat">
+      <div class="dp-stat-label">Total expenses (USD)</div>
+      <div class="dp-stat-val">$${Math.round(agg.total_expenses_usd).toLocaleString()}</div>
+      ${agg.local_currency && agg.exchange_rate ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${Math.round(agg.total_expenses_usd * agg.exchange_rate).toLocaleString()} ${agg.local_currency}</div>` : ''}
+    </div>
     <div class="dp-stat" style="${bal<500?'border-color:#E24B4A;':''}">
       <div class="dp-stat-label">Ending cash balance</div>
       <div class="dp-stat-val" style="${bal<500?'color:#A32D2D;':''}">${bal<500?'⚠ ':''}$${Math.round(bal).toLocaleString()}</div>
+      ${agg.local_currency && agg.exchange_rate ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${Math.round(bal * agg.exchange_rate).toLocaleString()} ${agg.local_currency}</div>` : ''}
     </div>`;
 
   // Add LS support to stats
@@ -1882,11 +1896,17 @@ async function loadFinancialDetail(ministryId, period) {
         expenseByCategory[l.category].total += l.amount_usd || 0;
         expenseByCategory[l.category].lines.push({ label: l.label, amount: l.amount_usd || 0, subcategory: l.subcategory });
       });
+      // Get exchange rate and currency from income_lines or fall back to report data
+      const sampleInc = (incByReport[r.id] || [])[0];
+      const exchRate = sampleInc && sampleInc.amount_local && sampleInc.amount_usd
+        ? Math.round(sampleInc.amount_local / sampleInc.amount_usd * 100) / 100
+        : null;
       return {
         label: monthNames[(r.report_month||1)-1] + ' ' + r.report_year,
         year: r.report_year, month: r.report_month,
         income: incomeByCategory,
         expenses: expenseByCategory,
+        exchRate,
       };
     });
 
@@ -1923,7 +1943,9 @@ function renderFinancialDetail(period) {
   const totalIncome = Object.values(aggIncome).reduce((s, v) => s + v, 0);
 
   const incTotalLabel = document.getElementById('income-total-label');
-  if (incTotalLabel) incTotalLabel.textContent = '$' + Math.round(totalIncome).toLocaleString();
+  const firstExch = reports.find(r => r.exchRate);
+  const exchDisplay = firstExch ? ` · ${Math.round(totalIncome * firstExch.exchRate).toLocaleString()} ${financialDetailData.localCurrency || ''}` : '';
+  if (incTotalLabel) incTotalLabel.textContent = '$' + Math.round(totalIncome).toLocaleString() + exchDisplay;
 
   const periodLabel = document.getElementById('income-period-label');
   if (periodLabel) periodLabel.textContent = {current:'Current month',ytd:'Year to date',prev:'Prior year',all:'All reports'}[period] || '';
@@ -1937,6 +1959,13 @@ function renderFinancialDetail(period) {
         const pct = totalIncome > 0 ? Math.round(amt / totalIncome * 100) : 0;
         const color = incomeCatColors[cat] || '#534AB7';
         const isLast = i === arr.length - 1;
+        // Get local amount from first report that has this category
+        const localAmt = reports.reduce((sum, r) => {
+          const rInc = r.income[cat] || 0;
+          return sum + (r.exchRate ? rInc * r.exchRate : 0);
+        }, 0);
+        const currency = reports.find(r => r.exchRate)?.exchRate ? null : null;
+        const firstExchRate = reports.find(r => r.exchRate)?.exchRate;
         return `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;${isLast?'':'border-bottom:0.5px solid var(--border);'}">
             <div style="display:flex;align-items:center;gap:10px;flex:1;">
@@ -1947,7 +1976,10 @@ function renderFinancialDetail(period) {
               </div>
               <span style="font-size:11px;color:var(--text2);">${pct}%</span>
             </div>
-            <span style="font-size:13px;font-weight:500;color:var(--green);min-width:80px;text-align:right;">$${Math.round(amt).toLocaleString()}</span>
+            <div style="text-align:right;min-width:80px;">
+              <div style="font-size:13px;font-weight:500;color:var(--green);">$${Math.round(amt).toLocaleString()}</div>
+              ${localAmt > 0 ? `<div style="font-size:10px;color:var(--text2);">${Math.round(localAmt).toLocaleString()}</div>` : ''}
+            </div>
           </div>`;
       }).join('');
     incCatEl.innerHTML = rows || '<div style="padding:16px;text-align:center;color:var(--text2);font-size:13px;">No income data for this period.</div>';
@@ -2006,7 +2038,10 @@ function renderFinancialDetail(period) {
                 <span style="font-size:11px;color:var(--text2);">${pctLabel}</span>
               </div>
               <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:13px;font-weight:500;">$${Math.round(data.total).toLocaleString()}</span>
+                <div style="text-align:right;">
+                  <div style="font-size:13px;font-weight:500;">$${Math.round(data.total).toLocaleString()}</div>
+                  ${(() => { const er = reports.find(r=>r.exchRate); return er ? `<div style="font-size:10px;color:var(--text2);">${Math.round(data.total * er.exchRate).toLocaleString()}</div>` : ''; })()}
+                </div>
                 <span id="${catId}-arrow" style="font-size:10px;color:var(--text2);">▼</span>
               </div>
             </div>
