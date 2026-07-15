@@ -2010,7 +2010,14 @@ function renderFinancialDetail(period) {
 
   const totalExpenses = Object.values(aggExpenses).reduce((s, c) => s + c.total, 0);
   const expTotalLabel = document.getElementById('expense-total-label');
-  if (expTotalLabel) expTotalLabel.textContent = '$' + Math.round(totalExpenses).toLocaleString();
+  if (expTotalLabel) {
+    const expExchRate = reports.find(r => r.exchRate)?.exchRate;
+    const expCurrency = financialDetailData.localCurrency;
+    const expLocalStr = expExchRate && expCurrency
+      ? ` · ${Math.round(totalExpenses * expExchRate).toLocaleString()} ${expCurrency}`
+      : '';
+    expTotalLabel.textContent = '$' + Math.round(totalExpenses).toLocaleString() + expLocalStr;
+  }
 
   const catOrder = ['Salaries','Community Health','Supplies','Transportation','Facility Costs','Financial Services','Employee Benefits','Evangelism','Capital Purchases','Other'];
   const expCatEl = document.getElementById('expense-categories');
