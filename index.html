@@ -3256,7 +3256,8 @@ async function loadNarrativeReports(ministryId) {
       const month = mr ? new Date(mr.report_year, mr.report_month-1, 1).toLocaleString('default',{month:'long',year:'numeric'}) : 'Unknown period';
       return {
         html: renderNarrativeCard({ month, lang: r.original_language, original: r.body_original, english: r.body_english, status: mr?.status, reportId: r.report_id, ministryId, stories: r.inspirational_stories, context: r.context_concerns }),
-        original: r.body_original, lang: r.original_language, month
+        original: r.body_original, lang: r.original_language, month,
+        stories: r.inspirational_stories, context: r.context_concerns
       };
     });
     container.innerHTML = narrativeItems.map(x => x.html).join('');
@@ -3270,18 +3271,48 @@ async function loadNarrativeReports(ministryId) {
     if (autoTranslate) {
       setTimeout(async () => {
         for (const item of narrativeItems) {
-          if (!item.original || !item.lang || item.lang === 'en' || item.lang === userLang) continue;
-          if (item.body_english) continue; // has stored translation
+          if (!item.lang || item.lang === 'en' || item.lang === userLang) continue;
           const cardId = `narrative-${item.month.replace(/\s/g,'-')}`;
           const card = document.getElementById(cardId);
           if (!card) continue;
-          const transBlock = card.querySelector('.narrative-live-translation');
-          const transText = card.querySelector('.narrative-translated-text');
-          if (!transBlock || !transText) continue;
-          const translated = await translateText(item.original, item.lang, userLang);
-          if (translated && translated !== item.original) {
-            transText.textContent = translated;
-            transBlock.style.display = 'block';
+
+          // Translate main narrative (only if no stored translation)
+          if (item.original && !item.body_english) {
+            const transBlock = card.querySelector('.narrative-live-translation');
+            const transText = card.querySelector('.narrative-translated-text');
+            if (transBlock && transText && !transText.textContent.trim()) {
+              const translated = await translateText(item.original, item.lang, userLang);
+              if (translated && translated !== item.original) {
+                transText.textContent = translated;
+                transBlock.style.display = 'block';
+              }
+            }
+          }
+
+          // Translate inspirational stories
+          if (item.stories) {
+            const storiesTransEl = card.querySelector('.stories-translated-text');
+            if (storiesTransEl && !storiesTransEl.textContent.trim()) {
+              const translated = await translateText(item.stories, item.lang, userLang);
+              if (translated && translated !== item.stories) {
+                storiesTransEl.textContent = translated;
+                const block = card.querySelector('.stories-translation-block');
+                if (block) block.style.display = 'block';
+              }
+            }
+          }
+
+          // Translate context/concerns
+          if (item.context) {
+            const contextTransEl = card.querySelector('.context-translated-text');
+            if (contextTransEl && !contextTransEl.textContent.trim()) {
+              const translated = await translateText(item.context, item.lang, userLang);
+              if (translated && translated !== item.context) {
+                contextTransEl.textContent = translated;
+                const block = card.querySelector('.context-translation-block');
+                if (block) block.style.display = 'block';
+              }
+            }
           }
         }
       }, 100);
@@ -3304,7 +3335,7 @@ function renderNarrativeCard(r) {
   // Determine if current user can comment
   // Use a broad check — RLS on the server enforces the real permissions
   const role = userProfile?.role || '';
-  const canComment = role !== '' && role !== 'board'; // board is read-only for now; all other authenticated roles can comment
+  const canComment = role !== ''; // all authenticated roles can comment
 
   const commentsSection = reportId ? `
     <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid var(--border);">
@@ -3351,11 +3382,21 @@ function renderNarrativeCard(r) {
         <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid var(--border);">
           <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Inspirational stories</div>
           <div style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;">${r.stories}</div>
+          ${needsLiveTranslation ? `
+            <div class="stories-translation-block" style="margin-top:8px;display:none;">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">English translation</div>
+              <div class="stories-translated-text" style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;white-space:pre-wrap;"></div>
+            </div>` : ''}
         </div>` : ''}
       ${r.context ? `
         <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid var(--border);">
           <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Context &amp; concerns</div>
           <div style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;">${r.context}</div>
+          ${needsLiveTranslation ? `
+            <div class="context-translation-block" style="margin-top:8px;display:none;">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">English translation</div>
+              <div class="context-translated-text" style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;white-space:pre-wrap;"></div>
+            </div>` : ''}
         </div>` : ''}
     ` : '<div style="color:var(--text2);font-size:13px;">No narrative submitted for this month.</div>'}
     ${commentsSection}
