@@ -3255,7 +3255,7 @@ async function loadNarrativeReports(ministryId) {
     const narrativeItems = sorted.map(({r, mr}) => {
       const month = mr ? new Date(mr.report_year, mr.report_month-1, 1).toLocaleString('default',{month:'long',year:'numeric'}) : 'Unknown period';
       return {
-        html: renderNarrativeCard({ month, lang: r.original_language, original: r.body_original, english: r.body_english, status: mr?.status, reportId: r.report_id, ministryId }),
+        html: renderNarrativeCard({ month, lang: r.original_language, original: r.body_original, english: r.body_english, status: mr?.status, reportId: r.report_id, ministryId, stories: r.inspirational_stories, context: r.context_concerns }),
         original: r.body_original, lang: r.original_language, month
       };
     });
@@ -3302,8 +3302,9 @@ function renderNarrativeCard(r) {
   const reportId = r.reportId || null;
 
   // Determine if current user can comment
-  const role = userProfile?.role;
-  const canComment = role === 'admin' || role === 'pmt_member' || role === 'regional_coordinator' || role === 'director';
+  // Use a broad check — RLS on the server enforces the real permissions
+  const role = userProfile?.role || '';
+  const canComment = role !== '' && role !== 'board'; // board is read-only for now; all other authenticated roles can comment
 
   const commentsSection = reportId ? `
     <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid var(--border);">
@@ -3345,6 +3346,16 @@ function renderNarrativeCard(r) {
         <div class="narrative-live-translation" style="margin-top:12px;padding-top:12px;border-top:0.5px solid var(--border);display:none;">
           <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Auto-translated to ${LANG_NAMES[userLang]||userLang}</div>
           <div style="font-size:13px;line-height:1.7;color:var(--text2);font-style:italic;white-space:pre-wrap;" class="narrative-translated-text"></div>
+        </div>` : ''}
+      ${r.stories ? `
+        <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid var(--border);">
+          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Inspirational stories</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;">${r.stories}</div>
+        </div>` : ''}
+      ${r.context ? `
+        <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid var(--border);">
+          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Context &amp; concerns</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;">${r.context}</div>
         </div>` : ''}
     ` : '<div style="color:var(--text2);font-size:13px;">No narrative submitted for this month.</div>'}
     ${commentsSection}
