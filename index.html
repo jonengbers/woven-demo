@@ -1248,16 +1248,17 @@ function showMinistryDetail(id, period) {
           <div class="dp-meta">${m.country} · ${m.director_name||'—'}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <div style="display:flex;gap:4px;background:var(--surface);border:0.5px solid var(--border);border-radius:20px;padding:3px;">
+          <div style="display:flex;gap:4px;background:var(--surface);border:0.5px solid var(--border);border-radius:20px;padding:3px;align-items:center;">
             <button onclick="showMinistryDetail(${m.ministry_id},'current')" id="period-current" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">Current</button>
             <button onclick="showMinistryDetail(${m.ministry_id},'ytd')" id="period-ytd" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">YTD</button>
             <button onclick="showMinistryDetail(${m.ministry_id},'prev')" id="period-prev" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">Prior year</button>
             <button onclick="showMinistryDetail(${m.ministry_id},'all')" id="period-all" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">All time</button>
+            <div style="width:0.5px;height:14px;background:var(--border);margin:0 2px;"></div>
+            <select id="period-month-select" onchange="selectSpecificMonth(${m.ministry_id}, this.value)"
+              style="font-size:11px;padding:3px 8px;border:none;border-radius:14px;background:transparent;color:var(--text2);cursor:pointer;max-width:110px;">
+              <option value="">Month...</option>
+            </select>
           </div>
-          <select id="period-month-select" onchange="selectSpecificMonth(${m.ministry_id}, this.value)"
-            style="font-size:11px;padding:4px 8px;border:0.5px solid var(--border);border-radius:16px;background:var(--surface);color:var(--text);cursor:pointer;">
-            <option value="">Specific month...</option>
-          </select>
           <span id="current-period-badge" class="badge b-teal" style="font-size:12px;padding:4px 10px;">${period === 'current' ? 'Current month' : period === 'ytd' ? 'YTD' : period === 'prev' ? 'Prior year' : 'All time'}</span>
           <span id="ministry-report-status-badge" class="badge ${m.report_status==='submitted'||m.report_status==='approved'?'b-green':m.report_status==='filed'?'b-teal':'b-amber'}" style="font-size:12px;padding:4px 10px;">${m.report_status==='filed'?'Prior months filed':m.report_status==='submitted'?'Submitted':m.report_status==='approved'?'Approved':'No report yet'}</span>
         </div>
