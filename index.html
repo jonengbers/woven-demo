@@ -3369,16 +3369,28 @@ async function loadComments(reportId) {
   try {
     const { data, error } = await sb
       .from('report_comments')
-      .select('*, author:user_profiles!report_comments_author_id_fkey(full_name, role)')
+      .select('id, report_id, author_id, comment_text, is_correction, created_at')
       .eq('report_id', reportId)
       .order('created_at', { ascending: true });
     if (error) throw error;
-    const comments = (data || []).map(c => ({
+
+    const comments = data || [];
+    // Fetch author profiles separately to avoid FK schema cache issue
+    const authorIds = [...new Set(comments.map(c => c.author_id).filter(Boolean))];
+    let nameMap = {};
+    if (authorIds.length > 0) {
+      const { data: profiles } = await sb
+        .from('user_profiles')
+        .select('id, full_name, role')
+        .in('id', authorIds);
+      (profiles || []).forEach(p => { nameMap[p.id] = { name: p.full_name, role: p.role }; });
+    }
+    const enriched = comments.map(c => ({
       ...c,
-      author: c.author?.full_name || 'Unknown',
-      role: c.author?.role || '',
+      author: nameMap[c.author_id]?.name || 'Unknown',
+      role: nameMap[c.author_id]?.role || '',
     }));
-    renderComments(container, comments);
+    renderComments(container, enriched);
   } catch(e) {
     container.innerHTML = `<div style="font-size:12px;color:var(--red);">Error loading comments: ${e.message}</div>`;
   }
