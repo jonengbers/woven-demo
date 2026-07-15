@@ -1021,7 +1021,7 @@ async function loadDashboard() {
         id, name, short_name, country, country_code, region, director_name,
         monthly_reports!inner(
           id, report_year, report_month, status,
-          financial_summary(total_income_usd, total_expenses_usd, ending_balance_usd, luke_society_support_usd),
+          financial_summary(total_income_usd, total_expenses_usd, ending_balance_usd, luke_society_support_usd, total_income_local, exchange_rate, local_currency),
           clinical_stats(consult_clinic, consult_community, consult_dental, consult_spiritual, services_pharmacy, services_lab, pay_full, pay_partial, pay_charity)
         )
       `).eq('active', true).eq('monthly_reports.report_year', parseInt(year));
@@ -1517,7 +1517,7 @@ async function loadMinistryPeriodData(ministryId, period) {
           clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual,
             services_lab,services_pharmacy,proc_surgeries,proc_deliveries,
             pay_full,pay_partial,pay_charity),
-          financial_summary(total_income_usd,total_expenses_usd,ending_balance_usd,luke_society_support_usd)
+          financial_summary(total_income_usd,total_expenses_usd,ending_balance_usd,luke_society_support_usd,total_income_local,exchange_rate,local_currency)
         `)
         .eq('ministry_id', ministryId);
 
@@ -1548,8 +1548,8 @@ async function loadMinistryPeriodData(ministryId, period) {
     Object.assign(agg, reports[0] || {});
   } else {
     reports.forEach(r => {
-      const cs = r.clinical_stats;
-      const fs = r.financial_summary;
+      const cs = Array.isArray(r.clinical_stats) ? r.clinical_stats[0] : r.clinical_stats;
+      const fs = Array.isArray(r.financial_summary) ? r.financial_summary[0] : r.financial_summary;
       if (cs) {
         agg.consult_clinic     += cs.consult_clinic||0;
         agg.consult_community  += cs.consult_community||0;
@@ -1564,14 +1564,14 @@ async function loadMinistryPeriodData(ministryId, period) {
         agg.pay_charity        += cs.pay_charity||0;
       }
       if (fs) {
-        agg.total_income_usd        += fs.total_income_usd||0;
-        agg.total_expenses_usd      += fs.total_expenses_usd||0;
-        agg.luke_society_support_usd+= fs.luke_society_support_usd||0;
-        agg.total_income_local      += fs.total_income_local||0;
+        agg.total_income_usd        += parseFloat(fs.total_income_usd)||0;
+        agg.total_expenses_usd      += parseFloat(fs.total_expenses_usd)||0;
+        agg.luke_society_support_usd+= parseFloat(fs.luke_society_support_usd)||0;
+        agg.total_income_local      += parseFloat(fs.total_income_local)||0;
         // For balance, use the latest (last report)
-        agg.ending_balance_usd = fs.ending_balance_usd||0;
+        agg.ending_balance_usd = parseFloat(fs.ending_balance_usd)||0;
         // Store exchange rate and currency from most recent report
-        if (fs.exchange_rate) agg.exchange_rate = fs.exchange_rate;
+        if (fs.exchange_rate) agg.exchange_rate = parseFloat(fs.exchange_rate);
         if (fs.local_currency) agg.local_currency = fs.local_currency;
       }
     });
@@ -1794,7 +1794,7 @@ async function loadFinancialDetail(ministryId, period) {
 
     // Fetch income and expense lines separately to avoid nested query issues
     let mrQuery = sb.from('monthly_reports')
-      .select('id, report_year, report_month, status')
+      .select('id, report_year, report_month, status, financial_summary(exchange_rate, local_currency)')
       .eq('ministry_id', ministryId)
       .order('report_year', { ascending: true })
       .order('report_month', { ascending: true });
@@ -1885,6 +1885,10 @@ async function loadFinancialDetail(ministryId, period) {
     if (expenseTrendChart) { try { expenseTrendChart.destroy(); } catch(e){} expenseTrendChart = null; }
 
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    // Get local currency from financial_summary if available
+    const fsSample = mrData.find(r => r.financial_summary?.local_currency);
+    if (fsSample?.financial_summary?.local_currency) financialDetailData.localCurrency = fsSample.financial_summary.local_currency;
+
     financialDetailData.reports = mrData.map(r => {
       const incomeByCategory = {};
       (incByReport[r.id] || []).forEach(l => {
@@ -1896,17 +1900,23 @@ async function loadFinancialDetail(ministryId, period) {
         expenseByCategory[l.category].total += l.amount_usd || 0;
         expenseByCategory[l.category].lines.push({ label: l.label, amount: l.amount_usd || 0, subcategory: l.subcategory });
       });
-      // Get exchange rate and currency from income_lines or fall back to report data
+      // Get exchange rate — prefer from financial_summary, fall back to income_lines calculation
+      const fsExchRate = r.financial_summary?.exchange_rate || null;
+      if (r.financial_summary?.local_currency && !financialDetailData.localCurrency) {
+        financialDetailData.localCurrency = r.financial_summary.local_currency;
+      }
       const sampleInc = (incByReport[r.id] || [])[0];
-      const exchRate = sampleInc && sampleInc.amount_local && sampleInc.amount_usd
+      const calcExchRate = sampleInc && sampleInc.amount_local && sampleInc.amount_usd
         ? Math.round(sampleInc.amount_local / sampleInc.amount_usd * 100) / 100
         : null;
+      const exchRate = fsExchRate || calcExchRate;
       return {
         label: monthNames[(r.report_month||1)-1] + ' ' + r.report_year,
         year: r.report_year, month: r.report_month,
         income: incomeByCategory,
         expenses: expenseByCategory,
         exchRate,
+        localCurrency: r.financial_summary?.local_currency || financialDetailData.localCurrency,
       };
     });
 
