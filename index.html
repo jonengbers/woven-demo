@@ -2363,6 +2363,7 @@ const FORM_CONTENT = {
     </div>`;
   },
   2:`<div class="form-section"><div class="form-section-title">Income (local currency)</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.5;padding:8px 10px;background:var(--surface2);border-radius:var(--r-md);">Clinic income includes all consultation fees received — medical, dental, ophthalmological, psychological, nutritional, nursing, and specialty consultations.</div>
     <div class="form-row"><div><div class="flabel">Luke Society USA support</div><input type="number" id="f-ls-support" placeholder="0"/></div><div><div class="flabel">Other agencies / bank interest</div><input type="number" id="f-other-agencies" placeholder="0"/></div></div>
     <div class="form-row"><div><div class="flabel">Clinic consultation income</div><input type="number" id="f-clinic-income" placeholder="0"/></div><div><div class="flabel">Pharmacy income</div><input type="number" id="f-pharmacy-income" placeholder="0"/></div></div>
     <div class="form-row"><div><div class="flabel">Laboratory income</div><input type="number" id="f-lab-income" placeholder="0"/></div><div><div class="flabel">Dental income</div><input type="number" id="f-dental-income" placeholder="0"/></div></div>
@@ -2402,10 +2403,12 @@ const FORM_CONTENT = {
   3:`<div class="form-section"><div class="form-section-title">Patient consultations</div>
     <div class="form-row"><div><div class="flabel">Clinic consultations</div><input type="number" id="f-c-clinic" placeholder="0"/></div><div><div class="flabel">Community consultations</div><input type="number" id="f-c-comm" placeholder="0"/></div></div>
     <div class="form-row"><div><div class="flabel">Dental consultations</div><input type="number" id="f-c-dental" placeholder="0"/></div><div><div class="flabel">Spiritual health consultations</div><input type="number" id="f-c-spiritual" placeholder="0"/></div></div>
+    <div class="form-row-1"><div class="flabel">Other consultations <span style="font-weight:400;color:var(--text2);">(nursing, specialist visits, gynecology, ophthalmology, etc.)</span></div><input type="number" id="f-c-other" placeholder="0" style="max-width:200px;"/></div>
     </div>
     <div class="form-section"><div class="form-section-title">Services provided</div>
     <div class="form-row"><div><div class="flabel">Lab tests performed</div><input type="number" id="f-s-lab" placeholder="0"/></div><div><div class="flabel">Pharmacy patients served</div><input type="number" id="f-s-pharm" placeholder="0"/></div></div>
     <div class="form-row"><div><div class="flabel">X-rays / dental x-rays</div><input type="number" id="f-s-xray" placeholder="0"/></div><div><div class="flabel">Immunizations given</div><input type="number" id="f-s-immun" placeholder="0"/></div></div>
+    <div class="form-row-1"><div class="flabel">Other services <span style="font-weight:400;color:var(--text2);">(purified water distribution, specialty clinics, other)</span></div><input type="number" id="f-s-other" placeholder="0" style="max-width:200px;"/></div>
     <div class="form-row"><div><div class="flabel">Surgeries / extractions</div><input type="number" id="f-p-surg" placeholder="0"/></div><div><div class="flabel">Births attended</div><input type="number" id="f-p-birth" placeholder="0"/></div></div>
     <div class="form-row-1"><div class="flabel">PAP smears</div><input type="number" id="f-p-pap" placeholder="0" style="max-width:200px;"/></div>
     </div>
@@ -2415,15 +2418,21 @@ const FORM_CONTENT = {
     <div class="form-row"><div><div class="flabel">Health workers trained</div><input type="number" id="f-comm-workers" placeholder="0"/></div><div><div class="flabel">Hygiene projects (latrines, water)</div><input type="number" id="f-comm-hygiene" placeholder="0"/></div></div>
     </div>
     <div class="form-section"><div class="form-section-title">Patient payment methods</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.5;padding:8px 10px;background:var(--surface2);border-radius:var(--r-md);"><strong>Charity / subsidized total</strong> refers to patients who are completely exempt from consultation fees. This is a sign of mission faithfulness, not inefficiency.</div>
     <div class="form-row"><div><div class="flabel">Full pay patients</div><input type="number" id="f-pay-full" placeholder="0"/></div><div><div class="flabel">Partial subsidy patients</div><input type="number" id="f-pay-part" placeholder="0"/></div></div>
     <div class="form-row-1"><div class="flabel">Charity patients (free of charge)</div><input type="number" id="f-pay-char" placeholder="0" style="max-width:200px;"/></div>
     </div>`,
   4:`<div class="form-section"><div class="form-section-title">Monthly narrative — write in your own language</div>
-    <div class="form-row-1"><div class="flabel">Narrative report (English translation will be generated automatically on submit)</div>
-    <textarea id="f-narrative" style="height:140px;resize:vertical;" placeholder="Describe this month's activities, challenges, and highlights in your own language..."></textarea></div>
-    <div class="form-row-1" style="margin-top:12px;"><div class="flabel">Prayer requests — shared with your PMT and the Woven prayer network</div>
-    <textarea id="f-prayer" style="height:90px;resize:vertical;" placeholder="Share specific prayer requests for your ministry and community..."></textarea></div>
-    <div class="form-row-1" style="margin-top:12px;"><div class="flabel">Photo attachments (optional)</div><input type="file" multiple style="padding:4px 0;border:none;background:transparent;width:auto;"/></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5;padding:8px 10px;background:var(--surface2);border-radius:var(--r-md);">All narrative fields will be automatically translated to English. Write naturally in your own language.</div>
+    <div class="form-row-1" style="margin-bottom:12px;"><div class="flabel">Ministry activities, challenges, and highlights</div>
+    <textarea id="f-narrative" style="height:120px;resize:vertical;" placeholder="Describe this month's activities, challenges, and highlights..."></textarea></div>
+    <div class="form-row-1" style="margin-bottom:12px;"><div class="flabel">Inspirational stories <span style="font-weight:400;color:var(--text2);">(optional — patient stories, transformed lives, answered prayers)</span></div>
+    <textarea id="f-stories" style="height:90px;resize:vertical;" placeholder="Share an inspiring story from this month's ministry..."></textarea></div>
+    <div class="form-row-1" style="margin-bottom:12px;"><div class="flabel">Context &amp; concerns <span style="font-weight:400;color:var(--text2);">(optional — country situation, security concerns, community challenges)</span></div>
+    <textarea id="f-context" style="height:80px;resize:vertical;" placeholder="Share any concerns about the country context or community situation that may affect the ministry..."></textarea></div>
+    <div class="form-row-1" style="margin-bottom:12px;"><div class="flabel">Prayer requests — shared with your PMT and the Woven prayer network</div>
+    <textarea id="f-prayer" style="height:80px;resize:vertical;" placeholder="Share specific prayer requests for your ministry and community..."></textarea></div>
+    <div class="form-row-1" style="margin-top:4px;"><div class="flabel">Photo attachments (optional)</div><input type="file" multiple style="padding:4px 0;border:none;background:transparent;width:auto;"/></div>
     </div>`
 };
 
@@ -2577,8 +2586,10 @@ async function submitReport() {
       report_id: report.id,
       consult_clinic:g('f-c-clinic'), consult_community:g('f-c-comm'),
       consult_dental:g('f-c-dental'), consult_spiritual:g('f-c-spiritual'),
+      consult_other:g('f-c-other'),
       services_lab:g('f-s-lab'),      services_pharmacy:g('f-s-pharm'),
       services_xray:g('f-s-xray'),    services_immunization:g('f-s-immun'),
+      services_other:g('f-s-other'),
       proc_surgeries:g('f-p-surg'),   proc_deliveries:g('f-p-birth'),
       proc_pap_smears:g('f-p-pap'),
       pay_full:g('f-pay-full'),        pay_partial:g('f-pay-part'),
@@ -2593,6 +2604,8 @@ async function submitReport() {
       body_original: document.getElementById('f-narrative')?.value || '',
       original_language: userProfile.preferred_language || 'es',
       prayer_requests: document.getElementById('f-prayer')?.value || '',
+      inspirational_stories: document.getElementById('f-stories')?.value || '',
+      context_concerns: document.getElementById('f-context')?.value || '',
     });
 
     toast('Report submitted! Your PMT has been notified.', 'success');
