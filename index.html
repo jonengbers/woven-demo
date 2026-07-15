@@ -5076,74 +5076,50 @@ async function buildHealthScore(agg, period, totalConsults, reportCount) {
 
 // ── WORLD MAP ──
 const MINISTRY_LOCATIONS = [
-  // Philippines — Asia
-  {id:1,  name:'Iloilo Island Ministry',        country:'Philippines',  lat:10.72,  lng:122.56, region:'Asia'},
-  {id:2,  name:'Palawan Health Ministry',        country:'Philippines',  lat:9.83,   lng:118.73, region:'Asia'},
-  // India — Asia
-  {id:3,  name:'Odisha Community Health',        country:'India',        lat:20.29,  lng:85.82,  region:'Asia'},
-  {id:4,  name:'Madhya Pradesh Ministry',        country:'India',        lat:23.47,  lng:77.95,  region:'Asia'},
-  // Ghana — Africa
-  {id:5,  name:'Kasei Health Ministry',          country:'Ghana',        lat:7.96,   lng:-1.42,  region:'Africa'},
-  // Guatemala — Latin America
-  {id:6,  name:'Patzun Community Clinic',        country:'Guatemala',    lat:14.68,  lng:-90.97, region:'Latin America'},
-  {id:7,  name:'San Juan Health Ministry',       country:'Guatemala',    lat:14.73,  lng:-90.65, region:'Latin America'},
-  // Myanmar — Asia
-  {id:8,  name:'Matupi Health Ministry',         country:'Myanmar',      lat:23.00,  lng:93.58,  region:'Asia'},
-  // Ukraine — Europe
-  {id:9,  name:'Transcarpathia Medical Center',  country:'Ukraine',      lat:48.44,  lng:22.70,  region:'Europe'},
-  {id:10, name:'Rivne Community Clinic',         country:'Ukraine',      lat:50.62,  lng:26.25,  region:'Europe'},
-  {id:11, name:'Lugansk Medical Ministry',       country:'Ukraine',      lat:48.57,  lng:39.31,  region:'Europe'},
-  // Kenya — Africa
-  {id:12, name:'Nairobi Health Ministry',        country:'Kenya',        lat:-1.29,  lng:36.82,  region:'Africa'},
-  // Indonesia — Asia
-  {id:13, name:'Papua Health Ministry',          country:'Indonesia',    lat:-4.27,  lng:138.08, region:'Asia'},
-  // Mexico — Latin America
-  {id:14, name:'Jalapa Community Clinic',        country:'Mexico',       lat:19.53,  lng:-96.92, region:'Latin America'},
-  {id:15, name:'Eloxochitlan Health Ministry',   country:'Mexico',       lat:18.45,  lng:-97.08, region:'Latin America'},
-  // Ecuador — Latin America
-  {id:16, name:'Quininde Community Clinic',      country:'Ecuador',      lat:0.32,   lng:-79.47, region:'Latin America'},
-  // Cameroon — Africa
-  {id:17, name:'Bamenda Medical Ministry',       country:'Cameroon',     lat:5.96,   lng:10.15,  region:'Africa'},
-  {id:18, name:'Mbongo Health Ministry',         country:'Cameroon',     lat:4.35,   lng:9.25,   region:'Africa'},
-  // Mali — Africa
-  {id:19, name:'Kayes Health Ministry',          country:'Mali',         lat:14.45,  lng:-11.44, region:'Africa'},
-  {id:20, name:'Segou Community Clinic',         country:'Mali',         lat:13.45,  lng:-6.27,  region:'Africa'},
-  {id:21, name:'Kaniaka Health Ministry',        country:'Mali',         lat:12.85,  lng:-8.55,  region:'Africa'},
-  // Nepal — Asia
-  {id:22, name:'Birtamod Community Health',      country:'Nepal',        lat:26.64,  lng:87.99,  region:'Asia'},
-  // Benin — Africa
-  {id:23, name:"N'Dali Health Ministry",         country:'Benin',        lat:9.86,   lng:2.70,   region:'Africa'},
-  {id:24, name:'Tchaourou Medical Center',       country:'Benin',        lat:8.88,   lng:2.60,   region:'Africa'},
-  // Haiti — Latin America
-  {id:25, name:'Cayes-Jacmel Community Clinic',  country:'Haiti',        lat:18.23,  lng:-72.53, region:'Latin America'},
-  // Bolivia — Latin America
-  {id:26, name:'Chilimarca Health Ministry',     country:'Bolivia',      lat:-17.39, lng:-66.16, region:'Latin America'},
-  // Niger — Africa
-  {id:27, name:'Madaoua Medical Ministry',       country:'Niger',        lat:14.08,  lng:5.96,   region:'Africa'},
-  {id:28, name:'Maradi Community Clinic',        country:'Niger',        lat:13.50,  lng:7.10,   region:'Africa'},
-  {id:29, name:'Tekanassar Health Ministry',     country:'Niger',        lat:15.22,  lng:5.26,   region:'Africa'},
-  // Liberia — Africa
-  {id:30, name:'Monrovia Health Ministry',       country:'Liberia',      lat:6.29,   lng:-10.75, region:'Africa'},
-  // Chad — Africa
-  {id:31, name:'Moundou Medical Center',         country:'Chad',         lat:8.57,   lng:16.08,  region:'Africa'},
-  // Nicaragua — Latin America
-  {id:32, name:'Leon Community Health',          country:'Nicaragua',    lat:12.43,  lng:-86.88, region:'Latin America'},
-  {id:33, name:'Ministerio Clinica Jehova Rafa', country:'Nicaragua',    lat:12.13,  lng:-86.28, region:'Latin America'},
-  // Dominican Republic — Latin America
-  {id:34, name:'Rafey Health Ministry',          country:'Dominican Republic', lat:19.45, lng:-70.70, region:'Latin America'},
-  // El Salvador — Latin America
-  {id:35, name:'Metapan Community Clinic',       country:'El Salvador',  lat:14.33,  lng:-89.44, region:'Latin America'},
-  // Kyrgyzstan — Asia
-  {id:36, name:'Tokmok Health Ministry',         country:'Kyrgyzstan',   lat:42.84,  lng:75.30,  region:'Asia'},
-  // Sri Lanka — Asia
-  {id:37, name:'Habaraduwa Medical Center',      country:'Sri Lanka',    lat:6.04,   lng:80.25,  region:'Asia'},
-  // Egypt — Africa
-  {id:38, name:'Northern Egypt Ministry',        country:'Egypt',        lat:30.50,  lng:28.50,  region:'Africa'},
-  // China — Asia
-  {id:39, name:'Anshan Ministry',               country:'China',         lat:41.12,  lng:122.99, region:'Asia'},
-  // South Sudan — Africa
-  {id:40, name:'Juba Health Ministry',           country:'South Sudan',  lat:4.85,   lng:31.60,  region:'Africa'},
-];
+  // ── Asia ──────────────────────────────────────────────────────────────
+  {id: 1, name:'Luke Society Laos',                       country:'Laos',               lat:17.96,  lng:102.60, region:'Asia'},
+  {id: 2, name:'Bethesda Rehabilitation Ministry',        country:'China',              lat:41.12,  lng:122.99, region:'Asia'},
+  {id: 3, name:'Siloam Clinic',                           country:'Myanmar',            lat:23.00,  lng:93.58,  region:'Asia'},
+  {id: 4, name:'Luke Society Odisha',                     country:'India',              lat:20.29,  lng:85.82,  region:'Asia'},
+  {id: 5, name:'Luke Society Nepal',                      country:'Nepal',              lat:26.64,  lng:87.99,  region:'Asia'},
+  {id: 6, name:'Luke Society Madhya Pradesh',             country:'India',              lat:23.47,  lng:77.95,  region:'Asia'},
+  {id: 7, name:'Luke Society Palawan',                    country:'Philippines',        lat:9.83,   lng:118.73, region:'Asia'},
+  {id: 8, name:'Terang Lentera Sahabat Indonesia',        country:'Indonesia',          lat:-4.27,  lng:138.08, region:'Asia'},
+  {id: 9, name:'Agape Community Care Center',             country:'Sri Lanka',          lat:6.04,   lng:80.25,  region:'Asia'},
+  // ── Africa ────────────────────────────────────────────────────────────
+  {id:10, name:'Clinique El Jire-Rapha',                  country:'Chad',               lat:8.57,   lng:16.08,  region:'Africa'},
+  {id:11, name:'Centre Medico-Social Luc au Jourdain',    country:'Benin',              lat:9.86,   lng:2.70,   region:'Africa'},
+  {id:12, name:'Wadi Blessings',                          country:'Egypt',              lat:30.37,  lng:30.13,  region:'Africa'},
+  {id:13, name:'The Divine Graces',                       country:'Benin',              lat:8.88,   lng:2.60,   region:'Africa'},
+  {id:14, name:'St. Luke Hospital / Emmanuel Eye',        country:'Ghana',              lat:7.96,   lng:-1.42,  region:'Africa'},
+  {id:15, name:'Mount Zion Clinic',                       country:'Cameroon',           lat:5.96,   lng:10.15,  region:'Africa'},
+  {id:16, name:'Yes to Kids Clinic',                      country:'Kenya',              lat:-1.29,  lng:36.82,  region:'Africa'},
+  {id:17, name:'Ma Grâce Te Suffit',                      country:'Cameroon',           lat:4.35,   lng:9.25,   region:'Africa'},
+  {id:18, name:'New Community Health Center',             country:'Liberia',            lat:6.29,   lng:-10.75, region:'Africa'},
+  {id:19, name:'Source of the Living Water',              country:'Mali',               lat:12.85,  lng:-8.55,  region:'Africa'},
+  {id:20, name:'Cabinet Privé de Soins Maigari',          country:'Niger',              lat:14.08,  lng:5.96,   region:'Africa'},
+  {id:21, name:'Vision Center Niger',                     country:'Niger',              lat:13.50,  lng:7.10,   region:'Africa'},
+  {id:22, name:'Luke Society Tekanassar',                 country:'Niger',              lat:15.22,  lng:5.26,   region:'Africa'},
+  {id:23, name:'Bethesda Clinic Aïte',                    country:'Mali',               lat:14.45,  lng:-11.44, region:'Africa'},
+  {id:24, name:'Mission Saint Luc',                       country:'Mali',               lat:13.45,  lng:-6.27,  region:'Africa'},
+  {id:25, name:'Rock City Medical Center',                country:'South Sudan',        lat:4.85,   lng:31.60,  region:'Africa'},
+  // ── Latin America ─────────────────────────────────────────────────────
+  {id:26, name:'Fundación Visión Familiar',               country:'El Salvador',        lat:14.33,  lng:-89.44, region:'Latin America'},
+  {id:27, name:'Sumaj Sonqo',                             country:'Bolivia',            lat:-17.39, lng:-66.16, region:'Latin America'},
+  {id:28, name:'Asociación Vida',                         country:'Guatemala',          lat:14.68,  lng:-90.97, region:'Latin America'},
+  {id:29, name:'El Buen Pastor',                          country:'Dominican Republic', lat:19.45,  lng:-70.70, region:'Latin America'},
+  {id:30, name:'AMI San Lucas',                           country:'Guatemala',          lat:14.73,  lng:-90.65, region:'Latin America'},
+  {id:31, name:'Clinica Esperanza',                       country:'Ecuador',            lat:0.32,   lng:-79.47, region:'Latin America'},
+  {id:32, name:"Association Saint-Luc d'Haiti",           country:'Haiti',              lat:18.23,  lng:-72.53, region:'Latin America'},
+  {id:33, name:'Luke Society Eloxochitlán',               country:'Mexico',             lat:18.45,  lng:-97.08, region:'Latin America'},
+  {id:34, name:'Vida en Abundancia de México',            country:'Mexico',             lat:19.53,  lng:-96.92, region:'Latin America'},
+  {id:35, name:'Jehová Rafa',                             country:'Nicaragua',          lat:12.43,  lng:-86.88, region:'Latin America'},
+  // ── Europe ────────────────────────────────────────────────────────────
+  {id:36, name:'Higher Ground Development Center',        country:'Kyrgyzstan',         lat:42.84,  lng:75.30,  region:'Europe'},
+  {id:37, name:'Luke Society Lugansk',                    country:'Ukraine',            lat:48.57,  lng:39.31,  region:'Europe'},
+  {id:38, name:'The Right Way',                           country:'Ukraine',            lat:50.62,  lng:26.25,  region:'Europe'},
+  {id:39, name:'Christian Medical Center Transcarpathia', country:'Ukraine',            lat:48.44,  lng:22.70,  region:'Europe'}
+]
 
 const REGION_COLORS = {
   'Africa':        '#2E7D4F',
