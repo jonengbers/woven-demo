@@ -337,8 +337,8 @@ button:hover{background:var(--surface2);}
     <div id="ministry-list-placeholder" style="display:block;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
         <div style="font-size:15px;font-weight:600;">Ministries</div>
-        <input id="ministry-search" type="text" placeholder="Search ministries..." oninput="filterMinistryList(this.value)"
-          style="font-size:13px;padding:6px 12px;border-radius:20px;width:220px;"/>
+        <input id="ministry-list-search" type="text" placeholder="Search ministries..." oninput="filterMinistryList(this.value)"
+          autocomplete="off" style="font-size:13px;padding:6px 12px;border-radius:20px;width:220px;"/>
       </div>
       <div id="ministry-list-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;"></div>
     </div>
@@ -1254,7 +1254,7 @@ function renderMinistryList() {
     const statusColor = status === 'submitted' || status === 'approved' ? 'var(--green)' : status === 'filed' ? 'var(--teal-d)' : 'var(--amber)';
     const statusLabel = status === 'submitted' ? 'Submitted' : status === 'approved' ? 'Approved' : status === 'filed' ? 'Prior filed' : 'No report yet';
     const consults = m.total_consultations ? m.total_consultations.toLocaleString() : '—';
-    return `<div class="card" onclick="navigateToMinistry(${mid})"
+    return `<div class="card" data-mid="${mid}"
       style="cursor:pointer;padding:14px;transition:box-shadow .15s;"
       onmouseover="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.10)'"
       onmouseout="this.style.boxShadow=''">
@@ -1271,6 +1271,12 @@ function renderMinistryList() {
       </div>
     </div>`;
   }).join('');
+
+  // Use event delegation to avoid password manager interference with onclick
+  grid.onclick = function(e) {
+    const card = e.target.closest('[data-mid]');
+    if (card) navigateToMinistry(parseInt(card.dataset.mid));
+  };
 }
 
 function filterMinistryList(query) {
@@ -1292,7 +1298,7 @@ function filterMinistryList(query) {
     const statusColor = status === 'submitted' || status === 'approved' ? 'var(--green)' : status === 'filed' ? 'var(--teal-d)' : 'var(--amber)';
     const statusLabel = status === 'submitted' ? 'Submitted' : status === 'approved' ? 'Approved' : status === 'filed' ? 'Prior filed' : 'No report yet';
     const consults = m.total_consultations ? m.total_consultations.toLocaleString() : '—';
-    return `<div class="card" onclick="navigateToMinistry(${mid})"
+    return `<div class="card" data-mid="${mid}"
       style="cursor:pointer;padding:14px;transition:box-shadow .15s;"
       onmouseover="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.10)'"
       onmouseout="this.style.boxShadow=''">
@@ -1309,6 +1315,11 @@ function filterMinistryList(query) {
       </div>
     </div>`;
   }).join('');
+
+  grid.onclick = function(e) {
+    const card = e.target.closest('[data-mid]');
+    if (card) navigateToMinistry(parseInt(card.dataset.mid));
+  };
 }
 
 function showMinistryDetail(id, period) {
