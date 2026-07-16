@@ -1234,6 +1234,7 @@ function navigateToMinistry(id) {
 
   // Force reload even if same ministry already open
   currentDetailMinistryId = null;
+  console.log('navigateToMinistry called with id:', id, 'ministriesData length:', ministriesData.length);
   showMinistryDetail(id);
 }
 
@@ -1322,13 +1323,23 @@ function filterMinistryList(query) {
   };
 }
 
-function showMinistryDetail(id, period) {
+async function showMinistryDetail(id, period) {
   period = period || 'current';
-  const m = ministriesData.find(x => (x.ministry_id === id || x.id === id));
+  let m = ministriesData.find(x => (x.ministry_id === id || x.id === id));
   if (!m) {
-    // Try loading from Supabase if not in current data
-    console.warn('Ministry not found in ministriesData for id:', id);
-    return;
+    // Ministry not in current data — fetch directly then retry
+    if (!DEMO_MODE) {
+      try {
+        const { data } = await sb.from('ministries').select('*').eq('id', id).single();
+        if (data) {
+          m = { ministry_id: data.id, ministry_name: data.name, country: data.country,
+                region: data.region, director_name: data.director_name, report_status: null,
+                total_consultations: 0 };
+          ministriesData = [...ministriesData, m];
+        }
+      } catch(e) { console.error('Failed to load ministry:', e); return; }
+    }
+    if (!m) { console.warn('Ministry not found:', id); return; }
   }
   detailCharts.forEach(c => c.destroy());
   detailCharts = [];
