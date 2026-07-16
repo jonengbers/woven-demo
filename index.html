@@ -334,7 +334,15 @@ button:hover{background:var(--surface2);}
 
   <!-- MINISTRIES DETAIL -->
   <div class="screen" id="screen-ministries">
-    <div id="ministry-detail-content"></div>
+    <div id="ministry-list-placeholder" style="display:block;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-size:15px;font-weight:600;">Ministries</div>
+        <input id="ministry-search" type="text" placeholder="Search ministries..." oninput="filterMinistryList(this.value)"
+          style="font-size:13px;padding:6px 12px;border-radius:20px;width:220px;"/>
+      </div>
+      <div id="ministry-list-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;"></div>
+    </div>
+    <div id="ministry-detail-content" style="display:none;"></div>
   </div>
 
   <!-- COMPARE -->
@@ -916,6 +924,12 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 // ── SCREENS ──
 function showScreen(id, btn) {
+  if (id === 'ministries' && !currentDetailMinistryId) {
+    const placeholder = document.getElementById('ministry-list-placeholder');
+    const detail = document.getElementById('ministry-detail-content');
+    if (placeholder) placeholder.style.display = 'block';
+    if (detail) detail.style.display = 'none';
+  }
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tnav').forEach(b => b.classList.remove('active'));
   document.getElementById('screen-'+id).classList.add('active');
@@ -1096,6 +1110,7 @@ async function loadDashboard() {
   renderTable();
   renderTrendChart();
   renderBudgetChart();
+  renderMinistryList();
   document.getElementById('dash-loading').classList.add('hidden');
 }
 
@@ -1118,7 +1133,7 @@ function renderTable() {
     const statusClass = m.report_status === 'submitted' || m.report_status === 'approved' ? 'b-green' : m.report_status === 'filed' ? 'b-teal' : m.report_status === 'draft' ? 'b-amber' : 'b-red';
     const statusLabel = m.report_status === 'filed' ? 'Prior filed' : m.report_status || '—';
     const dotClass = bal < 500 ? 's-r' : budg > 90 ? 's-a' : 's-g';
-    return `<tr class="clickable" onclick="showMinistryDetail(${m.ministry_id})">
+    return `<tr class="clickable" onclick="navigateToMinistry(${m.ministry_id})">
       <td><strong style="font-weight:500;">${m.ministry_name}</strong><br><span style="font-size:11px;color:var(--text2);">${m.country}</span></td>
       <td style="color:var(--text2);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.director_name||'—'}</td>
       <td>${(m.total_consultations||0).toLocaleString()}</td>
@@ -1195,6 +1210,86 @@ function renderBudgetChart() {
 // ── MINISTRY DETAIL ──
 let currentDetailPeriod = 'current';
 
+function navigateToMinistry(id) {
+  // Always force reload even if same ministry already open
+  currentDetailMinistryId = null;
+  showMinistryDetail(id);
+}
+
+function renderMinistryList() {
+  const grid = document.getElementById('ministry-list-grid');
+  if (!grid) return;
+  const src = DEMO_MODE ? DEMO_MINISTRIES : ministriesData;
+  if (!src || src.length === 0) {
+    grid.innerHTML = '<div style="color:var(--text2);font-size:13px;padding:20px;">No ministries found.</div>';
+    return;
+  }
+  const regionColors = { Asia:'#185FA5', Africa:'#1D9E75', 'Latin America':'#EF9F27', Europe:'#534AB7' };
+  grid.innerHTML = src.map(m => {
+    const color = regionColors[m.region] || '#888780';
+    const mid = m.ministry_id || m.id;
+    const name = m.ministry_name || m.name || '—';
+    const status = m.report_status;
+    const statusColor = status === 'submitted' || status === 'approved' ? 'var(--green)' : status === 'filed' ? 'var(--teal-d)' : 'var(--amber)';
+    const statusLabel = status === 'submitted' ? 'Submitted' : status === 'approved' ? 'Approved' : status === 'filed' ? 'Prior filed' : 'No report yet';
+    const consults = m.total_consultations ? m.total_consultations.toLocaleString() : '—';
+    return `<div class="card" onclick="navigateToMinistry(${mid})"
+      style="cursor:pointer;padding:14px;transition:box-shadow .15s;"
+      onmouseover="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.10)'"
+      onmouseout="this.style.boxShadow=''">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;">${name}</div>
+          <div style="font-size:12px;color:var(--text2);">${m.country||'—'}</div>
+        </div>
+        <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:${color}18;color:${color};white-space:nowrap;margin-left:8px;">${m.region||'—'}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);">
+        <span style="font-size:12px;color:var(--text2);">Consultations: <strong style="color:var(--text);">${consults}</strong></span>
+        <span style="font-size:11px;color:${statusColor};font-weight:500;">${statusLabel}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterMinistryList(query) {
+  const grid = document.getElementById('ministry-list-grid');
+  if (!grid) return;
+  const src = DEMO_MODE ? DEMO_MINISTRIES : ministriesData;
+  const q = query.toLowerCase();
+  const filtered = q ? src.filter(m =>
+    ((m.ministry_name||m.name)||'').toLowerCase().includes(q) ||
+    (m.country||'').toLowerCase().includes(q) ||
+    (m.region||'').toLowerCase().includes(q)
+  ) : src;
+  const regionColors = { Asia:'#185FA5', Africa:'#1D9E75', 'Latin America':'#EF9F27', Europe:'#534AB7' };
+  grid.innerHTML = filtered.map(m => {
+    const color = regionColors[m.region] || '#888780';
+    const mid = m.ministry_id || m.id;
+    const name = m.ministry_name || m.name || '—';
+    const status = m.report_status;
+    const statusColor = status === 'submitted' || status === 'approved' ? 'var(--green)' : status === 'filed' ? 'var(--teal-d)' : 'var(--amber)';
+    const statusLabel = status === 'submitted' ? 'Submitted' : status === 'approved' ? 'Approved' : status === 'filed' ? 'Prior filed' : 'No report yet';
+    const consults = m.total_consultations ? m.total_consultations.toLocaleString() : '—';
+    return `<div class="card" onclick="navigateToMinistry(${mid})"
+      style="cursor:pointer;padding:14px;transition:box-shadow .15s;"
+      onmouseover="this.style.boxShadow='0 2px 12px rgba(0,0,0,0.10)'"
+      onmouseout="this.style.boxShadow=''">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;">${name}</div>
+          <div style="font-size:12px;color:var(--text2);">${m.country||'—'}</div>
+        </div>
+        <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:${color}18;color:${color};white-space:nowrap;margin-left:8px;">${m.region||'—'}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);">
+        <span style="font-size:12px;color:var(--text2);">Consultations: <strong style="color:var(--text);">${consults}</strong></span>
+        <span style="font-size:11px;color:${statusColor};font-weight:500;">${statusLabel}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function showMinistryDetail(id, period) {
   period = period || 'current';
   const m = ministriesData.find(x => x.ministry_id === id);
@@ -1205,6 +1300,8 @@ function showMinistryDetail(id, period) {
   // Track current ministry BEFORE checking if it's the same
   const previousMinistryId = currentDetailMinistryId;
   currentDetailMinistryId = id;
+  document.getElementById('ministry-list-placeholder').style.display = 'none';
+  document.getElementById('ministry-detail-content').style.display = 'block';
   currentDetailPeriod = period;
 
   const hsContainer = document.getElementById('dp-health-score');
@@ -1398,6 +1495,9 @@ function showMinistryDetail(id, period) {
   narrativeReportsLoaded = false;
   prayerRequestsLoaded = false;
   transfersLoaded = false;
+  currentDetailMinistryId = null;
+  document.getElementById('ministry-list-placeholder').style.display = 'block';
+  document.getElementById('ministry-detail-content').style.display = 'none';
   showScreen('ministries', null);
   document.querySelectorAll('.tnav')[1].classList.add('active');
 
