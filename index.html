@@ -3758,8 +3758,7 @@ function renderComments(container, comments) {
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:11px;color:var(--text2);">${date}</span>
           ${canModify ? `
-            <button onclick="editComment(${c.id},'${c.comment_text.replace(/'/g,"\'").replace(/
-/g,'\n')}')"
+            <button onclick="editComment(${c.id})"
               style="font-size:11px;padding:2px 7px;color:var(--text2);background:transparent;border:0.5px solid var(--border);">Edit</button>
             <button onclick="deleteComment(${c.id})"
               style="font-size:11px;padding:2px 7px;color:var(--red);background:transparent;border:0.5px solid var(--border);">Delete</button>
@@ -3780,11 +3779,13 @@ function renderComments(container, comments) {
 }
 
 
-async function editComment(commentId, currentText) {
+async function editComment(commentId) {
   const textEl = document.getElementById('comment-text-' + commentId);
   const editEl = document.getElementById('comment-edit-' + commentId);
   const inputEl = document.getElementById('comment-edit-input-' + commentId);
   if (!textEl || !editEl) return;
+  // Pre-fill edit input with current text from DOM
+  if (inputEl) inputEl.value = textEl.textContent;
   textEl.style.display = 'none';
   editEl.style.display = 'block';
   if (inputEl) inputEl.focus();
