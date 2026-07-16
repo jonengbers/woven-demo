@@ -4085,7 +4085,7 @@ async function loadPrayerRequests(ministryId) {
 
     const { data } = await sb
       .from('written_reports')
-      .select('prayer_requests, original_language, report_id')
+      .select('prayer_requests, prayer_requests_english, original_language, report_id')
       .in('report_id', ids)
       .not('prayer_requests', 'is', null);
 
@@ -4118,10 +4118,20 @@ async function loadPrayerRequests(ministryId) {
             <span style="font-size:11px;padding:2px 7px;border-radius:4px;background:var(--surface2);color:var(--text2);">${langName}</span>
           </div>
           <div style="font-size:13px;line-height:1.8;color:var(--text);white-space:pre-wrap;" class="prayer-original">${r.prayer_requests}</div>
-          <div class="prayer-translation" style="display:none;margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border);">
-            <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">English translation</div>
-            <div style="font-size:13px;line-height:1.8;color:var(--text2);font-style:italic;white-space:pre-wrap;" class="prayer-translated-text"></div>
-          </div>
+          ${r.prayer_requests_english ? `
+            <div style="margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border);">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">English translation</div>
+              <div style="font-size:13px;line-height:1.8;color:var(--text2);font-style:italic;white-space:pre-wrap;">${r.prayer_requests_english}</div>
+            </div>` :
+          (r.original_language && r.original_language !== 'en') ? `
+            <div class="prayer-translation" style="display:none;margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border);">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">English translation</div>
+              <div style="font-size:13px;line-height:1.8;color:var(--text2);font-style:italic;white-space:pre-wrap;" class="prayer-translated-text"></div>
+            </div>
+            <button onclick="this.closest('.card').querySelector('.prayer-translation').style.display='block';this.style.display='none';"
+              style="font-size:11px;color:var(--text2);background:transparent;border:0.5px solid var(--border);padding:3px 10px;border-radius:12px;margin-top:8px;">
+              Show English translation
+            </button>` : ''}
         </div>`;
       }).join('');
 
@@ -4131,6 +4141,7 @@ async function loadPrayerRequests(ministryId) {
         for (const {r, mr} of sortedPrayer) {
           const lang = r.original_language || 'en';
           if (!r.prayer_requests || lang === userLang) continue;
+          if (r.prayer_requests_english) continue; // already stored — displayed instantly
           const card = document.getElementById(`prayer-card-${r.report_id}`);
           if (!card) continue;
           const transBlock = card.querySelector('.prayer-translation');
