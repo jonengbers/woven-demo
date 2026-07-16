@@ -910,6 +910,18 @@ function enterApp(profile) {
     const toggles = document.getElementById('region-toggles');
     if (toggles) toggles.style.display = 'none';
   }
+  // Set up ministry list click delegation once
+  const mlGrid = document.getElementById('ministry-list-grid');
+  if (mlGrid) {
+    mlGrid.addEventListener('click', function(e) {
+      const card = e.target.closest('[data-mid]');
+      if (card) {
+        const mid = parseInt(card.dataset.mid);
+        console.log('Ministry tile clicked, mid:', mid);
+        navigateToMinistry(mid);
+      }
+    });
+  }
   loadDashboard();
   loadCompareSelects();
   loadConversations();
@@ -1274,10 +1286,6 @@ function renderMinistryList() {
   }).join('');
 
   // Use event delegation to avoid password manager interference with onclick
-  grid.onclick = function(e) {
-    const card = e.target.closest('[data-mid]');
-    if (card) navigateToMinistry(parseInt(card.dataset.mid));
-  };
 }
 
 function filterMinistryList(query) {
@@ -1317,10 +1325,6 @@ function filterMinistryList(query) {
     </div>`;
   }).join('');
 
-  grid.onclick = function(e) {
-    const card = e.target.closest('[data-mid]');
-    if (card) navigateToMinistry(parseInt(card.dataset.mid));
-  };
 }
 
 async function showMinistryDetail(id, period) {
@@ -1383,6 +1387,9 @@ async function showMinistryDetail(id, period) {
     return;
   }
 
+  console.log('Ministry m object:', JSON.stringify({ministry_id: m.ministry_id, ministry_name: m.ministry_name, name: m.name, country: m.country}));
+  console.log('Rendering ministry detail for:', m.ministry_name || m.name, 'id:', id);
+  try {
   document.getElementById('ministry-detail-content').innerHTML = `
     <button onclick="showScreen('dashboard',document.querySelector('.tnav'))" style="margin-bottom:14px;">← Dashboard</button>
     <div class="dp-panel">
