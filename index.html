@@ -1140,7 +1140,10 @@ async function loadDashboard() {
           if (inGrace && s === 'filed') return 'filed';
           if (!inGrace && (!s || s === 'pending')) return 'overdue';
           return s || 'pending';
-        })()
+        })(),
+        last_submitted_at: m.submitted_at || null,
+        last_report_month: m.report_month || null,
+        last_report_year: m.report_year || null,
       }));
     }
   }
