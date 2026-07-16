@@ -1147,14 +1147,7 @@ async function loadDashboard() {
         last_report_month: m.report_month || null,
         last_report_year: m.report_year || null,
       }));
-      // Debug: check Nicaragua entry
-      const nica = ministriesData.find(m => m.country === 'Nicaragua');
-      if (nica) console.log('Nicaragua entry:', JSON.stringify({
-        report_status: nica.report_status,
-        last_submitted_at: nica.last_submitted_at,
-        last_report_month: nica.last_report_month,
-        submitted_at: nica.submitted_at
-      }));
+
     }
   }
   renderMetrics();
