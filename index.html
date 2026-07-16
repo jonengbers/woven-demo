@@ -235,6 +235,19 @@ button:hover{background:var(--surface2);}
       <button class="tnav" onclick="showScreen('map',this)" data-i18n="nav_map">World map</button>
       <button class="tnav" onclick="showScreen('messages',this)" data-i18n="nav_messages">Messages</button>
     </div>
+    <!-- Global ministry search -->
+    <div id="global-search-container" style="position:relative;display:none;align-items:center;">
+      <div style="position:relative;">
+        <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text2);pointer-events:none;">🔍</span>
+        <input id="global-search-input" type="text" placeholder="Find ministry..." autocomplete="off"
+          oninput="globalSearchInput(this.value)"
+          onkeydown="globalSearchKeydown(event)"
+          onfocus="globalSearchInput(this.value)"
+          style="font-size:12px;padding:5px 10px 5px 30px;border-radius:20px;border:0.5px solid var(--border2);background:var(--surface2);color:var(--text);width:180px;outline:none;"/>
+      </div>
+      <div id="global-search-results" style="display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--r-lg);min-width:280px;max-height:320px;overflow-y:auto;z-index:400;box-shadow:0 4px 16px rgba(0,0,0,0.12);"></div>
+    </div>
+
     <div class="user-pill" style="position:relative;display:flex;align-items:center;gap:6px;">
       <button class="tnav hidden" id="nav-admin" onclick="showScreen('admin',document.getElementById('nav-admin'))" style="font-size:12px;padding:4px 10px;border-radius:var(--r-md);border:0.5px solid var(--border2);color:var(--text2);background:transparent;font-weight:500;">Admin</button>
       <div style="width:1px;height:20px;background:var(--border2);"></div>
@@ -853,6 +866,8 @@ async function handleSignout() {
   currentUser = null; userProfile = null;
   document.getElementById('app-screen').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
+  const sc = document.getElementById('global-search-container');
+  if (sc) sc.style.display = 'none';
 }
 
 async function loadProfile(user) {
@@ -902,6 +917,9 @@ function enterApp(profile) {
     const toggles = document.getElementById('region-toggles');
     if (toggles) toggles.style.display = 'none';
   }
+  // Show global search once logged in
+  const searchContainer = document.getElementById('global-search-container');
+  if (searchContainer) searchContainer.style.display = 'flex';
   loadDashboard();
   loadCompareSelects();
   loadConversations();
@@ -1191,6 +1209,114 @@ function renderBudgetChart() {
     }}
   });
 }
+
+
+// ── GLOBAL MINISTRY SEARCH ────────────────────────────────────────────────
+
+let globalSearchIndex = -1;
+
+function globalSearchInput(query) {
+  const results = document.getElementById('global-search-results');
+  if (!results) return;
+
+  if (!query || query.trim().length < 1) {
+    results.style.display = 'none';
+    return;
+  }
+
+  const q = query.toLowerCase();
+  const src = DEMO_MODE ? DEMO_MINISTRIES : ministriesData;
+  const regionColors = { Asia:'#185FA5', Africa:'#1D9E75', 'Latin America':'#EF9F27', Europe:'#534AB7' };
+
+  const matches = src.filter(m => {
+    const name = (m.ministry_name || m.name || '').toLowerCase();
+    const country = (m.country || '').toLowerCase();
+    const region = (m.region || '').toLowerCase();
+    const director = (m.director_name || '').toLowerCase();
+    return name.includes(q) || country.includes(q) || region.includes(q) || director.includes(q);
+  }).slice(0, 8); // max 8 results
+
+  if (matches.length === 0) {
+    results.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--text2);">No ministries found</div>';
+    results.style.display = 'block';
+    return;
+  }
+
+  globalSearchIndex = -1;
+  results.innerHTML = matches.map((m, i) => {
+    const mid = m.ministry_id || m.id;
+    const name = m.ministry_name || m.name || '—';
+    const color = regionColors[m.region] || '#888780';
+    return `<div class="search-result-item" data-mid="${mid}" data-index="${i}"
+      onclick="globalSearchSelect(${mid})"
+      onmouseover="globalSearchHover(${i})"
+      style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;border-bottom:0.5px solid var(--border);">
+      <div>
+        <div style="font-size:13px;font-weight:500;color:var(--text);">${name}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:1px;">${m.country || '—'}</div>
+      </div>
+      <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:${color}18;color:${color};">${m.region || '—'}</span>
+    </div>`;
+  }).join('');
+
+  results.style.display = 'block';
+}
+
+function globalSearchHover(index) {
+  globalSearchIndex = index;
+  document.querySelectorAll('.search-result-item').forEach((el, i) => {
+    el.style.background = i === index ? 'var(--surface2)' : '';
+  });
+}
+
+function globalSearchKeydown(e) {
+  const results = document.getElementById('global-search-results');
+  const items = document.querySelectorAll('.search-result-item');
+  if (!results || results.style.display === 'none') return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    globalSearchIndex = Math.min(globalSearchIndex + 1, items.length - 1);
+    items.forEach((el, i) => el.style.background = i === globalSearchIndex ? 'var(--surface2)' : '');
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    globalSearchIndex = Math.max(globalSearchIndex - 1, 0);
+    items.forEach((el, i) => el.style.background = i === globalSearchIndex ? 'var(--surface2)' : '');
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (globalSearchIndex >= 0 && items[globalSearchIndex]) {
+      const mid = parseInt(items[globalSearchIndex].dataset.mid);
+      globalSearchSelect(mid);
+    }
+  } else if (e.key === 'Escape') {
+    globalSearchClose();
+  }
+}
+
+function globalSearchSelect(ministryId) {
+  globalSearchClose();
+  // Navigate to the ministries screen and show detail
+  const ministryBtn = document.querySelector('.tnav[onclick*="ministries"]');
+  showScreen('ministries', ministryBtn);
+  showMinistryDetail(ministryId);
+}
+
+function globalSearchClose() {
+  const input = document.getElementById('global-search-input');
+  const results = document.getElementById('global-search-results');
+  if (input) input.value = '';
+  if (results) results.style.display = 'none';
+  globalSearchIndex = -1;
+}
+
+// Close search results when clicking outside
+document.addEventListener('click', function(e) {
+  const container = document.getElementById('global-search-container');
+  if (container && !container.contains(e.target)) {
+    const results = document.getElementById('global-search-results');
+    if (results) results.style.display = 'none';
+  }
+});
 
 // ── MINISTRY DETAIL ──
 let currentDetailPeriod = 'current';
