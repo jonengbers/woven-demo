@@ -924,11 +924,18 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 // ── SCREENS ──
 function showScreen(id, btn) {
-  if (id === 'ministries' && !currentDetailMinistryId) {
+  if (id === 'ministries') {
     const placeholder = document.getElementById('ministry-list-placeholder');
     const detail = document.getElementById('ministry-detail-content');
-    if (placeholder) placeholder.style.display = 'block';
-    if (detail) detail.style.display = 'none';
+    if (!currentDetailMinistryId) {
+      // No ministry open — show the list
+      if (placeholder) placeholder.style.display = 'block';
+      if (detail) detail.style.display = 'none';
+    } else {
+      // Ministry already open — keep detail visible
+      if (placeholder) placeholder.style.display = 'none';
+      if (detail) detail.style.display = 'block';
+    }
   }
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tnav').forEach(b => b.classList.remove('active'));
@@ -1211,7 +1218,21 @@ function renderBudgetChart() {
 let currentDetailPeriod = 'current';
 
 function navigateToMinistry(id) {
-  // Always force reload even if same ministry already open
+  // Make ministries screen active without triggering showScreen logic
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tnav').forEach(b => b.classList.remove('active'));
+  const ministryScreen = document.getElementById('screen-ministries');
+  if (ministryScreen) ministryScreen.classList.add('active');
+  const ministryBtn = document.querySelector('.tnav[onclick*="ministries"]');
+  if (ministryBtn) ministryBtn.classList.add('active');
+
+  // Hide list, show detail container
+  const placeholder = document.getElementById('ministry-list-placeholder');
+  const detail = document.getElementById('ministry-detail-content');
+  if (placeholder) placeholder.style.display = 'none';
+  if (detail) detail.style.display = 'block';
+
+  // Force reload even if same ministry already open
   currentDetailMinistryId = null;
   showMinistryDetail(id);
 }
@@ -1292,8 +1313,12 @@ function filterMinistryList(query) {
 
 function showMinistryDetail(id, period) {
   period = period || 'current';
-  const m = ministriesData.find(x => x.ministry_id === id);
-  if (!m) return;
+  const m = ministriesData.find(x => (x.ministry_id === id || x.id === id));
+  if (!m) {
+    // Try loading from Supabase if not in current data
+    console.warn('Ministry not found in ministriesData for id:', id);
+    return;
+  }
   detailCharts.forEach(c => c.destroy());
   detailCharts = [];
 
