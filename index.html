@@ -1203,7 +1203,8 @@ function renderTable() {
       <td><div class="bar-wrap"><div class="bar-inner" style="width:${Math.min(budg,100)}%;background:${budg>90?'#E24B4A':budg>75?'#BA7517':'#534AB7'};"></div></div><span style="font-size:11px;color:var(--text2);margin-left:4px;">${budg}%</span></td>
       <td style="font-size:12px;${bal<500?'color:#A32D2D;font-weight:600;':''}">$${bal.toLocaleString()}</td>
       <td><span class="badge ${statusClass}"
-        ${tooltipText ? `onmouseenter="showTooltip(this,'${tooltipText}')" onmouseleave="hideTooltip()" style="cursor:help;"` : ''}
+        style="${tooltipText ? 'cursor:help;' : ''}"
+        data-tooltip="${tooltipText || ''}"
         >${statusLabel}</span></td>
       <td><span class="sdot ${dotClass}"></span></td>
     </tr>`;
@@ -1278,8 +1279,10 @@ function renderBudgetChart() {
 
 function showTooltip(el, text) {
   const tip = document.getElementById('custom-tooltip');
-  if (!tip || !text) return;
-  tip.textContent = text;
+  if (!tip) return;
+  const t = text || el.dataset.tooltip;
+  if (!t) return;
+  tip.textContent = t;
   tip.style.display = 'block';
   positionTooltip(el, tip);
 }
@@ -1400,6 +1403,16 @@ function globalSearchClose() {
   globalSearchIndex = -1;
 }
 
+// Global tooltip handler for data-tooltip elements
+document.addEventListener('mouseover', function(e) {
+  const el = e.target.closest('[data-tooltip]');
+  if (el && el.dataset.tooltip) showTooltip(el, el.dataset.tooltip);
+});
+document.addEventListener('mouseout', function(e) {
+  const el = e.target.closest('[data-tooltip]');
+  if (el) hideTooltip();
+});
+
 // Close search results when clicking outside
 document.addEventListener('click', function(e) {
   const container = document.getElementById('global-search-container');
@@ -1480,25 +1493,16 @@ function showMinistryDetail(id, period) {
             </select>
           </div>
           <span id="current-period-badge" class="badge b-teal" style="font-size:12px;padding:4px 10px;">${period === 'current' ? 'Current month' : period === 'ytd' ? 'YTD' : period === 'prev' ? 'Prior year' : 'All time'}</span>
-          ${(() => {
-            const mn = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-            const tipText = m.last_submitted_at
-              ? (m.last_report_month ? mn[m.last_report_month]+' '+m.last_report_year : 'Last') +
-                ' report submitted ' +
-                new Date(m.last_submitted_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
-              : null;
-            const sc = m.report_status==='submitted'||m.report_status==='approved'?'b-green'
-              : m.report_status==='filed'?'b-teal'
-              : m.report_status==='overdue'?'b-red':'b-amber';
-            const sl = m.report_status==='filed'?'Prior months filed'
-              : m.report_status==='submitted'?'Submitted'
-              : m.report_status==='approved'?'Approved'
-              : m.report_status==='overdue'?'Overdue':'No report yet';
-            return `<span id="ministry-report-status-badge" class="badge ${sc}"
-              style="font-size:12px;padding:4px 10px;${tipText?'cursor:help;':''}"
-              ${tipText ? `onmouseenter="showTooltip(this,'${tipText}')" onmouseleave="hideTooltip()"` : ''}>
-              ${sl}</span>`;
-          })()}
+          <span id="ministry-report-status-badge"
+            class="badge ${m.report_status==='submitted'||m.report_status==='approved'?'b-green':m.report_status==='filed'?'b-teal':m.report_status==='overdue'?'b-red':'b-amber'}"
+            style="font-size:12px;padding:4px 10px;${m.last_submitted_at?'cursor:help;':''}"
+            data-tooltip="${m.last_submitted_at ? (() => {
+              const mn=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+              const d=new Date(m.last_submitted_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+              return (m.last_report_month?mn[m.last_report_month]+' '+m.last_report_year:'Last')+' report submitted '+d;
+            })() : ''}">
+            ${m.report_status==='filed'?'Prior months filed':m.report_status==='submitted'?'Submitted':m.report_status==='approved'?'Approved':m.report_status==='overdue'?'Overdue':'No report yet'}
+          </span>
         </div>
       </div>
       <div id="dp-loading" style="text-align:center;padding:30px;color:var(--text2);"><span class="spinner"></span> Loading ${period} data...</div>
