@@ -1136,7 +1136,7 @@ function renderTable() {
     const statusClass = m.report_status === 'submitted' || m.report_status === 'approved' ? 'b-green' : m.report_status === 'filed' ? 'b-teal' : m.report_status === 'draft' ? 'b-amber' : 'b-red';
     const statusLabel = m.report_status === 'filed' ? 'Prior filed' : m.report_status || '—';
     const dotClass = bal < 500 ? 's-r' : budg > 90 ? 's-a' : 's-g';
-    return `<tr class="clickable" onclick="showMinistryDetail(${m.ministry_id})">
+    return `<tr class="clickable" onclick="currentDetailMinistryId=null;showMinistryDetail(${m.ministry_id})">
       <td><strong style="font-weight:500;">${m.ministry_name}</strong><br><span style="font-size:11px;color:var(--text2);">${m.country}</span></td>
       <td style="color:var(--text2);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.director_name||'—'}</td>
       <td>${(m.total_consultations||0).toLocaleString()}</td>
