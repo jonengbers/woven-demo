@@ -222,6 +222,8 @@ button:hover{background:var(--surface2);}
 
 <!-- ── APP ── -->
 <div id="app-screen">
+  <!-- Custom tooltip -->
+  <div id="custom-tooltip" style="display:none;position:fixed;background:rgba(30,30,30,0.92);color:#fff;font-size:12px;padding:6px 10px;border-radius:6px;pointer-events:none;z-index:9999;white-space:nowrap;max-width:260px;line-height:1.4;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>
   <div class="topbar">
     <div class="logo-area">
       <img src="Luke_logo.png" style="height:36px;width:auto;" alt="Luke Society"/>
@@ -1193,7 +1195,7 @@ function renderTable() {
       <td><div class="bar-wrap"><div class="bar-inner" style="width:${Math.min(budg,100)}%;background:${budg>90?'#E24B4A':budg>75?'#BA7517':'#534AB7'};"></div></div><span style="font-size:11px;color:var(--text2);margin-left:4px;">${budg}%</span></td>
       <td style="font-size:12px;${bal<500?'color:#A32D2D;font-weight:600;':''}">$${bal.toLocaleString()}</td>
       <td><span class="badge ${statusClass}"
-        ${tooltipText ? `title="${tooltipText}" style="cursor:help;"` : ''}
+        ${tooltipText ? `onmouseenter="showTooltip(this,'${tooltipText}')" onmouseleave="hideTooltip()" style="cursor:help;"` : ''}
         >${statusLabel}</span></td>
       <td><span class="sdot ${dotClass}"></span></td>
     </tr>`;
@@ -1262,6 +1264,35 @@ function renderBudgetChart() {
   });
 }
 
+
+
+// ── CUSTOM TOOLTIP ────────────────────────────────────────────────────────
+
+function showTooltip(el, text) {
+  const tip = document.getElementById('custom-tooltip');
+  if (!tip || !text) return;
+  tip.textContent = text;
+  tip.style.display = 'block';
+  positionTooltip(el, tip);
+}
+
+function positionTooltip(el, tip) {
+  const rect = el.getBoundingClientRect();
+  const tipW = tip.offsetWidth;
+  let left = rect.left + rect.width / 2 - tipW / 2;
+  let top = rect.bottom + 6;
+  // Keep within viewport
+  if (left < 8) left = 8;
+  if (left + tipW > window.innerWidth - 8) left = window.innerWidth - tipW - 8;
+  if (top + tip.offsetHeight > window.innerHeight - 8) top = rect.top - tip.offsetHeight - 6;
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+
+function hideTooltip() {
+  const tip = document.getElementById('custom-tooltip');
+  if (tip) tip.style.display = 'none';
+}
 
 // ── GLOBAL MINISTRY SEARCH ────────────────────────────────────────────────
 
@@ -1441,12 +1472,25 @@ function showMinistryDetail(id, period) {
             </select>
           </div>
           <span id="current-period-badge" class="badge b-teal" style="font-size:12px;padding:4px 10px;">${period === 'current' ? 'Current month' : period === 'ytd' ? 'YTD' : period === 'prev' ? 'Prior year' : 'All time'}</span>
-          <span id="ministry-report-status-badge"
-            class="badge ${m.report_status==='submitted'||m.report_status==='approved'?'b-green':m.report_status==='filed'?'b-teal':m.report_status==='overdue'?'b-red':'b-amber'}"
-            style="font-size:12px;padding:4px 10px;${m.last_submitted_at?'cursor:help;':''}"
-            ${m.last_submitted_at ? `title="${(() => { const mn=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const d=new Date(m.last_submitted_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); return m.last_report_month ? mn[m.last_report_month]+' '+m.last_report_year+' report submitted '+d : 'Last submitted '+d; })()}"` : ''}>
-            ${m.report_status==='filed'?'Prior months filed':m.report_status==='submitted'?'Submitted':m.report_status==='approved'?'Approved':m.report_status==='overdue'?'Overdue':'No report yet'}
-          </span>
+          ${(() => {
+            const mn = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const tipText = m.last_submitted_at
+              ? (m.last_report_month ? mn[m.last_report_month]+' '+m.last_report_year : 'Last') +
+                ' report submitted ' +
+                new Date(m.last_submitted_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+              : null;
+            const sc = m.report_status==='submitted'||m.report_status==='approved'?'b-green'
+              : m.report_status==='filed'?'b-teal'
+              : m.report_status==='overdue'?'b-red':'b-amber';
+            const sl = m.report_status==='filed'?'Prior months filed'
+              : m.report_status==='submitted'?'Submitted'
+              : m.report_status==='approved'?'Approved'
+              : m.report_status==='overdue'?'Overdue':'No report yet';
+            return `<span id="ministry-report-status-badge" class="badge ${sc}"
+              style="font-size:12px;padding:4px 10px;${tipText?'cursor:help;':''}"
+              ${tipText ? `onmouseenter="showTooltip(this,'${tipText}')" onmouseleave="hideTooltip()"` : ''}>
+              ${sl}</span>`;
+          })()}
         </div>
       </div>
       <div id="dp-loading" style="text-align:center;padding:30px;color:var(--text2);"><span class="spinner"></span> Loading ${period} data...</div>
