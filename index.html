@@ -1038,7 +1038,7 @@ async function loadDashboard() {
       let mq = sb.from('ministries').select(`
         id, name, short_name, country, country_code, region, director_name,
         monthly_reports!inner(
-          id, report_year, report_month, status,
+          id, report_year, report_month, status, submitted_at,
           financial_summary(total_income_usd, total_expenses_usd, ending_balance_usd, luke_society_support_usd, total_income_local, exchange_rate, local_currency),
           clinical_stats(consult_clinic, consult_community, consult_dental, consult_spiritual, services_pharmacy, services_lab, pay_full, pay_partial, pay_charity)
         )
@@ -1052,6 +1052,9 @@ async function loadDashboard() {
         let totalConsults = 0, pharmacy = 0, lab = 0;
         let income = 0, expenses = 0, balance = 0, lsSupport = 0;
         let currentMonthStatus = null;
+        let lastSubmittedAt = null;
+        let lastReportMonth = null;
+        let lastReportYear = null;
         let payFull = 0, payPartial = 0, payCharity = 0;
         let filed = 0;
         reports.forEach(r => {
@@ -1071,7 +1074,15 @@ async function loadDashboard() {
             lsSupport += fs.luke_society_support_usd||0;
             balance = fs.ending_balance_usd||0; // use last month's balance
           }
-          if (r.status === 'submitted' || r.status === 'approved') filed++;
+          if (r.status === 'submitted' || r.status === 'approved') {
+            filed++;
+            // Track most recent submission date
+            if (!lastSubmittedAt || r.submitted_at > lastSubmittedAt) {
+              lastSubmittedAt = r.submitted_at;
+              lastReportMonth = r.report_month;
+              lastReportYear = r.report_year;
+            }
+          }
           // Track current month status specifically
           const now2 = new Date();
           if (r.report_year === now2.getFullYear() && r.report_month === now2.getMonth()+1) {
@@ -1087,7 +1098,18 @@ async function loadDashboard() {
           country_code: m.country_code,
           region: m.region,
           director_name: m.director_name,
-          report_status: currentMonthStatus || (filed > 0 ? 'filed' : 'pending'),
+          report_status: (() => {
+            const now3 = new Date();
+            const dayOfMonth = now3.getDate();
+            const graceperiod = dayOfMonth <= 3; // 3-day grace period at start of month
+            if (currentMonthStatus === 'submitted' || currentMonthStatus === 'approved') return currentMonthStatus;
+            if (graceperiod && filed > 0) return 'filed'; // during grace period, prior filing is OK
+            if (!graceperiod && !currentMonthStatus) return filed > 0 ? 'overdue' : 'pending';
+            return currentMonthStatus || (filed > 0 ? 'filed' : 'pending');
+          })(),
+          last_submitted_at: lastSubmittedAt,
+          last_report_month: lastReportMonth,
+          last_report_year: lastReportYear,
           report_year: parseInt(year),
           total_consultations: totalConsults,
           services_pharmacy: pharmacy,
@@ -1107,7 +1129,19 @@ async function loadDashboard() {
       let q = sb.from('ministry_dashboard').select('*');
       if (region) q = q.eq('region', region);
       const { data } = await q;
-      ministriesData = data || [];
+      // Apply grace period to ministry_dashboard data
+      const now4 = new Date();
+      const inGrace = now4.getDate() <= 3;
+      ministriesData = (data || []).map(m => ({
+        ...m,
+        report_status: (() => {
+          const s = m.report_status;
+          if (s === 'submitted' || s === 'approved') return s;
+          if (inGrace && s === 'filed') return 'filed';
+          if (!inGrace && (!s || s === 'pending')) return 'overdue';
+          return s || 'pending';
+        })()
+      }));
     }
   }
   renderMetrics();
@@ -1133,8 +1167,21 @@ function renderTable() {
   document.getElementById('ministry-tbody').innerHTML = ministriesData.map(m => {
     const bal = m.ending_balance_usd || 0;
     const budg = m.budget_utilization_pct || 0;
-    const statusClass = m.report_status === 'submitted' || m.report_status === 'approved' ? 'b-green' : m.report_status === 'filed' ? 'b-teal' : m.report_status === 'draft' ? 'b-amber' : 'b-red';
-    const statusLabel = m.report_status === 'filed' ? 'Prior filed' : m.report_status || '—';
+    const statusClass = m.report_status === 'submitted' || m.report_status === 'approved' ? 'b-green'
+      : m.report_status === 'filed' ? 'b-teal'
+      : m.report_status === 'overdue' ? 'b-red'
+      : m.report_status === 'draft' ? 'b-amber' : 'b-amber';
+    const monthNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const lastRptLabel = m.last_report_month ? `${monthNames[m.last_report_month]} ${m.last_report_year}` : null;
+    const submittedDate = m.last_submitted_at ? new Date(m.last_submitted_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : null;
+    const tooltipText = submittedDate && lastRptLabel
+      ? `${lastRptLabel} report submitted ${submittedDate}`
+      : submittedDate ? `Last submitted ${submittedDate}` : null;
+    const statusLabel = m.report_status === 'filed' ? 'Prior filed'
+      : m.report_status === 'overdue' ? 'Overdue'
+      : m.report_status === 'submitted' ? 'Submitted'
+      : m.report_status === 'approved' ? 'Approved'
+      : m.report_status || '—';
     const dotClass = bal < 500 ? 's-r' : budg > 90 ? 's-a' : 's-g';
     return `<tr class="clickable" onclick="currentDetailMinistryId=null;showMinistryDetail(${m.ministry_id})">
       <td><strong style="font-weight:500;">${m.ministry_name}</strong><br><span style="font-size:11px;color:var(--text2);">${m.country}</span></td>
@@ -1142,7 +1189,9 @@ function renderTable() {
       <td>${(m.total_consultations||0).toLocaleString()}</td>
       <td><div class="bar-wrap"><div class="bar-inner" style="width:${Math.min(budg,100)}%;background:${budg>90?'#E24B4A':budg>75?'#BA7517':'#534AB7'};"></div></div><span style="font-size:11px;color:var(--text2);margin-left:4px;">${budg}%</span></td>
       <td style="font-size:12px;${bal<500?'color:#A32D2D;font-weight:600;':''}">$${bal.toLocaleString()}</td>
-      <td><span class="badge ${statusClass}">${statusLabel}</span></td>
+      <td><span class="badge ${statusClass}"
+        ${tooltipText ? `title="${tooltipText}" style="cursor:help;"` : ''}
+        >${statusLabel}</span></td>
       <td><span class="sdot ${dotClass}"></span></td>
     </tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text2);">No ministries found.</td></tr>';
@@ -1389,7 +1438,12 @@ function showMinistryDetail(id, period) {
             </select>
           </div>
           <span id="current-period-badge" class="badge b-teal" style="font-size:12px;padding:4px 10px;">${period === 'current' ? 'Current month' : period === 'ytd' ? 'YTD' : period === 'prev' ? 'Prior year' : 'All time'}</span>
-          <span id="ministry-report-status-badge" class="badge ${m.report_status==='submitted'||m.report_status==='approved'?'b-green':m.report_status==='filed'?'b-teal':'b-amber'}" style="font-size:12px;padding:4px 10px;">${m.report_status==='filed'?'Prior months filed':m.report_status==='submitted'?'Submitted':m.report_status==='approved'?'Approved':'No report yet'}</span>
+          <span id="ministry-report-status-badge"
+            class="badge ${m.report_status==='submitted'||m.report_status==='approved'?'b-green':m.report_status==='filed'?'b-teal':m.report_status==='overdue'?'b-red':'b-amber'}"
+            style="font-size:12px;padding:4px 10px;${m.last_submitted_at?'cursor:help;':''}"
+            ${m.last_submitted_at ? `title="${(() => { const mn=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const d=new Date(m.last_submitted_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); return m.last_report_month ? mn[m.last_report_month]+' '+m.last_report_year+' report submitted '+d : 'Last submitted '+d; })()}"` : ''}>
+            ${m.report_status==='filed'?'Prior months filed':m.report_status==='submitted'?'Submitted':m.report_status==='approved'?'Approved':m.report_status==='overdue'?'Overdue':'No report yet'}
+          </span>
         </div>
       </div>
       <div id="dp-loading" style="text-align:center;padding:30px;color:var(--text2);"><span class="spinner"></span> Loading ${period} data...</div>
@@ -5866,7 +5920,7 @@ function initMap() {
             setRegion('');
             await new Promise(r => setTimeout(r, 300));
           }
-          if (ministriesData.find(d => d.ministry_id === m.id)) showMinistryDetail(m.id);
+          if (ministriesData.find(d => d.ministry_id === m.id)) { currentDetailMinistryId = null; showMinistryDetail(m.id); }
         });
       });
     });
