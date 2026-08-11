@@ -5700,6 +5700,11 @@ async function buildHealthScore(agg, period, totalConsults, reportCount, latestY
     },
   ];
 
+  if (!trends || !trends.costPerPatient) {
+    console.error('buildHealthScore: trends object invalid', trends);
+    return;
+  }
+
   container.style.display = 'block';
   container.innerHTML = `
     <div class="card" style="padding:16px;">
