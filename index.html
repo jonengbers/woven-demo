@@ -1460,7 +1460,7 @@ function showMinistryDetail(id, period) {
     prayerRequestsLoaded = false;
     // Update period badge
     const badge = document.getElementById('current-period-badge');
-    if (badge) badge.textContent = period === 'current' ? 'Current month' : period === 'ytd' ? 'YTD' : period === 'prev' ? 'Prior year' : 'All time';
+    if (badge) badge.textContent = period === 'current' ? 'Latest month' : period === 'ytd' ? 'YTD' : period === 'prev' ? 'Prior year' : 'All time';
     loadMinistryPeriodData(id, period);
     return;
   }
@@ -1475,7 +1475,7 @@ function showMinistryDetail(id, period) {
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <div style="display:flex;gap:4px;background:var(--surface);border:0.5px solid var(--border);border-radius:20px;padding:3px;align-items:center;">
-            <button onclick="showMinistryDetail(${m.ministry_id},'current')" id="period-current" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">Current</button>
+            <button onclick="showMinistryDetail(${m.ministry_id},'current')" id="period-current" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">Latest</button>
             <button onclick="showMinistryDetail(${m.ministry_id},'ytd')" id="period-ytd" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">YTD</button>
             <button onclick="showMinistryDetail(${m.ministry_id},'prev')" id="period-prev" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">Prior year</button>
             <button onclick="showMinistryDetail(${m.ministry_id},'all')" id="period-all" style="font-size:11px;padding:4px 12px;border-radius:16px;border:none;cursor:pointer;transition:all .15s;" class="period-btn">All time</button>
@@ -1485,7 +1485,7 @@ function showMinistryDetail(id, period) {
               <option value="">Month...</option>
             </select>
           </div>
-          <span id="current-period-badge" class="badge b-teal" style="font-size:12px;padding:4px 10px;">${period === 'current' ? 'Current month' : period === 'ytd' ? 'YTD' : period === 'prev' ? 'Prior year' : 'All time'}</span>
+          <span id="current-period-badge" class="badge b-teal" style="font-size:12px;padding:4px 10px;">${period === 'current' ? 'Latest month' : period === 'ytd' ? 'YTD' : period === 'prev' ? 'Prior year' : 'All time'}</span>
           <span id="ministry-report-status-badge"
             class="badge ${m.report_status==='submitted'||m.report_status==='approved'?'b-green':m.report_status==='filed'?'b-teal':m.report_status==='overdue'?'b-red':'b-amber'}"
             style="font-size:12px;padding:4px 10px;${m.last_submitted_at?'cursor:help;':''}"
@@ -1738,7 +1738,17 @@ async function loadMinistryPeriodData(ministryId, period) {
     if (specificYear && specificMonth) {
       yearFilter = specificYear; monthFilter = specificMonth;
     } else if (period === 'current') {
-      yearFilter = currentYear; monthFilter = currentMonth;
+      // Use the most recent report's month rather than today's calendar month
+      // since the current calendar month likely has no report yet
+      if (reports.length > 0) {
+        const latest = reports.reduce((a, b) =>
+          (a.report_year * 12 + a.report_month) > (b.report_year * 12 + b.report_month) ? a : b
+        );
+        yearFilter = latest.report_year;
+        monthFilter = latest.report_month;
+      } else {
+        yearFilter = currentYear; monthFilter = currentMonth;
+      }
     } else if (period === 'ytd') {
       yearFilter = currentYear;
     } else if (period === 'prev') {
@@ -2037,7 +2047,10 @@ async function loadFinancialDetail(ministryId, period) {
     if (finSpecificYear && finSpecificMonth) {
       mrQuery = mrQuery.eq('report_year', finSpecificYear).eq('report_month', finSpecificMonth);
     } else if (period === 'current') {
-      mrQuery = mrQuery.eq('report_year', now.getFullYear()).eq('report_month', now.getMonth()+1);
+      // Use most recent report rather than current calendar month
+      mrQuery = mrQuery.order('report_year', { ascending: false })
+                       .order('report_month', { ascending: false })
+                       .limit(1);
     } else if (period === 'ytd') {
       mrQuery = mrQuery.eq('report_year', now.getFullYear());
     } else if (period === 'prev') {
@@ -2193,7 +2206,7 @@ function renderFinancialDetail(period) {
   if (incTotalLabel) incTotalLabel.textContent = '$' + Math.round(totalIncome).toLocaleString() + exchDisplay;
 
   const periodLabel = document.getElementById('income-period-label');
-  if (periodLabel) periodLabel.textContent = {current:'Current month',ytd:'Year to date',prev:'Prior year',all:'All reports'}[period] || '';
+  if (periodLabel) periodLabel.textContent = {current:'Latest month',ytd:'Year to date',prev:'Prior year',all:'All reports'}[period] || '';
 
   const incCatEl = document.getElementById('income-categories');
   if (incCatEl) {
