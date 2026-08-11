@@ -1738,14 +1738,17 @@ async function loadMinistryPeriodData(ministryId, period) {
     if (specificYear && specificMonth) {
       yearFilter = specificYear; monthFilter = specificMonth;
     } else if (period === 'current') {
-      // Use the most recent report's month rather than today's calendar month
-      // since the current calendar month likely has no report yet
-      if (reports.length > 0) {
-        const latest = reports.reduce((a, b) =>
-          (a.report_year * 12 + a.report_month) > (b.report_year * 12 + b.report_month) ? a : b
-        );
-        yearFilter = latest.report_year;
-        monthFilter = latest.report_month;
+      // Fetch the most recent report month from DB rather than using calendar month
+      const { data: latestRpt } = await sb.from('monthly_reports')
+        .select('report_year, report_month')
+        .eq('ministry_id', ministryId)
+        .order('report_year', { ascending: false })
+        .order('report_month', { ascending: false })
+        .limit(1)
+        .single();
+      if (latestRpt) {
+        yearFilter = latestRpt.report_year;
+        monthFilter = latestRpt.report_month;
       } else {
         yearFilter = currentYear; monthFilter = currentMonth;
       }
