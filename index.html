@@ -5463,7 +5463,7 @@ document.addEventListener('click', function(e) {
 
 
 
-async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period, totalConsults) {
+async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period, totalConsults, latestReportYear, latestReportMonth) {
   // Default to flat if we can't compare
   const communityReachVal = totalPatients > 0 ? Math.round((agg.consult_community||0) / Math.max(totalConsults,1) * 100) : 0;
   const flat = {
@@ -5483,8 +5483,10 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
     let comparisonLabel = '';
 
     if (period === 'current') {
-      // Compare vs prior month (most useful for month view)
-      const priorDate = new Date(currentYear, currentMonth - 2, 1);
+      // Compare vs month prior to the latest report (not prior to calendar month)
+      const latestYear = latestReportYear || currentYear;
+      const latestMonth = latestReportMonth || currentMonth;
+      const priorDate = new Date(latestYear, latestMonth - 2, 1);
       priorMonths.push({ y: priorDate.getFullYear(), m: priorDate.getMonth() + 1 });
       const priorMonthName = priorDate.toLocaleString('default', { month: 'long' });
       comparisonLabel = 'vs ' + priorMonthName;
@@ -5646,7 +5648,7 @@ async function buildHealthScore(agg, period, totalConsults, reportCount) {
     lsDependency:   { val: lsDependency,      trend: 'down', label: 'Decreasing (vs prior month)' },
     charityRate:    { val: charityRate,        trend: 'flat', label: 'Stable (vs prior month)' },
     communityReach: { val: communityReachDemo, trend: 'up',   label: 'Growing (vs prior month)' },
-  } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period, totalConsults);
+  } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period, totalConsults, yearFilter, monthFilter);
 
   const trendIcon = (t, metric) => {
     // For cost per patient: down is good (green), up is bad (red)
