@@ -1891,7 +1891,7 @@ async function loadMinistryPeriodData(ministryId, period) {
   const aggSnapshot = JSON.parse(JSON.stringify(agg));
   const totalConsultsSnapshot = totalConsults;
   const reportCountSnapshot = reportCount;
-  setTimeout(() => buildHealthScore(aggSnapshot, period, totalConsultsSnapshot, reportCountSnapshot, yearFilter, monthFilter), 50);
+  setTimeout(() => buildHealthScore(aggSnapshot, period, totalConsultsSnapshot, reportCountSnapshot, yearFilter, monthFilter).catch(e => console.error('buildHealthScore error:', e)), 50);
 
   // Trend chart title
   const trendTitles = {current:'Consultations by type',ytd:'Total consultations — YTD',prev:'Total consultations — prior year',all:'Total consultations — all time'};
