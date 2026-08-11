@@ -1692,6 +1692,9 @@ async function loadMinistryPeriodData(ministryId, period) {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
 
+  // Declare filters at function scope so they're accessible to setTimeout callbacks
+  let yearFilter = null, monthFilter = null;
+
   // Parse specific month period (format: "month:2026:3")
   let specificYear = null, specificMonth = null;
   if (period && period.startsWith('month:')) {
@@ -1733,7 +1736,7 @@ async function loadMinistryPeriodData(ministryId, period) {
     }];
   } else {
     // Build date filter based on period
-    let yearFilter = null, monthFilter = null, yearFrom = null;
+    let yearFrom = null;
 
     if (specificYear && specificMonth) {
       yearFilter = specificYear; monthFilter = specificMonth;
