@@ -1519,7 +1519,7 @@ function showMinistryDetail(id, period) {
             <div class="card" style="padding:14px;">
               <div style="font-size:13px;font-weight:500;margin-bottom:10px;" id="dp-trend-title">Consultation trend</div>
               <div style="position:relative;height:170px;"><canvas id="dc1"></canvas></div>
-              <div id="dc1-trend-container" style="display:none;position:relative;height:120px;margin-top:10px;border-top:0.5px solid var(--border);padding-top:10px;">
+              <div id="dc1-trend-container" style="display:none;position:relative;height:150px;margin-top:10px;border-top:0.5px solid var(--border);padding-top:10px;">
                 <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Trend — past months</div>
                 <canvas id="dc1-trend"></canvas>
               </div>
@@ -1938,26 +1938,47 @@ async function loadMinistryPeriodData(ministryId, period) {
         if (trendContainer) trendContainer.style.display = 'block';
         const trailing = getTrailing6Months();
         const trendVals = [], trendLabels = [];
-        for (const {y, m, label} of trailing) {
+        for (const mo of trailing) {
+          const {y, m, label} = mo;
           const {data} = await sb.from('monthly_reports')
             .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual)')
             .eq('ministry_id', ministryId).eq('report_year', y).eq('report_month', m);
           const cs = data?.[0]?.clinical_stats;
-          const total = cs ? (cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0) : null;
-          trendVals.push(total);
+          if (cs) {
+            mo._clinic    = cs.consult_clinic    || 0;
+            mo._community = cs.consult_community || 0;
+            mo._dental    = cs.consult_dental    || 0;
+            mo._spiritual = cs.consult_spiritual || 0;
+            trendVals.push((cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0));
+          } else {
+            mo._clinic = mo._community = mo._dental = mo._spiritual = null;
+            trendVals.push(null);
+          }
           trendLabels.push(label);
         }
         const trendCtx = document.getElementById('dc1-trend');
         if (trendCtx) {
+          // Build per-type datasets from fetched data
+          const clinicVals = [], commVals = [], dentalVals = [], spiritVals = [];
+          trendVals.forEach((_, i) => {
+            clinicVals.push(_ !== null ? trailing[i]._clinic : null);
+            commVals.push(_ !== null ? trailing[i]._community : null);
+            dentalVals.push(_ !== null ? trailing[i]._dental : null);
+            spiritVals.push(_ !== null ? trailing[i]._spiritual : null);
+          });
           detailCharts.push(new Chart(trendCtx, {
             type: 'line',
-            data: { labels: trendLabels, datasets: [{ label: 'Total consultations', data: trendVals,
-              borderColor: '#534AB7', backgroundColor: 'rgba(83,74,183,0.08)',
-              fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2,
-              spanGaps: false }] },
+            data: { labels: trendLabels, datasets: [
+              { label: 'Clinic',     data: clinicVals,  borderColor:'#534AB7', backgroundColor:'rgba(83,74,183,0)',  tension:0.4, pointRadius:3, borderWidth:2, spanGaps:true },
+              { label: 'Community', data: commVals,   borderColor:'#1D9E75', backgroundColor:'rgba(29,158,117,0)',  tension:0.4, pointRadius:3, borderWidth:2, spanGaps:true },
+              { label: 'Dental',    data: dentalVals,  borderColor:'#EF9F27', backgroundColor:'rgba(239,159,39,0)',  tension:0.4, pointRadius:3, borderWidth:2, spanGaps:true },
+              { label: 'Spiritual', data: spiritVals,  borderColor:'#AFA9EC', backgroundColor:'rgba(175,169,236,0)', tension:0.4, pointRadius:3, borderWidth:2, spanGaps:true },
+            ]},
             options: { responsive: true, maintainAspectRatio: false,
-              plugins: { legend: { display: false },
-                tooltip: { callbacks: { label: c => c.parsed.y != null ? 'Consultations: ' + c.parsed.y : 'No data' }}},
+              plugins: {
+                legend: { display: true, labels: { font: { size: 10 }, color: '#888780', boxWidth: 12, boxHeight: 2, padding: 8 }},
+                tooltip: { callbacks: { label: c => c.dataset.label + ': ' + (c.parsed.y != null ? c.parsed.y : 'No data') }}
+              },
               scales: {
                 x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#888780' }},
                 y: { min: 0, grid: { color: 'rgba(136,135,128,0.12)' },
