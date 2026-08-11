@@ -1891,7 +1891,7 @@ async function loadMinistryPeriodData(ministryId, period) {
   const aggSnapshot = JSON.parse(JSON.stringify(agg));
   const totalConsultsSnapshot = totalConsults;
   const reportCountSnapshot = reportCount;
-  setTimeout(() => buildHealthScore(aggSnapshot, period, totalConsultsSnapshot, reportCountSnapshot), 50);
+  setTimeout(() => buildHealthScore(aggSnapshot, period, totalConsultsSnapshot, reportCountSnapshot, yearFilter, monthFilter), 50);
 
   // Trend chart title
   const trendTitles = {current:'Consultations by type',ytd:'Total consultations — YTD',prev:'Total consultations — prior year',all:'Total consultations — all time'};
@@ -5628,7 +5628,7 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
 
 // ── MINISTRY HEALTH SCORE ──
 
-async function buildHealthScore(agg, period, totalConsults, reportCount) {
+async function buildHealthScore(agg, period, totalConsults, reportCount, latestYear, latestMonth) {
   const container = document.getElementById('dp-health-score');
   if (!container) return;
 
@@ -5648,7 +5648,7 @@ async function buildHealthScore(agg, period, totalConsults, reportCount) {
     lsDependency:   { val: lsDependency,      trend: 'down', label: 'Decreasing (vs prior month)' },
     charityRate:    { val: charityRate,        trend: 'flat', label: 'Stable (vs prior month)' },
     communityReach: { val: communityReachDemo, trend: 'up',   label: 'Growing (vs prior month)' },
-  } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period, totalConsults, yearFilter, monthFilter);
+  } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period, totalConsults, latestYear, latestMonth);
 
   const trendIcon = (t, metric) => {
     // For cost per patient: down is good (green), up is bad (red)
