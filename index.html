@@ -1524,10 +1524,14 @@ function showMinistryDetail(id, period) {
                 <canvas id="dc1-trend"></canvas>
               </div>
             </div>
-            <div class="card" style="padding:14px;">
+            <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:0;">
               <div style="font-size:13px;font-weight:500;margin-bottom:10px;">Payment methods</div>
               <div style="position:relative;height:130px;"><canvas id="dc2"></canvas></div>
               <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;" id="dp-pay-legend"></div>
+              <div id="dc3-container" style="display:none;margin-top:14px;padding-top:12px;border-top:0.5px solid var(--border);">
+                <div style="font-size:13px;font-weight:500;margin-bottom:8px;">Lab &amp; pharmacy — past months</div>
+                <div style="position:relative;height:130px;"><canvas id="dc3"></canvas></div>
+              </div>
             </div>
           </div>
 
@@ -2024,6 +2028,43 @@ async function loadMinistryPeriodData(ministryId, period) {
       data:{labels:['Full pay','Subsidized','Charity'],datasets:[{data:[agg.pay_full,agg.pay_partial,agg.pay_charity],backgroundColor:['#534AB7','#1D9E75','#AFA9EC'],borderWidth:0}]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'62%'}
     }));
+
+    // Lab & pharmacy trend chart (shown in current/latest view)
+    const dc3Container = document.getElementById('dc3-container');
+    const dc3Ctx = document.getElementById('dc3');
+    if (dc3Container && dc3Ctx && (period === 'current' || period.startsWith('month:'))) {
+      if (!DEMO_MODE && sb) {
+        dc3Container.style.display = 'block';
+        const trailing2 = getTrailing6Months();
+        const labVals = [], pharmVals = [], dc3Labels = [];
+        for (const {y, m, label} of trailing2) {
+          const {data} = await sb.from('monthly_reports')
+            .select('clinical_stats(services_lab, services_pharmacy)')
+            .eq('ministry_id', ministryId).eq('report_year', y).eq('report_month', m);
+          const cs = data?.[0]?.clinical_stats;
+          labVals.push(cs ? (cs.services_lab || 0) : null);
+          pharmVals.push(cs ? (cs.services_pharmacy || 0) : null);
+          dc3Labels.push(label);
+        }
+        detailCharts.push(new Chart(dc3Ctx, {
+          type: 'line',
+          data: { labels: dc3Labels, datasets: [
+            { label: 'Lab tests',        data: labVals,   borderColor:'#185FA5', backgroundColor:'rgba(24,95,165,0)',  tension:0.4, pointRadius:3, borderWidth:2, spanGaps:true },
+            { label: 'Pharmacy patients',data: pharmVals, borderColor:'#1D9E75', backgroundColor:'rgba(29,158,117,0)', tension:0.4, pointRadius:3, borderWidth:2, spanGaps:true },
+          ]},
+          options: { responsive:true, maintainAspectRatio:false,
+            plugins: { legend: { display:true, labels:{ font:{size:10}, color:'#888780', boxWidth:12, boxHeight:2, padding:6 }},
+              tooltip: { callbacks: { label: c => c.dataset.label + ': ' + (c.parsed.y != null ? c.parsed.y : 'No data') }}},
+            scales: {
+              x: { grid:{display:false}, ticks:{font:{size:10},color:'#888780'} },
+              y: { min:0, grid:{color:'rgba(136,135,128,0.12)'}, ticks:{font:{size:10},color:'#888780'} }
+            }
+          }
+        }));
+      }
+    } else if (dc3Container) {
+      dc3Container.style.display = 'none';
+    }
   }, 80);
 }
 
