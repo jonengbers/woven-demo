@@ -2051,17 +2051,15 @@ async function loadFinancialDetail(ministryId, period) {
       .order('report_month', { ascending: true });
 
     if (finSpecificYear && finSpecificMonth) {
+      // Specific month: only that month for the charts, but fetch all for comparison
+      // We'll filter the chart display but keep all months available for comparison
       mrQuery = mrQuery.eq('report_year', finSpecificYear).eq('report_month', finSpecificMonth);
-    } else if (period === 'current') {
-      // Use most recent report rather than current calendar month
-      mrQuery = mrQuery.order('report_year', { ascending: false })
-                       .order('report_month', { ascending: false })
-                       .limit(1);
     } else if (period === 'ytd') {
       mrQuery = mrQuery.eq('report_year', now.getFullYear());
     } else if (period === 'prev') {
       mrQuery = mrQuery.eq('report_year', now.getFullYear()-1);
     }
+    // For 'current' and 'all': fetch all reports so comparison tool has full history
 
     const { data: mrData, error: mrError } = await mrQuery;
     if (mrError) throw mrError;
