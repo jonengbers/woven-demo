@@ -1519,6 +1519,10 @@ function showMinistryDetail(id, period) {
             <div class="card" style="padding:14px;">
               <div style="font-size:13px;font-weight:500;margin-bottom:10px;" id="dp-trend-title">Consultation trend</div>
               <div style="position:relative;height:170px;"><canvas id="dc1"></canvas></div>
+              <div id="dc1-trend-container" style="display:none;position:relative;height:120px;margin-top:10px;border-top:0.5px solid var(--border);padding-top:10px;">
+                <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Trend — past months</div>
+                <canvas id="dc1-trend"></canvas>
+              </div>
             </div>
             <div class="card" style="padding:14px;">
               <div style="font-size:13px;font-weight:500;margin-bottom:10px;">Payment methods</div>
@@ -1928,7 +1932,45 @@ async function loadMinistryPeriodData(ministryId, period) {
           plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.label+': '+ctx.parsed.y.toLocaleString()}}},
           scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#888780'}},y:{min:0,grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780'}}}}
       }));
+      // Also show trailing trend for context
+      if (!DEMO_MODE && sb) {
+        const trendContainer = document.getElementById('dc1-trend-container');
+        if (trendContainer) trendContainer.style.display = 'block';
+        const trailing = getTrailing6Months();
+        const trendVals = [], trendLabels = [];
+        for (const {y, m, label} of trailing) {
+          const {data} = await sb.from('monthly_reports')
+            .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual)')
+            .eq('ministry_id', ministryId).eq('report_year', y).eq('report_month', m);
+          const cs = data?.[0]?.clinical_stats;
+          const total = cs ? (cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0) : null;
+          trendVals.push(total);
+          trendLabels.push(label);
+        }
+        const trendCtx = document.getElementById('dc1-trend');
+        if (trendCtx) {
+          detailCharts.push(new Chart(trendCtx, {
+            type: 'line',
+            data: { labels: trendLabels, datasets: [{ label: 'Total consultations', data: trendVals,
+              borderColor: '#534AB7', backgroundColor: 'rgba(83,74,183,0.08)',
+              fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2,
+              spanGaps: false }] },
+            options: { responsive: true, maintainAspectRatio: false,
+              plugins: { legend: { display: false },
+                tooltip: { callbacks: { label: c => c.parsed.y != null ? 'Consultations: ' + c.parsed.y : 'No data' }}},
+              scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#888780' }},
+                y: { min: 0, grid: { color: 'rgba(136,135,128,0.12)' },
+                  ticks: { font: { size: 10 }, color: '#888780' }}
+              }
+            }
+          }));
+        }
+      }
     } else if (!DEMO_MODE && sb) {
+      // Hide the trailing trend container for non-current periods
+      const trendContainer = document.getElementById('dc1-trend-container');
+      if (trendContainer) trendContainer.style.display = 'none';
       // Fetch monthly trend for line chart
       const trailing = getTrailing6Months();
       let months;
