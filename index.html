@@ -5630,6 +5630,7 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
 
 async function buildHealthScore(agg, period, totalConsults, reportCount, latestYear, latestMonth) {
   const container = document.getElementById('dp-health-score');
+  console.log('buildHealthScore called, container:', !!container, 'agg.total_consultations:', agg?.total_consultations, 'totalConsults:', totalConsults, 'pay_full:', agg?.pay_full);
   if (!container) return;
 
   // Calculate key ratios
