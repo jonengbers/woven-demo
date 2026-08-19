@@ -1863,6 +1863,8 @@ async function loadMinistryPeriodData(ministryId, period) {
       <div class="dp-stat-val">${totalConsults.toLocaleString()}</div>
       <div style="font-size:11px;color:var(--text2);margin-top:3px;">${periodLabel}${reportCount > 1 ? ' · '+reportCount+' reports' : ''}</div>
     </div>
+    <div class="dp-stat"><div class="dp-stat-label">Pharmacy patients</div><div class="dp-stat-val">${agg.services_pharmacy.toLocaleString()}</div></div>
+    <div class="dp-stat"><div class="dp-stat-label">Lab tests</div><div class="dp-stat-val">${agg.services_lab.toLocaleString()}</div></div>
     <div class="dp-stat">
       <div class="dp-stat-label">Total income (USD)</div>
       <div class="dp-stat-val">$${Math.round(agg.total_income_usd).toLocaleString()}</div>
@@ -1875,12 +1877,10 @@ async function loadMinistryPeriodData(ministryId, period) {
     </div>
     <div class="dp-stat" style="${bal<500?'border-color:#E24B4A;':''}">
       <div class="dp-stat-label">Ending cash balance</div>
-      <div class="dp-stat-val" style="${bal<500?'color:#A32D2D;':''}">⚠ ':''}$${Math.round(bal).toLocaleString()}</div>
+      <div class="dp-stat-val" style="${bal<500?'color:#A32D2D;':''}">${bal<500?'⚠ ':''}$${Math.round(bal).toLocaleString()}</div>
       ${agg.local_currency && agg.exchange_rate ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${Math.round(bal * agg.exchange_rate).toLocaleString()} ${agg.local_currency}</div>` : ''}
     </div>
-    <div class="dp-stat-sm"><div class="dp-stat-label">Pharmacy patients</div><div class="dp-stat-val">${agg.services_pharmacy.toLocaleString()}</div></div>
-    <div class="dp-stat-sm"><div class="dp-stat-label">Lab tests</div><div class="dp-stat-val">${agg.services_lab.toLocaleString()}</div></div>
-    ${agg.exchange_rate ? `<div class="dp-stat-sm"><div class="dp-stat-label">Exchange rate</div><div class="dp-stat-val">${parseFloat(agg.exchange_rate).toFixed(2)} ${agg.local_currency||''}/USD</div></div>` : ''}`;
+    ${agg.exchange_rate ? `<div style="grid-column:span 3;font-size:11px;color:var(--text2);padding:2px 4px;">Exchange rate: 1 USD = ${parseFloat(agg.exchange_rate).toFixed(4)} ${agg.local_currency||''}</div>` : ''}`;
 
   // Add LS support to stats
   // Community outreach stats
@@ -1909,7 +1909,7 @@ async function loadMinistryPeriodData(ministryId, period) {
       ].filter(x => x.val > 0);
       commItems.forEach(({val, label}) => {
         const card = document.createElement('div');
-        card.className = 'dp-stat-sm';
+        card.className = 'dp-stat';
         card.innerHTML = `
           <div class="dp-stat-label">${label}</div>
           <div class="dp-stat-val">${val.toLocaleString()}</div>`;
