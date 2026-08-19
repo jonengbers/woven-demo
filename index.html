@@ -1775,7 +1775,8 @@ async function loadMinistryPeriodData(ministryId, period) {
         .select(`
           clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual,
             services_lab,services_pharmacy,proc_surgeries,proc_deliveries,
-            pay_full,pay_partial,pay_charity),
+            pay_full,pay_partial,pay_charity,
+            comm_meetings,comm_health_ed,comm_spiritual_ed,comm_prenatal,comm_health_workers),
           financial_summary(total_income_usd,total_expenses_usd,ending_balance_usd,luke_society_support_usd,total_income_local,exchange_rate,local_currency)
         `)
         .eq('ministry_id', ministryId);
@@ -1906,7 +1907,8 @@ async function loadMinistryPeriodData(ministryId, period) {
         ${commPrenatal  ? `<div><div style="font-size:18px;font-weight:600;">${commPrenatal.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);">Prenatal care</div></div>` : ''}
         ${commWorkers   ? `<div><div style="font-size:18px;font-weight:600;">${commWorkers.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);">Health workers trained</div></div>` : ''}
       </div>`;
-    statsEl.appendChild(commCard);
+    const commStatsEl = document.getElementById('dp-stats');
+    if (commStatsEl) commStatsEl.appendChild(commCard);
   }
 
   // Append LS support card to dp-stats
