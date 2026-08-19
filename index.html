@@ -115,6 +115,9 @@ button:hover{background:var(--surface2);}
 .dp-stat{background:var(--surface);border-radius:var(--r-md);padding:10px 12px;border:0.5px solid var(--border);}
 .dp-stat-label{font-size:11px;color:var(--text2);margin-bottom:3px;}
 .dp-stat-val{font-size:18px;font-weight:600;}
+.dp-stat-sm{background:var(--surface2);border-radius:var(--r-md);padding:7px 10px;border:0.5px solid var(--border);}
+.dp-stat-sm .dp-stat-label{font-size:10px;color:var(--text2);margin-bottom:1px;}
+.dp-stat-sm .dp-stat-val{font-size:14px;font-weight:600;}
 
 /* ── COMPARE ── */
 .cmp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
@@ -1855,9 +1858,11 @@ async function loadMinistryPeriodData(ministryId, period) {
   // Render stats
   const bal = agg.ending_balance_usd;
   document.getElementById('dp-stats').innerHTML = `
-    <div class="dp-stat"><div class="dp-stat-label">Total consultations</div><div class="dp-stat-val">${totalConsults.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);margin-top:3px;">${periodLabel}${reportCount > 1 ? ' · '+reportCount+' reports' : ''}</div></div>
-    <div class="dp-stat"><div class="dp-stat-label">Pharmacy patients</div><div class="dp-stat-val">${agg.services_pharmacy.toLocaleString()}</div></div>
-    <div class="dp-stat"><div class="dp-stat-label">Lab tests</div><div class="dp-stat-val">${agg.services_lab.toLocaleString()}</div></div>
+    <div class="dp-stat">
+      <div class="dp-stat-label">Total consultations</div>
+      <div class="dp-stat-val">${totalConsults.toLocaleString()}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:3px;">${periodLabel}${reportCount > 1 ? ' · '+reportCount+' reports' : ''}</div>
+    </div>
     <div class="dp-stat">
       <div class="dp-stat-label">Total income (USD)</div>
       <div class="dp-stat-val">$${Math.round(agg.total_income_usd).toLocaleString()}</div>
@@ -1868,16 +1873,14 @@ async function loadMinistryPeriodData(ministryId, period) {
       <div class="dp-stat-val">$${Math.round(agg.total_expenses_usd).toLocaleString()}</div>
       ${agg.local_currency && agg.exchange_rate ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${Math.round(agg.total_expenses_usd * agg.exchange_rate).toLocaleString()} ${agg.local_currency}</div>` : ''}
     </div>
-    ${agg.exchange_rate ? `<div class="dp-stat" style="background:transparent;border-color:var(--border);">
-      <div class="dp-stat-label">Exchange rate</div>
-      <div style="font-size:15px;font-weight:600;color:var(--text);">1 USD = ${parseFloat(agg.exchange_rate).toFixed(4)} ${agg.local_currency||''}</div>
-      <div style="font-size:11px;color:var(--text2);margin-top:2px;">Used for currency conversion</div>
-    </div>` : ''}
     <div class="dp-stat" style="${bal<500?'border-color:#E24B4A;':''}">
       <div class="dp-stat-label">Ending cash balance</div>
-      <div class="dp-stat-val" style="${bal<500?'color:#A32D2D;':''}">${bal<500?'⚠ ':''}$${Math.round(bal).toLocaleString()}</div>
+      <div class="dp-stat-val" style="${bal<500?'color:#A32D2D;':''}">⚠ ':''}$${Math.round(bal).toLocaleString()}</div>
       ${agg.local_currency && agg.exchange_rate ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${Math.round(bal * agg.exchange_rate).toLocaleString()} ${agg.local_currency}</div>` : ''}
-    </div>`;
+    </div>
+    <div class="dp-stat-sm"><div class="dp-stat-label">Pharmacy patients</div><div class="dp-stat-val">${agg.services_pharmacy.toLocaleString()}</div></div>
+    <div class="dp-stat-sm"><div class="dp-stat-label">Lab tests</div><div class="dp-stat-val">${agg.services_lab.toLocaleString()}</div></div>
+    ${agg.exchange_rate ? `<div class="dp-stat-sm"><div class="dp-stat-label">Exchange rate</div><div class="dp-stat-val">${parseFloat(agg.exchange_rate).toFixed(2)} ${agg.local_currency||''}/USD</div></div>` : ''}`;
 
   // Add LS support to stats
   // Community outreach stats
@@ -1906,7 +1909,7 @@ async function loadMinistryPeriodData(ministryId, period) {
       ].filter(x => x.val > 0);
       commItems.forEach(({val, label}) => {
         const card = document.createElement('div');
-        card.className = 'dp-stat';
+        card.className = 'dp-stat-sm';
         card.innerHTML = `
           <div class="dp-stat-label">${label}</div>
           <div class="dp-stat-val">${val.toLocaleString()}</div>`;
