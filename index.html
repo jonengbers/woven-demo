@@ -1801,6 +1801,8 @@ async function loadMinistryPeriodData(ministryId, period) {
     total_income_usd: 0, total_expenses_usd: 0,
     ending_balance_usd: 0, luke_society_support_usd: 0,
     total_income_local: 0, exchange_rate: null, local_currency: null,
+    comm_meetings: 0, comm_health_ed: 0, comm_spiritual_ed: 0,
+    comm_prenatal: 0, comm_health_workers: 0,
   };
 
   if (DEMO_MODE) {
@@ -1821,6 +1823,11 @@ async function loadMinistryPeriodData(ministryId, period) {
         agg.pay_full           += cs.pay_full||0;
         agg.pay_partial        += cs.pay_partial||0;
         agg.pay_charity        += cs.pay_charity||0;
+        agg.comm_meetings      += cs.comm_meetings||0;
+        agg.comm_health_ed     += cs.comm_health_ed||0;
+        agg.comm_spiritual_ed  += cs.comm_spiritual_ed||0;
+        agg.comm_prenatal      += cs.comm_prenatal||0;
+        agg.comm_health_workers+= cs.comm_health_workers||0;
       }
       if (fs) {
         agg.total_income_usd        += parseFloat(fs.total_income_usd)||0;
@@ -1860,6 +1867,11 @@ async function loadMinistryPeriodData(ministryId, period) {
       <div class="dp-stat-val">$${Math.round(agg.total_expenses_usd).toLocaleString()}</div>
       ${agg.local_currency && agg.exchange_rate ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${Math.round(agg.total_expenses_usd * agg.exchange_rate).toLocaleString()} ${agg.local_currency}</div>` : ''}
     </div>
+    ${agg.exchange_rate ? `<div class="dp-stat" style="background:transparent;border-color:var(--border);">
+      <div class="dp-stat-label">Exchange rate</div>
+      <div style="font-size:15px;font-weight:600;color:var(--text);">1 USD = ${parseFloat(agg.exchange_rate).toFixed(4)} ${agg.local_currency||''}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px;">Used for currency conversion</div>
+    </div>` : ''}
     <div class="dp-stat" style="${bal<500?'border-color:#E24B4A;':''}">
       <div class="dp-stat-label">Ending cash balance</div>
       <div class="dp-stat-val" style="${bal<500?'color:#A32D2D;':''}">${bal<500?'⚠ ':''}$${Math.round(bal).toLocaleString()}</div>
@@ -1867,10 +1879,35 @@ async function loadMinistryPeriodData(ministryId, period) {
     </div>`;
 
   // Add LS support to stats
+  // Community outreach stats
+  const commMeetings = agg.comm_meetings || 0;
+  const commHealthEd = agg.comm_health_ed || 0;
+  const commSpiritEd = agg.comm_spiritual_ed || 0;
+  const commPrenatal = agg.comm_prenatal || 0;
+  const commWorkers  = agg.comm_health_workers || 0;
+  const hasCommData  = commMeetings + commHealthEd + commSpiritEd + commPrenatal + commWorkers > 0;
+
   const lsSupport = agg.luke_society_support_usd || 0;
   const totalIncome = agg.total_income_usd || 0;
   const lsPct = totalIncome > 0 ? Math.round(lsSupport / totalIncome * 100) : 0;
   const selfSustainPct = 100 - lsPct;
+
+  // Community outreach card
+  if (hasCommData) {
+    const commCard = document.createElement('div');
+    commCard.className = 'dp-stat';
+    commCard.style.gridColumn = 'span 2';
+    commCard.innerHTML = `
+      <div class="dp-stat-label">Community outreach</div>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:4px;">
+        ${commMeetings  ? `<div><div style="font-size:18px;font-weight:600;">${commMeetings.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);">Community meetings</div></div>` : ''}
+        ${commHealthEd  ? `<div><div style="font-size:18px;font-weight:600;">${commHealthEd.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);">Health education</div></div>` : ''}
+        ${commSpiritEd  ? `<div><div style="font-size:18px;font-weight:600;">${commSpiritEd.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);">Spiritual education</div></div>` : ''}
+        ${commPrenatal  ? `<div><div style="font-size:18px;font-weight:600;">${commPrenatal.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);">Prenatal care</div></div>` : ''}
+        ${commWorkers   ? `<div><div style="font-size:18px;font-weight:600;">${commWorkers.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);">Health workers trained</div></div>` : ''}
+      </div>`;
+    statsEl.appendChild(commCard);
+  }
 
   // Append LS support card to dp-stats
   setTimeout(() => {
@@ -1942,10 +1979,11 @@ async function loadMinistryPeriodData(ministryId, period) {
         if (trendContainer) trendContainer.style.display = 'block';
         const trailing = getTrailing6Months();
         const trendVals = [], trendLabels = [];
+        const xrayV = [], labV = [], pharmV = [];
         for (const mo of trailing) {
           const {y, m, label} = mo;
           const {data} = await sb.from('monthly_reports')
-            .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual)')
+            .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual,services_lab,services_pharmacy,services_xray)')
             .eq('ministry_id', ministryId).eq('report_year', y).eq('report_month', m);
           const cs = data?.[0]?.clinical_stats;
           if (cs) {
@@ -1953,9 +1991,13 @@ async function loadMinistryPeriodData(ministryId, period) {
             mo._community = cs.consult_community || 0;
             mo._dental    = cs.consult_dental    || 0;
             mo._spiritual = cs.consult_spiritual || 0;
+            labV.push(cs.services_lab||0);
+            pharmV.push(cs.services_pharmacy||0);
+            xrayV.push(cs.services_xray||0);
             trendVals.push((cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0));
           } else {
             mo._clinic = mo._community = mo._dental = mo._spiritual = null;
+            labV.push(null); pharmV.push(null); xrayV.push(null);
             trendVals.push(null);
           }
           trendLabels.push(label);
@@ -2009,10 +2051,10 @@ async function loadMinistryPeriodData(ministryId, period) {
       }
 
       // Fetch per-type consultation data for all months
-      const clinicV=[], commV=[], dentalV=[], spiritV=[], labV=[], pharmV=[];
+      const clinicV=[], commV=[], dentalV=[], spiritV=[], labV=[], pharmV=[], xrayV=[];
       for (const mo of months) {
         const {data} = await sb.from('monthly_reports')
-          .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual,services_lab,services_pharmacy)')
+          .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual,services_lab,services_pharmacy,services_xray)')
           .eq('ministry_id', ministryId).eq('report_year', mo.y).eq('report_month', mo.m);
         const cs = data?.[0]?.clinical_stats;
         clinicV.push(cs ? cs.consult_clinic||0 : null);
@@ -2053,6 +2095,7 @@ async function loadMinistryPeriodData(ministryId, period) {
           data: { labels: mLabels, datasets: [
             { label:'Lab tests',         data:labV,   borderColor:'#185FA5', backgroundColor:'rgba(24,95,165,0)',  tension:0.4, pointRadius:3, borderWidth:2, spanGaps:true },
             { label:'Pharmacy patients', data:pharmV, borderColor:'#1D9E75', backgroundColor:'rgba(29,158,117,0)', tension:0.4, pointRadius:3, borderWidth:2, spanGaps:true },
+            { label:'X-rays',            data:xrayV,  borderColor:'#A32D2D', backgroundColor:'rgba(163,45,45,0)',  tension:0.4, pointRadius:3, borderWidth:2, spanGaps:true },
           ]},
           options: { responsive:true, maintainAspectRatio:false,
             plugins: { legend:{ display:true, labels:{ font:{size:10}, color:'#888780', boxWidth:12, boxHeight:2, padding:6 }},
@@ -2079,14 +2122,15 @@ async function loadMinistryPeriodData(ministryId, period) {
       if (!DEMO_MODE && sb) {
         dc3Container.style.display = 'block';
         const trailing2 = getTrailing6Months();
-        const labVals = [], pharmVals = [], dc3Labels = [];
+        const labVals = [], pharmVals = [], xrayVals = [], dc3Labels = [];
         for (const {y, m, label} of trailing2) {
           const {data} = await sb.from('monthly_reports')
-            .select('clinical_stats(services_lab, services_pharmacy)')
+            .select('clinical_stats(services_lab, services_pharmacy, services_xray)')
             .eq('ministry_id', ministryId).eq('report_year', y).eq('report_month', m);
           const cs = data?.[0]?.clinical_stats;
           labVals.push(cs ? (cs.services_lab || 0) : null);
           pharmVals.push(cs ? (cs.services_pharmacy || 0) : null);
+          xrayVals.push(cs ? (cs.services_xray || 0) : null);
           dc3Labels.push(label);
         }
         detailCharts.push(new Chart(dc3Ctx, {
@@ -2094,6 +2138,7 @@ async function loadMinistryPeriodData(ministryId, period) {
           data: { labels: dc3Labels, datasets: [
             { label: 'Lab tests',        data: labVals,   borderColor:'#185FA5', backgroundColor:'rgba(24,95,165,0)',  tension:0.4, pointRadius:3, borderWidth:2, spanGaps:true },
             { label: 'Pharmacy patients',data: pharmVals, borderColor:'#1D9E75', backgroundColor:'rgba(29,158,117,0)', tension:0.4, pointRadius:3, borderWidth:2, spanGaps:true },
+            { label: 'X-rays',           data: xrayVals,  borderColor:'#A32D2D', backgroundColor:'rgba(163,45,45,0)',  tension:0.4, pointRadius:3, borderWidth:2, spanGaps:true },
           ]},
           options: { responsive:true, maintainAspectRatio:false,
             plugins: { legend: { display:true, labels:{ font:{size:10}, color:'#888780', boxWidth:12, boxHeight:2, padding:6 }},
