@@ -1893,22 +1893,26 @@ async function loadMinistryPeriodData(ministryId, period) {
   const lsPct = totalIncome > 0 ? Math.round(lsSupport / totalIncome * 100) : 0;
   const selfSustainPct = 100 - lsPct;
 
-  // Community outreach card
+  // Community outreach — individual stat cards matching existing style
   if (hasCommData) {
-    const commCard = document.createElement('div');
-    commCard.className = 'dp-stat';
-    commCard.style.gridColumn = 'span 2';
-    commCard.innerHTML = `
-      <div class="dp-stat-label">Community outreach</div>
-      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:4px;">
-        ${commMeetings  ? `<div><div style="font-size:18px;font-weight:600;">${commMeetings.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);">Community meetings</div></div>` : ''}
-        ${commHealthEd  ? `<div><div style="font-size:18px;font-weight:600;">${commHealthEd.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);">Health education</div></div>` : ''}
-        ${commSpiritEd  ? `<div><div style="font-size:18px;font-weight:600;">${commSpiritEd.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);">Spiritual education</div></div>` : ''}
-        ${commPrenatal  ? `<div><div style="font-size:18px;font-weight:600;">${commPrenatal.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);">Prenatal care</div></div>` : ''}
-        ${commWorkers   ? `<div><div style="font-size:18px;font-weight:600;">${commWorkers.toLocaleString()}</div><div style="font-size:11px;color:var(--text2);">Health workers trained</div></div>` : ''}
-      </div>`;
     const commStatsEl = document.getElementById('dp-stats');
-    if (commStatsEl) commStatsEl.appendChild(commCard);
+    if (commStatsEl) {
+      const commItems = [
+        { val: commHealthEd,  label: 'Health education' },
+        { val: commSpiritEd,  label: 'Spiritual education' },
+        { val: commMeetings,  label: 'Community meetings' },
+        { val: commPrenatal,  label: 'Prenatal care' },
+        { val: commWorkers,   label: 'Health workers trained' },
+      ].filter(x => x.val > 0);
+      commItems.forEach(({val, label}) => {
+        const card = document.createElement('div');
+        card.className = 'dp-stat';
+        card.innerHTML = `
+          <div class="dp-stat-label">${label}</div>
+          <div class="dp-stat-val">${val.toLocaleString()}</div>`;
+        commStatsEl.appendChild(card);
+      });
+    }
   }
 
   // Append LS support card to dp-stats
