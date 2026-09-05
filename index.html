@@ -5685,13 +5685,15 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
     let comparisonLabel = '';
 
     if (period === 'current') {
-      // Compare vs month prior to the latest report (not prior to calendar month)
+      // Compare vs 3-month rolling average to smooth quarterly LS payments
+      // and avoid single-month anomalies distorting trend arrows
       const latestYear = latestReportYear || currentYear;
       const latestMonth = latestReportMonth || currentMonth;
-      const priorDate = new Date(latestYear, latestMonth - 2, 1);
-      priorMonths.push({ y: priorDate.getFullYear(), m: priorDate.getMonth() + 1 });
-      const priorMonthName = priorDate.toLocaleString('default', { month: 'long' });
-      comparisonLabel = 'vs ' + priorMonthName;
+      for (let i = 1; i <= 3; i++) {
+        const d = new Date(latestYear, latestMonth - 1 - i, 1);
+        priorMonths.push({ y: d.getFullYear(), m: d.getMonth() + 1 });
+      }
+      comparisonLabel = 'vs 3-month avg';
     } else if (period === 'ytd') {
       // Check if prior year data exists first
       const { count: priorYTDCount } = await sb
@@ -5933,7 +5935,7 @@ async function buildHealthScore(agg, period, totalConsults, reportCount, latestY
         }).join('')}
       </div>
       <div style="margin-top:12px;padding:10px 12px;background:var(--purple-l);border-radius:var(--r-md);font-size:12px;color:var(--purple-d);line-height:1.6;">
-        <strong>Note:</strong> Trend arrows reflect direction relative to prior period. These indicators are guides for conversation, not targets — a high charity rate is a sign of mission faithfulness, not inefficiency. Self-sustainability is a long-term journey measured in years, not months.
+        <strong>Note:</strong> Trend arrows reflect direction relative to prior period. These indicators are guides for conversation, not targets — a high charity rate is a sign of mission faithfulness, not inefficiency. Trend arrows compare the latest month against the prior 3-month average to account for quarterly LS payments and normal variation.
       </div>
     </div>`;
 }
