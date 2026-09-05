@@ -5665,13 +5665,18 @@ document.addEventListener('click', function(e) {
 
 
 
-async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period, totalConsults, latestReportYear, latestReportMonth) {
+async function fetchTrendComparison(agg, totalPatients, costPerPatientIn, lsDependencyIn, charityRateIn, period, totalConsultsIn, latestReportYear, latestReportMonth) {
+  // Use let so we can override with rolling averages below
+  let costPerPatient = costPerPatientIn;
+  let lsDependency   = lsDependencyIn;
+  let charityRate    = charityRateIn;
+  let totalConsults  = totalConsultsIn;
   // Default to flat if we can't compare
-  const communityReachVal = totalPatients > 0 ? Math.round((agg.consult_community||0) / Math.max(totalConsults,1) * 100) : 0;
+  const communityReachVal = totalPatients > 0 ? Math.round((agg.consult_community||0) / Math.max(totalConsultsIn,1) * 100) : 0;
   const flat = {
-    costPerPatient: { val: costPerPatient,    trend: 'flat', label: 'Baseline (building history)' },
-    lsDependency:   { val: lsDependency,      trend: 'flat', label: 'Baseline (building history)' },
-    charityRate:    { val: charityRate,        trend: 'flat', label: 'Baseline (building history)' },
+    costPerPatient: { val: costPerPatientIn,  trend: 'flat', label: 'Baseline (building history)' },
+    lsDependency:   { val: lsDependencyIn,    trend: 'flat', label: 'Baseline (building history)' },
+    charityRate:    { val: charityRateIn,      trend: 'flat', label: 'Baseline (building history)' },
     communityReach: { val: communityReachVal,  trend: 'flat', label: 'Baseline (building history)' },
   };
   if (!sb || !currentDetailMinistryId) return flat;
@@ -5685,15 +5690,58 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
     let comparisonLabel = '';
 
     if (period === 'current') {
-      // Compare vs 3-month rolling average to smooth quarterly LS payments
-      // and avoid single-month anomalies distorting trend arrows
+      // Use 3-month rolling avg vs prior 3-month avg
+      // This smooths quarterly LS payments and single-month anomalies
       const latestYear = latestReportYear || currentYear;
       const latestMonth = latestReportMonth || currentMonth;
-      for (let i = 1; i <= 3; i++) {
+
+      // Current window: latest 3 months (including latest report month)
+      const currentWindow = [];
+      for (let i = 0; i < 3; i++) {
+        const d = new Date(latestYear, latestMonth - 1 - i, 1);
+        currentWindow.push({ y: d.getFullYear(), m: d.getMonth() + 1 });
+      }
+
+      // Prior window: 3 months before the current window
+      for (let i = 3; i < 6; i++) {
         const d = new Date(latestYear, latestMonth - 1 - i, 1);
         priorMonths.push({ y: d.getFullYear(), m: d.getMonth() + 1 });
       }
-      comparisonLabel = 'vs 3-month avg';
+      comparisonLabel = 'vs prior 3-month avg';
+
+      // Fetch current window data to compute smoothed current values
+      let currExpenses = 0, currIncome = 0, currLsSupport = 0;
+      let currPatients = 0, currCharity = 0, currConsults = 0, currCommunity = 0;
+      let currMonthsWithData = 0;
+      for (const {y, m} of currentWindow) {
+        const { data } = await sb.from('monthly_reports')
+          .select('financial_summary(total_expenses_usd,total_income_usd,luke_society_support_usd), clinical_stats(pay_full,pay_partial,pay_charity,consult_clinic,consult_community,consult_dental,consult_spiritual)')
+          .eq('ministry_id', currentDetailMinistryId)
+          .eq('report_year', y).eq('report_month', m);
+        (data||[]).forEach(r => {
+          currMonthsWithData++;
+          if (r.financial_summary) {
+            currExpenses   += parseFloat(r.financial_summary.total_expenses_usd)||0;
+            currIncome     += parseFloat(r.financial_summary.total_income_usd)||0;
+            currLsSupport  += parseFloat(r.financial_summary.luke_society_support_usd)||0;
+          }
+          if (r.clinical_stats) {
+            const cs = r.clinical_stats;
+            currPatients  += (cs.pay_full||0)+(cs.pay_partial||0)+(cs.pay_charity||0);
+            currCharity   += cs.pay_charity||0;
+            currConsults  += (cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0);
+            currCommunity += cs.consult_community||0;
+          }
+        });
+      }
+
+      // Override the passed-in single-month values with 3-month averages
+      if (currMonthsWithData > 0) {
+        costPerPatient = currPatients > 0 ? currExpenses / currPatients : costPerPatient;
+        lsDependency   = currIncome  > 0 ? Math.round(currLsSupport / currIncome * 100) : lsDependency;
+        charityRate    = currPatients > 0 ? Math.round(currCharity / currPatients * 100) : charityRate;
+        totalConsults  = currConsults;
+      }
     } else if (period === 'ytd') {
       // Check if prior year data exists first
       const { count: priorYTDCount } = await sb
@@ -5834,7 +5882,6 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatient, lsDepend
 
 async function buildHealthScore(agg, period, totalConsults, reportCount, latestYear, latestMonth) {
   const container = document.getElementById('dp-health-score');
-  console.log('buildHealthScore called, container:', !!container, 'agg.total_consultations:', agg?.total_consultations, 'totalConsults:', totalConsults, 'pay_full:', agg?.pay_full);
   if (!container) return;
 
   // Calculate key ratios
