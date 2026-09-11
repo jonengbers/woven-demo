@@ -5917,16 +5917,40 @@ async function buildHealthScore(agg, period, totalConsults, reportCount, latestY
   const lsDependency = Math.round((agg.luke_society_support_usd||0) / totalIncome * 100);
   const charityRate = totalPatients > 0 ? Math.round((agg.pay_charity||0) / totalPatients * 100) : 0;
 
+  // Always compute LS dependency from YTD data so it reflects
+  // the annual picture regardless of which period tab is active
+  let lsDependencyYTD = lsDependency;
+  if (!DEMO_MODE && sb && ministryId) {
+    try {
+      const now3 = new Date();
+      const { data: ytdData } = await sb.from('monthly_reports')
+        .select('financial_summary(total_income_usd,luke_society_support_usd)')
+        .eq('ministry_id', ministryId)
+        .eq('report_year', latestYear || now3.getFullYear());
+      if (ytdData && ytdData.length > 0) {
+        let ytdIncome = 0, ytdLS = 0;
+        ytdData.forEach(r => {
+          const fs = Array.isArray(r.financial_summary) ? r.financial_summary[0] : r.financial_summary;
+          if (fs) {
+            ytdIncome += parseFloat(fs.total_income_usd)||0;
+            ytdLS     += parseFloat(fs.luke_society_support_usd)||0;
+          }
+        });
+        if (ytdIncome > 0) lsDependencyYTD = Math.round(ytdLS / ytdIncome * 100);
+      }
+    } catch(e) { /* use single-month fallback */ }
+  }
+
   // For trend data we need historical comparison — use demo values or fetch
   // Trend arrows: up/down/flat based on comparison to prior period
   // In demo mode generate plausible trends
   const communityReachDemo = totalConsults > 0 ? Math.round((agg.consult_community||0) / totalConsults * 100) : 0;
   const trends = DEMO_MODE ? {
-    costPerPatient: { val: costPerPatient,    trend: 'down', label: 'Improving (vs prior month)' },
-    lsDependency:   { val: lsDependency,      trend: 'down', label: 'Decreasing (vs prior month)' },
-    charityRate:    { val: charityRate,        trend: 'flat', label: 'Stable (vs prior month)' },
-    communityReach: { val: communityReachDemo, trend: 'up',   label: 'Growing (vs prior month)' },
-  } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period, totalConsults, latestYear, latestMonth, ministryId);
+    costPerPatient: { val: costPerPatient,       trend: 'down', label: 'Improving (vs prior month)' },
+    lsDependency:   { val: lsDependencyYTD,      trend: 'down', label: 'Decreasing (vs prior month)' },
+    charityRate:    { val: charityRate,           trend: 'flat', label: 'Stable (vs prior month)' },
+    communityReach: { val: communityReachDemo,    trend: 'up',   label: 'Growing (vs prior month)' },
+  } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependencyYTD, charityRate, period, totalConsults, latestYear, latestMonth, ministryId);
 
   const trendIcon = (t, metric) => {
     // For cost per patient: down is good (green), up is bad (red)
@@ -5960,7 +5984,7 @@ async function buildHealthScore(agg, period, totalConsults, reportCount, latestY
     {
       key: 'lsDependency',
       label: 'LS dependency',
-      value: lsDependency + '%',
+      value: lsDependencyYTD + '%',
       description: 'Luke Society support as % of total income. Decreasing = progress toward self-sustainability.',
     },
     {
