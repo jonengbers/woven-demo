@@ -1518,21 +1518,21 @@ function showMinistryDetail(id, period) {
         <!-- Statistics tab -->
         <div id="dtab-stats-content">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-            <!-- Clinical column -->
-            <div>
-              <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Clinical</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="dp-stats-clinical"></div>
+            <!-- Clinical card -->
+            <div class="card" style="padding:16px;" id="dp-stats-clinical-card">
+              <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:1.5px solid var(--border);">Clinical</div>
+              <div id="dp-stats-clinical"></div>
             </div>
-            <!-- Financial column -->
-            <div>
-              <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Financial</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="dp-stats-financial"></div>
+            <!-- Financial card -->
+            <div class="card" style="padding:16px;" id="dp-stats-financial-card">
+              <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:1.5px solid var(--border);">Financial</div>
+              <div id="dp-stats-financial"></div>
             </div>
           </div>
-          <!-- Community outreach row -->
-          <div id="dp-stats-community" style="display:none;margin-bottom:14px;">
-            <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Community outreach</div>
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;" id="dp-stats-community-grid"></div>
+          <!-- Community outreach card -->
+          <div class="card" id="dp-stats-community" style="display:none;padding:16px;margin-bottom:14px;">
+            <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:1.5px solid var(--border);">Community outreach</div>
+            <div id="dp-stats-community-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0;"></div>
           </div>
           <!-- Hidden legacy grid for compatibility -->
           <div id="dp-stats" style="display:none;"></div>
@@ -1883,31 +1883,34 @@ if (!clinicalEl || !financialEl) {
   document.getElementById('dp-stats').style.display = 'grid';
 }
 
-const mkCard = (label, val, sub) => `
-  <div class="dp-stat">
-    <div class="dp-stat-label">${label}</div>
-    <div class="dp-stat-val">${val}</div>
-    ${sub ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${sub}</div>` : ''}
+const mkRow = (val, label, sub) => `
+  <div style="display:flex;align-items:baseline;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid var(--border);">
+    <div style="display:flex;align-items:baseline;gap:10px;">
+      <span style="font-size:20px;font-weight:700;color:var(--text);letter-spacing:-0.5px;">${val}</span>
+      <span style="font-size:12px;color:var(--text2);">${label}</span>
+    </div>
+    ${sub ? `<span style="font-size:11px;color:var(--text3,var(--text2));white-space:nowrap;">${sub}</span>` : ''}
   </div>`;
 
 if (clinicalEl) {
   clinicalEl.innerHTML =
-    mkCard('Total consultations', totalConsults.toLocaleString(), `${periodLabel}${reportCount > 1 ? ' · '+reportCount+' reports' : ''}`) +
-    mkCard('Pharmacy patients', agg.services_pharmacy.toLocaleString(), '') +
-    mkCard('Lab tests', agg.services_lab.toLocaleString(), '');
+    mkRow(totalConsults.toLocaleString(), 'Total consultations', `${periodLabel}${reportCount > 1 ? ' · '+reportCount+' reports' : ''}`) +
+    mkRow(agg.services_pharmacy.toLocaleString(), 'Pharmacy patients', '') +
+    mkRow(agg.services_lab.toLocaleString(), 'Lab tests', '');
 }
 
 if (financialEl) {
+  const ls = agg.luke_society_support_usd || 0;
   financialEl.innerHTML =
-    mkCard('Total income', '$'+Math.round(agg.total_income_usd).toLocaleString(),
+    mkRow('$'+Math.round(agg.total_income_usd).toLocaleString(), 'Total income',
       agg.local_currency && agg.total_income_local ? Math.round(agg.total_income_local).toLocaleString()+' '+agg.local_currency : '') +
-    mkCard('Total expenses', '$'+Math.round(agg.total_expenses_usd).toLocaleString(),
+    mkRow('$'+Math.round(agg.total_expenses_usd).toLocaleString(), 'Total expenses',
       agg.local_currency && agg.exchange_rate ? Math.round(agg.total_expenses_usd * agg.exchange_rate).toLocaleString()+' '+agg.local_currency : '') +
-    mkCard('Ending balance', (bal<500?'⚠ ':'')+'$'+Math.round(bal).toLocaleString(),
+    mkRow((bal<500?'⚠ ':'')+'$'+Math.round(bal).toLocaleString(), 'Ending balance',
       agg.local_currency && agg.exchange_rate ? Math.round(bal * agg.exchange_rate).toLocaleString()+' '+agg.local_currency : '') +
-    mkCard('LS support', '$'+Math.round(agg.luke_society_support_usd||0).toLocaleString(),
-      'LS support is paid quarterly — see YTD for funding %') +
-    (agg.exchange_rate ? `<div style="grid-column:span 2;font-size:11px;color:var(--text2);padding:4px 2px;">Exchange rate: 1 USD = ${parseFloat(agg.exchange_rate).toFixed(4)} ${agg.local_currency||''}</div>` : '');
+    mkRow('$'+Math.round(ls).toLocaleString(), 'LS support',
+      period === 'ytd' || period === 'prev' || period === 'all' ? '' : 'Quarterly — see YTD for %') +
+    (agg.exchange_rate ? `<div style="font-size:11px;color:var(--text2);padding-top:8px;">Exchange rate: 1 USD = ${parseFloat(agg.exchange_rate).toFixed(4)} ${agg.local_currency||''}</div>` : '');
 }
 
   // Add LS support to stats
@@ -1937,31 +1940,30 @@ if (financialEl) {
     ].filter(x => x.val > 0);
     commContainer.style.display = 'block';
     commGrid.innerHTML = commItems.map(({val, label}) =>
-      `<div class="dp-stat">
-        <div class="dp-stat-label">${label}</div>
-        <div class="dp-stat-val">${val.toLocaleString()}</div>
+      `<div style="display:flex;align-items:baseline;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid var(--border);">
+        <div style="display:flex;align-items:baseline;gap:10px;">
+          <span style="font-size:20px;font-weight:700;color:var(--text);letter-spacing:-0.5px;">${val.toLocaleString()}</span>
+          <span style="font-size:12px;color:var(--text2);">${label}</span>
+        </div>
       </div>`
     ).join('');
   }
 
-  // Update LS support card with funding bar if YTD/prev/all
+  // Add LS funding bar for YTD/prev/all periods
   setTimeout(() => {
     const financialEl2 = document.getElementById('dp-stats-financial');
     if (financialEl2 && (period === 'ytd' || period === 'all' || period === 'prev')) {
-      // Find and update LS support card — it's the 4th card (index 3)
-      const cards = financialEl2.querySelectorAll('.dp-stat');
-      if (cards[3]) {
-        cards[3].innerHTML += `
-          <div style="margin-top:6px;">
-            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:3px;">
-              <span>LS funded: ${lsPct}% (${period === 'ytd' ? 'YTD' : period === 'prev' ? 'prior year' : 'all time'})</span>
-              <span>Self: ${selfSustainPct}%</span>
-            </div>
-            <div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;">
-              <div style="background:#534AB7;height:6px;width:${lsPct}%;border-radius:4px;transition:width .5s;"></div>
-            </div>
-          </div>`;
-      }
+      const bar = document.createElement('div');
+      bar.style.cssText = 'margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);';
+      bar.innerHTML = `
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:4px;">
+          <span>LS funded: <strong>${lsPct}%</strong> (${period === 'ytd' ? 'YTD' : period === 'prev' ? 'prior year' : 'all time'})</span>
+          <span>Self-sustaining: <strong>${selfSustainPct}%</strong></span>
+        </div>
+        <div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;">
+          <div style="background:#534AB7;height:6px;width:${lsPct}%;border-radius:4px;transition:width .5s;"></div>
+        </div>`;
+      financialEl2.appendChild(bar);
     }
   }, 10);
 
