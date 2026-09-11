@@ -1948,7 +1948,7 @@ async function loadMinistryPeriodData(ministryId, period) {
   const aggSnapshot = JSON.parse(JSON.stringify(agg));
   const totalConsultsSnapshot = totalConsults;
   const reportCountSnapshot = reportCount;
-  setTimeout(() => buildHealthScore(aggSnapshot, period, totalConsultsSnapshot, reportCountSnapshot, yearFilter, monthFilter).catch(e => console.error('buildHealthScore error:', e)), 50);
+  setTimeout(() => buildHealthScore(aggSnapshot, period, totalConsultsSnapshot, reportCountSnapshot, yearFilter, monthFilter, ministryId).catch(e => console.error('buildHealthScore error:', e)), 50);
 
   // Trend chart title
   const trendTitles = {current:'Consultations by type',ytd:'Consultations by type — YTD',prev:'Consultations by type — prior year',all:'Consultations by type — all time'};
@@ -5742,7 +5742,6 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatientIn, lsDepe
         lsDependency   = currIncome  > 0 ? Math.round(currLsSupport / currIncome * 100) : lsDependency;
         charityRate    = currPatients > 0 ? Math.round(currCharity / currPatients * 100) : charityRate;
         totalConsults  = currConsults;
-        console.log('Computed lsDependency:', lsDependency, 'from lsSupport:', currLsSupport, 'income:', currIncome);
       }
     } else if (period === 'ytd') {
       // Check if prior year data exists first
@@ -5882,7 +5881,7 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatientIn, lsDepe
 
 // ── MINISTRY HEALTH SCORE ──
 
-async function buildHealthScore(agg, period, totalConsults, reportCount, latestYear, latestMonth) {
+async function buildHealthScore(agg, period, totalConsults, reportCount, latestYear, latestMonth, ministryId) {
   const container = document.getElementById('dp-health-score');
   if (!container) return;
 
