@@ -1908,7 +1908,7 @@ if (financialEl) {
     mkCard('LS support', '$'+Math.round(agg.luke_society_support_usd||0).toLocaleString(),
       'LS support is paid quarterly — see YTD for funding %') +
     (agg.exchange_rate ? `<div style="grid-column:span 2;font-size:11px;color:var(--text2);padding:4px 2px;">Exchange rate: 1 USD = ${parseFloat(agg.exchange_rate).toFixed(4)} ${agg.local_currency||''}</div>` : '');
-}`;
+}
 
   // Add LS support to stats
   // Community outreach stats
