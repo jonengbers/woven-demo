@@ -5665,7 +5665,7 @@ document.addEventListener('click', function(e) {
 
 
 
-async function fetchTrendComparison(agg, totalPatients, costPerPatientIn, lsDependencyIn, charityRateIn, period, totalConsultsIn, latestReportYear, latestReportMonth) {
+async function fetchTrendComparison(agg, totalPatients, costPerPatientIn, lsDependencyIn, charityRateIn, period, totalConsultsIn, latestReportYear, latestReportMonth, ministryId) {
   // Use let so we can override with rolling averages below
   let costPerPatient = costPerPatientIn;
   let lsDependency   = lsDependencyIn;
@@ -5679,7 +5679,7 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatientIn, lsDepe
     charityRate:    { val: charityRateIn,      trend: 'flat', label: 'Baseline (building history)' },
     communityReach: { val: communityReachVal,  trend: 'flat', label: 'Baseline (building history)' },
   };
-  if (!sb || !currentDetailMinistryId) return flat;
+  if (!sb || !ministryId) return flat;
 
   try {
     const now = new Date();
@@ -5716,17 +5716,18 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatientIn, lsDepe
       for (const {y, m} of currentWindow) {
         const { data } = await sb.from('monthly_reports')
           .select('financial_summary(total_expenses_usd,total_income_usd,luke_society_support_usd), clinical_stats(pay_full,pay_partial,pay_charity,consult_clinic,consult_community,consult_dental,consult_spiritual)')
-          .eq('ministry_id', currentDetailMinistryId)
+          .eq('ministry_id', ministryId)
           .eq('report_year', y).eq('report_month', m);
         (data||[]).forEach(r => {
-          currMonthsWithData++;
-          if (r.financial_summary) {
-            currExpenses   += parseFloat(r.financial_summary.total_expenses_usd)||0;
-            currIncome     += parseFloat(r.financial_summary.total_income_usd)||0;
-            currLsSupport  += parseFloat(r.financial_summary.luke_society_support_usd)||0;
+          const fs = Array.isArray(r.financial_summary) ? r.financial_summary[0] : r.financial_summary;
+          const cs = Array.isArray(r.clinical_stats)    ? r.clinical_stats[0]    : r.clinical_stats;
+          if (fs || cs) currMonthsWithData++;
+          if (fs) {
+            currExpenses   += parseFloat(fs.total_expenses_usd)||0;
+            currIncome     += parseFloat(fs.total_income_usd)||0;
+            currLsSupport  += parseFloat(fs.luke_society_support_usd)||0;
           }
-          if (r.clinical_stats) {
-            const cs = r.clinical_stats;
+          if (cs) {
             currPatients  += (cs.pay_full||0)+(cs.pay_partial||0)+(cs.pay_charity||0);
             currCharity   += cs.pay_charity||0;
             currConsults  += (cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0);
@@ -5741,13 +5742,14 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatientIn, lsDepe
         lsDependency   = currIncome  > 0 ? Math.round(currLsSupport / currIncome * 100) : lsDependency;
         charityRate    = currPatients > 0 ? Math.round(currCharity / currPatients * 100) : charityRate;
         totalConsults  = currConsults;
+        console.log('Computed lsDependency:', lsDependency, 'from lsSupport:', currLsSupport, 'income:', currIncome);
       }
     } else if (period === 'ytd') {
       // Check if prior year data exists first
       const { count: priorYTDCount } = await sb
         .from('monthly_reports')
         .select('id', { count: 'exact', head: true })
-        .eq('ministry_id', currentDetailMinistryId)
+        .eq('ministry_id', ministryId)
         .eq('report_year', currentYear - 1);
       if (!priorYTDCount || priorYTDCount === 0) {
         const baseLabel = 'Baseline (first year)';
@@ -5767,7 +5769,7 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatientIn, lsDepe
       const { count: priorPrevCount } = await sb
         .from('monthly_reports')
         .select('id', { count: 'exact', head: true })
-        .eq('ministry_id', currentDetailMinistryId)
+        .eq('ministry_id', ministryId)
         .eq('report_year', currentYear - 2);
       if (!priorPrevCount || priorPrevCount === 0) {
         const baseLabel = 'Baseline (no prior year)';
@@ -5792,7 +5794,7 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatientIn, lsDepe
     for (const {y, m} of priorMonths) {
       const { data } = await sb.from('monthly_reports')
         .select('financial_summary(total_expenses_usd,total_income_usd,luke_society_support_usd), clinical_stats(pay_full,pay_partial,pay_charity)')
-        .eq('ministry_id', currentDetailMinistryId)
+        .eq('ministry_id', ministryId)
         .eq('report_year', y).eq('report_month', m);
       (data||[]).forEach(r => {
         if (r.financial_summary) {
@@ -5828,7 +5830,7 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatientIn, lsDepe
     for (const {y, m} of priorMonths) {
       const { data: csData } = await sb.from('monthly_reports')
         .select('clinical_stats(consult_clinic,consult_community,consult_dental,consult_spiritual)')
-        .eq('ministry_id', currentDetailMinistryId)
+        .eq('ministry_id', ministryId)
         .eq('report_year', y).eq('report_month', m);
       (csData||[]).forEach(r => {
         if (r.clinical_stats) {
@@ -5900,7 +5902,7 @@ async function buildHealthScore(agg, period, totalConsults, reportCount, latestY
     lsDependency:   { val: lsDependency,      trend: 'down', label: 'Decreasing (vs prior month)' },
     charityRate:    { val: charityRate,        trend: 'flat', label: 'Stable (vs prior month)' },
     communityReach: { val: communityReachDemo, trend: 'up',   label: 'Growing (vs prior month)' },
-  } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period, totalConsults, latestYear, latestMonth);
+  } : await fetchTrendComparison(agg, totalPatients, costPerPatient, lsDependency, charityRate, period, totalConsults, latestYear, latestMonth, ministryId);
 
   const trendIcon = (t, metric) => {
     // For cost per patient: down is good (green), up is bad (red)
