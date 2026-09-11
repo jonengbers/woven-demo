@@ -1517,7 +1517,25 @@ function showMinistryDetail(id, period) {
 
         <!-- Statistics tab -->
         <div id="dtab-stats-content">
-          <div class="dp-grid" id="dp-stats"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+            <!-- Clinical column -->
+            <div>
+              <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Clinical</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="dp-stats-clinical"></div>
+            </div>
+            <!-- Financial column -->
+            <div>
+              <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Financial</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="dp-stats-financial"></div>
+            </div>
+          </div>
+          <!-- Community outreach row -->
+          <div id="dp-stats-community" style="display:none;margin-bottom:14px;">
+            <div style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Community outreach</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;" id="dp-stats-community-grid"></div>
+          </div>
+          <!-- Hidden legacy grid for compatibility -->
+          <div id="dp-stats" style="display:none;"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;">
             <div class="card" style="padding:14px;">
               <div style="font-size:13px;font-weight:500;margin-bottom:10px;" id="dp-trend-title">Consultation trend</div>
@@ -1857,30 +1875,40 @@ async function loadMinistryPeriodData(ministryId, period) {
 
   // Render stats
   const bal = agg.ending_balance_usd;
-  document.getElementById('dp-stats').innerHTML = `
-    <div class="dp-stat">
-      <div class="dp-stat-label">Total consultations</div>
-      <div class="dp-stat-val">${totalConsults.toLocaleString()}</div>
-      <div style="font-size:11px;color:var(--text2);margin-top:3px;">${periodLabel}${reportCount > 1 ? ' · '+reportCount+' reports' : ''}</div>
-    </div>
-    <div class="dp-stat"><div class="dp-stat-label">Pharmacy patients</div><div class="dp-stat-val">${agg.services_pharmacy.toLocaleString()}</div></div>
-    <div class="dp-stat"><div class="dp-stat-label">Lab tests</div><div class="dp-stat-val">${agg.services_lab.toLocaleString()}</div></div>
-    <div class="dp-stat">
-      <div class="dp-stat-label">Total income (USD)</div>
-      <div class="dp-stat-val">$${Math.round(agg.total_income_usd).toLocaleString()}</div>
-      ${agg.local_currency && agg.total_income_local ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${Math.round(agg.total_income_local).toLocaleString()} ${agg.local_currency}</div>` : ''}
-    </div>
-    <div class="dp-stat">
-      <div class="dp-stat-label">Total expenses (USD)</div>
-      <div class="dp-stat-val">$${Math.round(agg.total_expenses_usd).toLocaleString()}</div>
-      ${agg.local_currency && agg.exchange_rate ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${Math.round(agg.total_expenses_usd * agg.exchange_rate).toLocaleString()} ${agg.local_currency}</div>` : ''}
-    </div>
-    <div class="dp-stat" style="${bal<500?'border-color:#E24B4A;':''}">
-      <div class="dp-stat-label">Ending cash balance</div>
-      <div class="dp-stat-val" style="${bal<500?'color:#A32D2D;':''}">${bal<500?'⚠ ':''}$${Math.round(bal).toLocaleString()}</div>
-      ${agg.local_currency && agg.exchange_rate ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${Math.round(bal * agg.exchange_rate).toLocaleString()} ${agg.local_currency}</div>` : ''}
-    </div>
-    ${agg.exchange_rate ? `<div style="grid-column:span 3;font-size:11px;color:var(--text2);padding:2px 4px;">Exchange rate: 1 USD = ${parseFloat(agg.exchange_rate).toFixed(4)} ${agg.local_currency||''}</div>` : ''}`;
+  // ── Populate two-column stats layout ──────────────────────────────────
+const clinicalEl  = document.getElementById('dp-stats-clinical');
+const financialEl = document.getElementById('dp-stats-financial');
+if (!clinicalEl || !financialEl) {
+  // Fallback to legacy single grid
+  document.getElementById('dp-stats').style.display = 'grid';
+}
+
+const mkCard = (label, val, sub) => `
+  <div class="dp-stat">
+    <div class="dp-stat-label">${label}</div>
+    <div class="dp-stat-val">${val}</div>
+    ${sub ? `<div style="font-size:11px;color:var(--text2);margin-top:3px;">${sub}</div>` : ''}
+  </div>`;
+
+if (clinicalEl) {
+  clinicalEl.innerHTML =
+    mkCard('Total consultations', totalConsults.toLocaleString(), `${periodLabel}${reportCount > 1 ? ' · '+reportCount+' reports' : ''}`) +
+    mkCard('Pharmacy patients', agg.services_pharmacy.toLocaleString(), '') +
+    mkCard('Lab tests', agg.services_lab.toLocaleString(), '');
+}
+
+if (financialEl) {
+  financialEl.innerHTML =
+    mkCard('Total income', '$'+Math.round(agg.total_income_usd).toLocaleString(),
+      agg.local_currency && agg.total_income_local ? Math.round(agg.total_income_local).toLocaleString()+' '+agg.local_currency : '') +
+    mkCard('Total expenses', '$'+Math.round(agg.total_expenses_usd).toLocaleString(),
+      agg.local_currency && agg.exchange_rate ? Math.round(agg.total_expenses_usd * agg.exchange_rate).toLocaleString()+' '+agg.local_currency : '') +
+    mkCard('Ending balance', (bal<500?'⚠ ':'')+'$'+Math.round(bal).toLocaleString(),
+      agg.local_currency && agg.exchange_rate ? Math.round(bal * agg.exchange_rate).toLocaleString()+' '+agg.local_currency : '') +
+    mkCard('LS support', '$'+Math.round(agg.luke_society_support_usd||0).toLocaleString(),
+      'LS support is paid quarterly — see YTD for funding %') +
+    (agg.exchange_rate ? `<div style="grid-column:span 2;font-size:11px;color:var(--text2);padding:4px 2px;">Exchange rate: 1 USD = ${parseFloat(agg.exchange_rate).toFixed(4)} ${agg.local_currency||''}</div>` : '');
+}`;
 
   // Add LS support to stats
   // Community outreach stats
@@ -1896,48 +1924,44 @@ async function loadMinistryPeriodData(ministryId, period) {
   const lsPct = totalIncome > 0 ? Math.round(lsSupport / totalIncome * 100) : 0;
   const selfSustainPct = 100 - lsPct;
 
-  // Community outreach — individual stat cards matching existing style
-  if (hasCommData) {
-    const commStatsEl = document.getElementById('dp-stats');
-    if (commStatsEl) {
-      const commItems = [
-        { val: commHealthEd,  label: 'Health education' },
-        { val: commSpiritEd,  label: 'Spiritual education' },
-        { val: commMeetings,  label: 'Community meetings' },
-        { val: commPrenatal,  label: 'Prenatal care' },
-        { val: commWorkers,   label: 'Health workers trained' },
-      ].filter(x => x.val > 0);
-      commItems.forEach(({val, label}) => {
-        const card = document.createElement('div');
-        card.className = 'dp-stat';
-        card.innerHTML = `
-          <div class="dp-stat-label">${label}</div>
-          <div class="dp-stat-val">${val.toLocaleString()}</div>`;
-        commStatsEl.appendChild(card);
-      });
-    }
+  // Community outreach — populate community row
+  const commContainer = document.getElementById('dp-stats-community');
+  const commGrid = document.getElementById('dp-stats-community-grid');
+  if (hasCommData && commContainer && commGrid) {
+    const commItems = [
+      { val: commHealthEd,  label: 'Health education' },
+      { val: commSpiritEd,  label: 'Spiritual education' },
+      { val: commMeetings,  label: 'Community meetings' },
+      { val: commPrenatal,  label: 'Prenatal care' },
+      { val: commWorkers,   label: 'Health workers trained' },
+    ].filter(x => x.val > 0);
+    commContainer.style.display = 'block';
+    commGrid.innerHTML = commItems.map(({val, label}) =>
+      `<div class="dp-stat">
+        <div class="dp-stat-label">${label}</div>
+        <div class="dp-stat-val">${val.toLocaleString()}</div>
+      </div>`
+    ).join('');
   }
 
-  // Append LS support card to dp-stats
+  // Update LS support card with funding bar if YTD/prev/all
   setTimeout(() => {
-    const statsGrid = document.getElementById('dp-stats');
-    if (statsGrid) {
-      const lsCard = document.createElement('div');
-      lsCard.className = 'dp-stat';
-      lsCard.innerHTML = `
-        <div class="dp-stat-label">Luke Society support</div>
-        <div class="dp-stat-val">$${Math.round(lsSupport).toLocaleString()}</div>
-        ${(period === 'ytd' || period === 'all' || period === 'prev') ? `
-        <div style="margin-top:6px;">
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:3px;">
-            <span>LS funded: ${lsPct}% (${period === 'ytd' ? 'YTD' : period === 'prev' ? 'prior year' : 'all time'})</span>
-            <span>Self-sustaining: ${selfSustainPct}%</span>
-          </div>
-          <div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;">
-            <div style="background:#534AB7;height:6px;width:${lsPct}%;border-radius:4px;transition:width .5s;"></div>
-          </div>
-        </div>` : `<div style="font-size:10px;color:var(--text2);margin-top:4px;">LS support is paid quarterly — see YTD for funding %</div>`}`;
-      statsGrid.appendChild(lsCard);
+    const financialEl2 = document.getElementById('dp-stats-financial');
+    if (financialEl2 && (period === 'ytd' || period === 'all' || period === 'prev')) {
+      // Find and update LS support card — it's the 4th card (index 3)
+      const cards = financialEl2.querySelectorAll('.dp-stat');
+      if (cards[3]) {
+        cards[3].innerHTML += `
+          <div style="margin-top:6px;">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:3px;">
+              <span>LS funded: ${lsPct}% (${period === 'ytd' ? 'YTD' : period === 'prev' ? 'prior year' : 'all time'})</span>
+              <span>Self: ${selfSustainPct}%</span>
+            </div>
+            <div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;">
+              <div style="background:#534AB7;height:6px;width:${lsPct}%;border-radius:4px;transition:width .5s;"></div>
+            </div>
+          </div>`;
+      }
     }
   }, 10);
 
