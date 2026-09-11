@@ -1509,7 +1509,7 @@ function showMinistryDetail(id, period) {
 
         <!-- View tabs -->
         <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:0.5px solid var(--border);">
-          <button onclick="switchDetailTab('stats')" id="dtab-stats" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid #534AB7;color:#534AB7;font-weight:500;background:transparent;cursor:pointer;margin-bottom:-1px;">Statistics</button>
+          <button onclick="switchDetailTab('stats')" id="dtab-stats" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid #534AB7;color:#534AB7;font-weight:500;background:transparent;cursor:pointer;border-radius:0;">Statistics</button>
           <button onclick="switchDetailTab('reports')" id="dtab-reports" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid transparent;color:var(--text2);background:transparent;cursor:pointer;margin-bottom:-1px;">Narrative reports</button>
           <button onclick="switchDetailTab('prayer')" id="dtab-prayer" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid transparent;color:var(--text2);background:transparent;cursor:pointer;margin-bottom:-1px;">Prayer requests</button>
           <button onclick="switchDetailTab('transfers')" id="dtab-transfers" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid transparent;color:var(--text2);background:transparent;cursor:pointer;margin-bottom:-1px;display:none;">Transfers</button>
@@ -1520,18 +1520,18 @@ function showMinistryDetail(id, period) {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
             <!-- Clinical card -->
             <div class="card" style="padding:16px;" id="dp-stats-clinical-card">
-              <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:1.5px solid var(--border);">Clinical</div>
+              <div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px;">Clinical</div>
               <div id="dp-stats-clinical"></div>
             </div>
             <!-- Financial card -->
             <div class="card" style="padding:16px;" id="dp-stats-financial-card">
-              <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:1.5px solid var(--border);">Financial</div>
+              <div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px;">Financial</div>
               <div id="dp-stats-financial"></div>
             </div>
           </div>
           <!-- Community outreach card -->
           <div class="card" id="dp-stats-community" style="display:none;padding:16px;margin-bottom:14px;">
-            <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:1.5px solid var(--border);">Community outreach</div>
+            <div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px;">Community outreach</div>
             <div id="dp-stats-community-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0;"></div>
           </div>
           <!-- Hidden legacy grid for compatibility -->
@@ -1883,33 +1883,33 @@ if (!clinicalEl || !financialEl) {
   document.getElementById('dp-stats').style.display = 'grid';
 }
 
-const mkRow = (val, label, sub) => `
-  <div style="display:flex;align-items:baseline;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid var(--border);">
+const mkRow = (val, label, sub, accent) => `
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0 10px ${accent?'12px':'0'};${accent?'border-left:3px solid '+accent+';padding-left:12px;':''} margin-bottom:4px;">
     <div style="display:flex;align-items:baseline;gap:10px;">
-      <span style="font-size:20px;font-weight:700;color:var(--text);letter-spacing:-0.5px;">${val}</span>
-      <span style="font-size:12px;color:var(--text2);">${label}</span>
+      <span style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.5px;line-height:1;">${val}</span>
+      <span style="font-size:12px;color:var(--text2);font-weight:400;">${label}</span>
     </div>
-    ${sub ? `<span style="font-size:11px;color:var(--text3,var(--text2));white-space:nowrap;">${sub}</span>` : ''}
+    ${sub ? `<span style="font-size:11px;color:var(--text2);white-space:nowrap;padding-left:8px;text-align:right;">${sub}</span>` : ''}
   </div>`;
 
 if (clinicalEl) {
   clinicalEl.innerHTML =
-    mkRow(totalConsults.toLocaleString(), 'Total consultations', `${periodLabel}${reportCount > 1 ? ' · '+reportCount+' reports' : ''}`) +
-    mkRow(agg.services_pharmacy.toLocaleString(), 'Pharmacy patients', '') +
-    mkRow(agg.services_lab.toLocaleString(), 'Lab tests', '');
+    mkRow(totalConsults.toLocaleString(), 'Total consultations', `${periodLabel}${reportCount > 1 ? ' · '+reportCount+' reports' : ''}`, '#534AB7') +
+    mkRow(agg.services_pharmacy.toLocaleString(), 'Pharmacy patients', '', '#1D9E75') +
+    mkRow(agg.services_lab.toLocaleString(), 'Lab tests', '', '#185FA5');
 }
 
 if (financialEl) {
   const ls = agg.luke_society_support_usd || 0;
   financialEl.innerHTML =
     mkRow('$'+Math.round(agg.total_income_usd).toLocaleString(), 'Total income',
-      agg.local_currency && agg.total_income_local ? Math.round(agg.total_income_local).toLocaleString()+' '+agg.local_currency : '') +
+      agg.local_currency && agg.total_income_local ? Math.round(agg.total_income_local).toLocaleString()+' '+agg.local_currency : '', '#1D9E75') +
     mkRow('$'+Math.round(agg.total_expenses_usd).toLocaleString(), 'Total expenses',
-      agg.local_currency && agg.exchange_rate ? Math.round(agg.total_expenses_usd * agg.exchange_rate).toLocaleString()+' '+agg.local_currency : '') +
+      agg.local_currency && agg.exchange_rate ? Math.round(agg.total_expenses_usd * agg.exchange_rate).toLocaleString()+' '+agg.local_currency : '', '#EF9F27') +
     mkRow((bal<500?'⚠ ':'')+'$'+Math.round(bal).toLocaleString(), 'Ending balance',
-      agg.local_currency && agg.exchange_rate ? Math.round(bal * agg.exchange_rate).toLocaleString()+' '+agg.local_currency : '') +
+      agg.local_currency && agg.exchange_rate ? Math.round(bal * agg.exchange_rate).toLocaleString()+' '+agg.local_currency : '', bal<500?'#A32D2D':'#534AB7') +
     mkRow('$'+Math.round(ls).toLocaleString(), 'LS support',
-      period === 'ytd' || period === 'prev' || period === 'all' ? '' : 'Quarterly — see YTD for %') +
+      period === 'ytd' || period === 'prev' || period === 'all' ? '' : 'Quarterly — see YTD for %', '#AFA9EC') +
     (agg.exchange_rate ? `<div style="font-size:11px;color:var(--text2);padding-top:8px;">Exchange rate: 1 USD = ${parseFloat(agg.exchange_rate).toFixed(4)} ${agg.local_currency||''}</div>` : '');
 }
 
@@ -1939,12 +1939,11 @@ if (financialEl) {
       { val: commWorkers,   label: 'Health workers trained' },
     ].filter(x => x.val > 0);
     commContainer.style.display = 'block';
-    commGrid.innerHTML = commItems.map(({val, label}) =>
-      `<div style="display:flex;align-items:baseline;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid var(--border);">
-        <div style="display:flex;align-items:baseline;gap:10px;">
-          <span style="font-size:20px;font-weight:700;color:var(--text);letter-spacing:-0.5px;">${val.toLocaleString()}</span>
-          <span style="font-size:12px;color:var(--text2);">${label}</span>
-        </div>
+    const commColors = ['#1D9E75','#534AB7','#EF9F27','#185FA5','#AFA9EC'];
+    commGrid.innerHTML = commItems.map(({val, label}, i) =>
+      `<div style="display:flex;align-items:center;gap:10px;padding:10px 0 10px 12px;border-left:3px solid ${commColors[i%commColors.length]};margin-bottom:4px;">
+        <span style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.5px;line-height:1;">${val.toLocaleString()}</span>
+        <span style="font-size:12px;color:var(--text2);">${label}</span>
       </div>`
     ).join('');
   }
@@ -6008,9 +6007,7 @@ async function buildHealthScore(agg, period, totalConsults, reportCount, latestY
           </div>`;
         }).join('')}
       </div>
-      <div style="margin-top:12px;padding:10px 12px;background:var(--purple-l);border-radius:var(--r-md);font-size:12px;color:var(--purple-d);line-height:1.6;">
-        <strong>Note:</strong> Trend arrows reflect direction relative to prior period. These indicators are guides for conversation, not targets — a high charity rate is a sign of mission faithfulness, not inefficiency. Trend arrows compare the latest month against the prior 3-month average to account for quarterly LS payments and normal variation.
-      </div>
+
     </div>`;
 }
 
