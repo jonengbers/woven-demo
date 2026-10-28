@@ -3013,16 +3013,39 @@ async function submitReport() {
   // Real submission to Supabase
   try {
     const exchange = parseFloat(document.getElementById('f-exchange')?.value || 1);
-    const { data: report, error: rErr } = await sb.from('monthly_reports').insert({
-      ministry_id: userProfile.ministry_id,
-      report_year: new Date().getFullYear(),
-      report_month: new Date().getMonth() + 1,
-      exchange_rate: exchange,
-      status: 'submitted',
-      submitted_at: new Date().toISOString(),
-      submitted_by: currentUser.id
-    }).select().single();
-    if (rErr) throw rErr;
+    const chk = async (p) => { const { error } = await p; if (error) throw error; };
+    const repYear = new Date().getFullYear();
+    const repMonth = new Date().getMonth() + 1;
+
+    // Save as a draft first: the database only lets directors write report
+    // rows while the report is a draft. Status flips to 'submitted' at the end,
+    // after every row has saved. A failed attempt leaves a draft that the next
+    // attempt reuses.
+    let report;
+    const { data: existing, error: exErr } = await sb.from('monthly_reports')
+      .select('id, status').eq('ministry_id', userProfile.ministry_id)
+      .eq('report_year', repYear).eq('report_month', repMonth).maybeSingle();
+    if (exErr) throw exErr;
+    if (existing && existing.status !== 'draft') {
+      throw new Error('A report for this month has already been submitted.');
+    }
+    if (existing) {
+      report = existing;
+      await chk(sb.from('monthly_reports').update({ exchange_rate: exchange }).eq('id', report.id));
+      for (const t of ['financial_summary','income_lines','expense_lines','clinical_stats','written_reports']) {
+        await chk(sb.from(t).delete().eq('report_id', report.id));
+      }
+    } else {
+      const { data: created, error: rErr } = await sb.from('monthly_reports').insert({
+        ministry_id: userProfile.ministry_id,
+        report_year: repYear,
+        report_month: repMonth,
+        exchange_rate: exchange,
+        status: 'draft'
+      }).select().single();
+      if (rErr) throw rErr;
+      report = created;
+    }
 
     const toUSD = v => exchange > 0 ? Math.round(parseFloat(v||0) / exchange * 100) / 100 : 0;
     const g = id => parseFloat(document.getElementById(id)?.value || 0);
@@ -3106,7 +3129,7 @@ async function submitReport() {
     const operatingUSD = expenseLines.filter(l=>!['Salaries','Capital Purchases'].includes(l.category)).reduce((s,l)=>s+l.amount_usd,0);
     const capitalUSD   = expenseLines.filter(l=>l.category==='Capital Purchases').reduce((s,l)=>s+l.amount_usd,0);
 
-    await sb.from('financial_summary').insert({
+    await chk(sb.from('financial_summary').insert({
       report_id: report.id,
       exchange_rate: exchange,
       local_currency: document.getElementById('f-currency')?.value || '',
@@ -3120,12 +3143,12 @@ async function submitReport() {
       total_salary_usd:         Math.round(salaryUSD*100)/100,
       total_operating_usd:      Math.round(operatingUSD*100)/100,
       total_capital_usd:        Math.round(capitalUSD*100)/100,
-    });
+    }));
 
-    if (incomeLines.length > 0) await sb.from('income_lines').insert(incomeLines);
-    if (expenseLines.length > 0) await sb.from('expense_lines').insert(expenseLines);
+    if (incomeLines.length > 0) await chk(sb.from('income_lines').insert(incomeLines));
+    if (expenseLines.length > 0) await chk(sb.from('expense_lines').insert(expenseLines));
 
-    await sb.from('clinical_stats').insert({
+    await chk(sb.from('clinical_stats').insert({
       report_id: report.id,
       consult_clinic:g('f-c-clinic'), consult_community:g('f-c-comm'),
       consult_dental:g('f-c-dental'), consult_spiritual:g('f-c-spiritual'),
@@ -3140,7 +3163,7 @@ async function submitReport() {
       comm_meetings:g('f-comm-meet'),  comm_health_ed:g('f-comm-health'),
       comm_spiritual_ed:g('f-comm-spirit'), comm_prenatal:g('f-comm-prenatal'),
       comm_health_workers:g('f-comm-workers'), comm_hygiene_projects:g('f-comm-hygiene'),
-    });
+    }));
 
     const lang = userProfile.preferred_language || 'es';
     const narrativeText  = document.getElementById('f-narrative')?.value || '';
@@ -3164,7 +3187,7 @@ async function submitReport() {
       }
     }
 
-    await sb.from('written_reports').insert({
+    await chk(sb.from('written_reports').insert({
       report_id: report.id,
       body_original: narrativeText,
       body_english: bodyEn || null,
@@ -3175,7 +3198,14 @@ async function submitReport() {
       stories_english: storiesEn || null,
       context_concerns: contextText,
       context_english: contextEn || null,
-    });
+    }));
+
+    // Everything saved: now mark the report submitted
+    await chk(sb.from('monthly_reports').update({
+      status: 'submitted',
+      submitted_at: new Date().toISOString(),
+      submitted_by: currentUser.id
+    }).eq('id', report.id));
 
     toast('Report submitted! Your PMT has been notified.', 'success');
     formStep = 2; renderForm();
