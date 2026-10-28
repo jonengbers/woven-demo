@@ -948,7 +948,7 @@ function showScreen(id, btn) {
   if (id === 'compare') { loadCompareSelects(); }
   if (id === 'messages') { loadConversations(); }
   if (id === 'map') { initMap(); }
-  if (id === 'submit') { formStep = 1; renderForm(); }
+  if (id === 'submit') { formStep = 1; formData = {}; renderForm(); }
   if (id === 'admin') { loadAdminPanel(); }
 
 }
@@ -2979,9 +2979,25 @@ const FORM_CONTENT = {
     </div>`
 };
 
+// Each form step replaces the previous step's fields, so values are saved to
+// formData when leaving a step and restored when a step is shown again.
+function captureForm() {
+  document.querySelectorAll('#form-content [id^="f-"]').forEach(el => {
+    if (el.type === 'file') return;
+    formData[el.id] = el.value;
+  });
+}
+function restoreForm() {
+  document.querySelectorAll('#form-content [id^="f-"]').forEach(el => {
+    if (el.type === 'file') return;
+    if (formData[el.id] !== undefined) el.value = formData[el.id];
+  });
+}
+
 function renderForm() {
   const stepContent = FORM_CONTENT[formStep];
   document.getElementById('form-content').innerHTML = typeof stepContent === 'function' ? stepContent() : (stepContent || '');
+  restoreForm();
   ['fstep1','fstep2','fstep3','fstep4'].forEach((id,i) => {
     const n = i+1;
     document.getElementById(id).className = 'step'+(n<formStep?' done':n===formStep?' active':'');
@@ -2996,10 +3012,12 @@ function renderForm() {
 }
 
 function formNext() {
+  captureForm();
   if (formStep < 4) { formStep++; renderForm(); }
   else { submitReport(); }
 }
 function formPrev() {
+  captureForm();
   if (formStep > 1) { formStep--; renderForm(); }
 }
 
@@ -3012,7 +3030,8 @@ async function submitReport() {
   }
   // Real submission to Supabase
   try {
-    const exchange = parseFloat(document.getElementById('f-exchange')?.value || 1);
+    captureForm();
+    const exchange = parseFloat(formData['f-exchange'] || 1);
     const chk = async (p) => { const { error } = await p; if (error) throw error; };
     const repYear = new Date().getFullYear();
     const repMonth = new Date().getMonth() + 1;
@@ -3048,7 +3067,7 @@ async function submitReport() {
     }
 
     const toUSD = v => exchange > 0 ? Math.round(parseFloat(v||0) / exchange * 100) / 100 : 0;
-    const g = id => parseFloat(document.getElementById(id)?.value || 0);
+    const g = id => parseFloat(formData[id] || 0) || 0;
 
     // ── Income line items ──────────────────────────────────────────────────
     const incomeLines = [
@@ -3132,7 +3151,7 @@ async function submitReport() {
     await chk(sb.from('financial_summary').insert({
       report_id: report.id,
       exchange_rate: exchange,
-      local_currency: document.getElementById('f-currency')?.value || '',
+      local_currency: formData['f-currency'] || '',
       beginning_balance_local: openingLocal,
       beginning_balance_usd:   toUSD(openingLocal),
       total_income_usd:        totalIncomeUSD,
@@ -3166,10 +3185,10 @@ async function submitReport() {
     }));
 
     const lang = userProfile.preferred_language || 'es';
-    const narrativeText  = document.getElementById('f-narrative')?.value || '';
-    const storiesText    = document.getElementById('f-stories')?.value || '';
-    const contextText    = document.getElementById('f-context')?.value || '';
-    const prayerText     = document.getElementById('f-prayer')?.value || '';
+    const narrativeText  = formData['f-narrative'] || '';
+    const storiesText    = formData['f-stories'] || '';
+    const contextText    = formData['f-context'] || '';
+    const prayerText     = formData['f-prayer'] || '';
 
     // Translate all fields at submission time if not English
     let bodyEn = '', storiesEn = '', contextEn = '', prayerEn = '';
@@ -3208,6 +3227,7 @@ async function submitReport() {
     }).eq('id', report.id));
 
     toast('Report submitted! Your PMT has been notified.', 'success');
+    formData = {};
     formStep = 2; renderForm();
     showScreen('dashboard', document.querySelector('.tnav'));
     loadDashboard();
