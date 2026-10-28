@@ -791,6 +791,7 @@ let currentUser = null;
 let userProfile = null;
 let ministriesData = [];
 let activeConvoId = null;
+let autoOpenSingleMinistry = false;
 const MSG_PAGE_SIZE = 50;       // messages per page
 let msgOffset = 0;              // current pagination offset
 let msgTotalCount = 0;          // total messages in current conversation
@@ -925,6 +926,7 @@ function enterApp(profile) {
   // Show global search once logged in
   const searchContainer = document.getElementById('global-search-container');
   if (searchContainer) searchContainer.style.display = 'flex';
+  autoOpenSingleMinistry = true;
   loadDashboard();
   loadCompareSelects();
   loadConversations();
@@ -1158,6 +1160,17 @@ async function loadDashboard() {
   renderTrendChart();
   renderBudgetChart();
   document.getElementById('dash-loading').classList.add('hidden');
+
+  // After login, if the user can see exactly one ministry, open it directly
+  if (autoOpenSingleMinistry) {
+    autoOpenSingleMinistry = false;
+    const userPickedRegion = (regionInput && regionInput.value) ? regionInput.value : '';
+    const ids = [...new Set(ministriesData.map(m => m.ministry_id))];
+    if (ids.length === 1 && !year && !userPickedRegion) {
+      currentDetailMinistryId = null;
+      showMinistryDetail(ids[0]);
+    }
+  }
 }
 
 function renderMetrics() {
