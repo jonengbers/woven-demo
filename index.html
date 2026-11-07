@@ -773,9 +773,12 @@ const DEMO_USER = {name:'Dr. Jon Vander Laan', role:'board', initials:'JV'};
 // Dynamic trailing 6 months — always current regardless of year
 function getTrailing6Months() {
   const now = new Date();
+  // Anchor to end of previous month so the current incomplete month is never shown.
+  // On Dec 1 the anchor shifts to Nov, which is when November reports start arriving.
+  const anchor = new Date(now.getFullYear(), now.getMonth(), 0); // last day of prev month
   const months = [];
   for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const d = new Date(anchor.getFullYear(), anchor.getMonth() - i, 1);
     months.push({
       y: d.getFullYear(),
       m: d.getMonth() + 1,
