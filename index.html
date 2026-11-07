@@ -791,7 +791,6 @@ let currentUser = null;
 let userProfile = null;
 let ministriesData = [];
 let activeConvoId = null;
-let autoOpenSingleMinistry = false;
 const MSG_PAGE_SIZE = 50;       // messages per page
 let msgOffset = 0;              // current pagination offset
 let msgTotalCount = 0;          // total messages in current conversation
@@ -926,7 +925,6 @@ function enterApp(profile) {
   // Show global search once logged in
   const searchContainer = document.getElementById('global-search-container');
   if (searchContainer) searchContainer.style.display = 'flex';
-  autoOpenSingleMinistry = true;
   loadDashboard();
   loadCompareSelects();
   loadConversations();
@@ -948,7 +946,7 @@ function showScreen(id, btn) {
   if (id === 'compare') { loadCompareSelects(); }
   if (id === 'messages') { loadConversations(); }
   if (id === 'map') { initMap(); }
-  if (id === 'submit') { formStep = 1; formData = {}; renderForm(); }
+  if (id === 'submit') { formStep = 1; renderForm(); }
   if (id === 'admin') { loadAdminPanel(); }
 
 }
@@ -1160,17 +1158,6 @@ async function loadDashboard() {
   renderTrendChart();
   renderBudgetChart();
   document.getElementById('dash-loading').classList.add('hidden');
-
-  // After login, if the user can see exactly one ministry, open it directly
-  if (autoOpenSingleMinistry) {
-    autoOpenSingleMinistry = false;
-    const userPickedRegion = (regionInput && regionInput.value) ? regionInput.value : '';
-    const ids = [...new Set(ministriesData.map(m => m.ministry_id))];
-    if (ids.length === 1 && !year && !userPickedRegion) {
-      currentDetailMinistryId = null;
-      showMinistryDetail(ids[0]);
-    }
-  }
 }
 
 function renderMetrics() {
@@ -2383,7 +2370,9 @@ async function loadFinancialDetail(ministryId, period) {
     financialDetailData.reports = mrData.map(r => {
       const incomeByCategory = {};
       (incByReport[r.id] || []).forEach(l => {
-        incomeByCategory[l.category] = (incomeByCategory[l.category] || 0) + (l.amount_usd || 0);
+        if (!incomeByCategory[l.category]) incomeByCategory[l.category] = { total: 0, lines: {} };
+        incomeByCategory[l.category].total += l.amount_usd || 0;
+        incomeByCategory[l.category].lines[l.label] = (incomeByCategory[l.category].lines[l.label] || 0) + (l.amount_usd || 0);
       });
       const expenseByCategory = {};
       (expByReport[r.id] || []).forEach(l => {
@@ -2437,11 +2426,18 @@ function renderFinancialDetail(period) {
   // Aggregate income across all reports in period
   const aggIncome = {};
   reports.forEach(r => {
-    Object.entries(r.income || {}).forEach(([cat, val]) => {
-      aggIncome[cat] = (aggIncome[cat] || 0) + val;
+    Object.entries(r.income || {}).forEach(([cat, data]) => {
+      const val = typeof data === 'object' ? data.total : data;
+      if (!aggIncome[cat]) aggIncome[cat] = { total: 0, lines: {} };
+      aggIncome[cat].total += val || 0;
+      if (typeof data === 'object' && data.lines) {
+        Object.entries(data.lines).forEach(([lbl, amt]) => {
+          aggIncome[cat].lines[lbl] = (aggIncome[cat].lines[lbl] || 0) + amt;
+        });
+      }
     });
   });
-  const totalIncome = Object.values(aggIncome).reduce((s, v) => s + v, 0);
+  const totalIncome = Object.values(aggIncome).reduce((s, v) => s + v.total, 0);
 
   const incTotalLabel = document.getElementById('income-total-label');
   const firstExch = reports.find(r => r.exchRate);
@@ -2454,35 +2450,66 @@ function renderFinancialDetail(period) {
   const incCatEl = document.getElementById('income-categories');
   if (incCatEl) {
     const rows = incomeCatOrder
-      .filter(cat => aggIncome[cat] && aggIncome[cat] > 0)
+      .filter(cat => aggIncome[cat] && aggIncome[cat].total > 0)
       .map((cat, i, arr) => {
-        const amt = aggIncome[cat] || 0;
+        const data = aggIncome[cat];
+        const amt = data.total || 0;
         const pct = totalIncome > 0 ? Math.round(amt / totalIncome * 100) : 0;
         const color = incomeCatColors[cat] || '#534AB7';
-        const isLast = i === arr.length - 1;
-        // Get local amount from first report that has this category
-        const localAmt = reports.reduce((sum, r) => {
-          const rInc = r.income[cat] || 0;
-          return sum + (r.exchRate ? rInc * r.exchRate : 0);
-        }, 0);
-        const currency = reports.find(r => r.exchRate)?.exchRate ? null : null;
-        const firstExchRate = reports.find(r => r.exchRate)?.exchRate;
-        return `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;${isLast?'':'border-bottom:0.5px solid var(--border);'}">
-            <div style="display:flex;align-items:center;gap:10px;flex:1;">
-              <span style="width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block;"></span>
-              <span style="font-size:13px;">${cat}</span>
-              <div style="flex:1;max-width:140px;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
-                <div style="background:${color};height:4px;width:${pct}%;"></div>
+        const er = reports.find(r => r.exchRate);
+        const localAmt = er ? Math.round(amt * er.exchRate) : 0;
+        const lineItems = Object.entries(data.lines || {})
+          .sort((a,b) => b[1] - a[1])
+          .map(([label, lineAmt]) =>
+            `<div style="display:flex;justify-content:space-between;padding:4px 16px 4px 32px;font-size:12px;color:var(--text2);">
+              <span>${label}</span>
+              <span style="color:var(--green);">$${Math.round(lineAmt).toLocaleString()}</span>
+            </div>`
+          ).join('');
+        const hasLines = Object.keys(data.lines || {}).length > 1 ||
+          (Object.keys(data.lines || {}).length === 1 &&
+           Object.keys(data.lines)[0] !== cat);
+        const catId = 'inc-cat-' + cat.replace(/\s+/g,'-').toLowerCase();
+        if (hasLines) {
+          return `
+            <div>
+              <div onclick="toggleIncomeCategory('${catId}')" style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;cursor:pointer;user-select:none;" class="inc-cat-header">
+                <div style="display:flex;align-items:center;gap:10px;flex:1;">
+                  <span style="width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block;"></span>
+                  <span style="font-size:13px;font-weight:500;">${cat}</span>
+                  <div style="flex:1;max-width:140px;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
+                    <div style="background:${color};height:4px;width:${pct}%;"></div>
+                  </div>
+                  <span style="font-size:11px;color:var(--text2);">${pct}%</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="text-align:right;">
+                    <div style="font-size:13px;font-weight:500;color:var(--green);">$${Math.round(amt).toLocaleString()}</div>
+                    ${localAmt > 0 ? `<div style="font-size:10px;color:var(--text2);">${localAmt.toLocaleString()}</div>` : ''}
+                  </div>
+                  <span id="${catId}-arrow" style="font-size:10px;color:var(--text2);">▼</span>
+                </div>
               </div>
-              <span style="font-size:11px;color:var(--text2);">${pct}%</span>
-            </div>
-            <div style="text-align:right;min-width:80px;">
-              <div style="font-size:13px;font-weight:500;color:var(--green);">$${Math.round(amt).toLocaleString()}</div>
-              ${localAmt > 0 ? `<div style="font-size:10px;color:var(--text2);">${Math.round(localAmt).toLocaleString()}</div>` : ''}
-            </div>
-          </div>`;
-      }).join('');
+              <div id="${catId}" style="display:none;background:var(--surface2);border-top:0.5px solid var(--border);">${lineItems}</div>
+            </div>`;
+        } else {
+          return `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-bottom:0.5px solid var(--border);">
+              <div style="display:flex;align-items:center;gap:10px;flex:1;">
+                <span style="width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block;"></span>
+                <span style="font-size:13px;">${cat}</span>
+                <div style="flex:1;max-width:140px;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
+                  <div style="background:${color};height:4px;width:${pct}%;"></div>
+                </div>
+                <span style="font-size:11px;color:var(--text2);">${pct}%</span>
+              </div>
+              <div style="text-align:right;min-width:80px;">
+                <div style="font-size:13px;font-weight:500;color:var(--green);">$${Math.round(amt).toLocaleString()}</div>
+                ${localAmt > 0 ? `<div style="font-size:10px;color:var(--text2);">${localAmt.toLocaleString()}</div>` : ''}
+              </div>
+            </div>`;
+        }
+      }).join('<div style="height:0.5px;background:var(--border);margin:0 16px;"></div>');
     incCatEl.innerHTML = rows || '<div style="padding:16px;text-align:center;color:var(--text2);font-size:13px;">No income data for this period.</div>';
   }
 
@@ -2573,6 +2600,15 @@ function renderFinancialDetail(period) {
 }
 
 function toggleExpenseCategory(id) {
+  const el = document.getElementById(id);
+  const arrow = document.getElementById(id + '-arrow');
+  if (!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.textContent = isOpen ? '▼' : '▲';
+}
+
+function toggleIncomeCategory(id) {
   const el = document.getElementById(id);
   const arrow = document.getElementById(id + '-arrow');
   if (!el) return;
@@ -2979,25 +3015,9 @@ const FORM_CONTENT = {
     </div>`
 };
 
-// Each form step replaces the previous step's fields, so values are saved to
-// formData when leaving a step and restored when a step is shown again.
-function captureForm() {
-  document.querySelectorAll('#form-content [id^="f-"]').forEach(el => {
-    if (el.type === 'file') return;
-    formData[el.id] = el.value;
-  });
-}
-function restoreForm() {
-  document.querySelectorAll('#form-content [id^="f-"]').forEach(el => {
-    if (el.type === 'file') return;
-    if (formData[el.id] !== undefined) el.value = formData[el.id];
-  });
-}
-
 function renderForm() {
   const stepContent = FORM_CONTENT[formStep];
   document.getElementById('form-content').innerHTML = typeof stepContent === 'function' ? stepContent() : (stepContent || '');
-  restoreForm();
   ['fstep1','fstep2','fstep3','fstep4'].forEach((id,i) => {
     const n = i+1;
     document.getElementById(id).className = 'step'+(n<formStep?' done':n===formStep?' active':'');
@@ -3012,12 +3032,10 @@ function renderForm() {
 }
 
 function formNext() {
-  captureForm();
   if (formStep < 4) { formStep++; renderForm(); }
   else { submitReport(); }
 }
 function formPrev() {
-  captureForm();
   if (formStep > 1) { formStep--; renderForm(); }
 }
 
@@ -3030,44 +3048,20 @@ async function submitReport() {
   }
   // Real submission to Supabase
   try {
-    captureForm();
-    const exchange = parseFloat(formData['f-exchange'] || 1);
-    const chk = async (p) => { const { error } = await p; if (error) throw error; };
-    const repYear = new Date().getFullYear();
-    const repMonth = new Date().getMonth() + 1;
-
-    // Save as a draft first: the database only lets directors write report
-    // rows while the report is a draft. Status flips to 'submitted' at the end,
-    // after every row has saved. A failed attempt leaves a draft that the next
-    // attempt reuses.
-    let report;
-    const { data: existing, error: exErr } = await sb.from('monthly_reports')
-      .select('id, status').eq('ministry_id', userProfile.ministry_id)
-      .eq('report_year', repYear).eq('report_month', repMonth).maybeSingle();
-    if (exErr) throw exErr;
-    if (existing && existing.status !== 'draft') {
-      throw new Error('A report for this month has already been submitted.');
-    }
-    if (existing) {
-      report = existing;
-      await chk(sb.from('monthly_reports').update({ exchange_rate: exchange }).eq('id', report.id));
-      for (const t of ['financial_summary','income_lines','expense_lines','clinical_stats','written_reports']) {
-        await chk(sb.from(t).delete().eq('report_id', report.id));
-      }
-    } else {
-      const { data: created, error: rErr } = await sb.from('monthly_reports').insert({
-        ministry_id: userProfile.ministry_id,
-        report_year: repYear,
-        report_month: repMonth,
-        exchange_rate: exchange,
-        status: 'draft'
-      }).select().single();
-      if (rErr) throw rErr;
-      report = created;
-    }
+    const exchange = parseFloat(document.getElementById('f-exchange')?.value || 1);
+    const { data: report, error: rErr } = await sb.from('monthly_reports').insert({
+      ministry_id: userProfile.ministry_id,
+      report_year: new Date().getFullYear(),
+      report_month: new Date().getMonth() + 1,
+      exchange_rate: exchange,
+      status: 'submitted',
+      submitted_at: new Date().toISOString(),
+      submitted_by: currentUser.id
+    }).select().single();
+    if (rErr) throw rErr;
 
     const toUSD = v => exchange > 0 ? Math.round(parseFloat(v||0) / exchange * 100) / 100 : 0;
-    const g = id => parseFloat(formData[id] || 0) || 0;
+    const g = id => parseFloat(document.getElementById(id)?.value || 0);
 
     // ── Income line items ──────────────────────────────────────────────────
     const incomeLines = [
@@ -3148,10 +3142,10 @@ async function submitReport() {
     const operatingUSD = expenseLines.filter(l=>!['Salaries','Capital Purchases'].includes(l.category)).reduce((s,l)=>s+l.amount_usd,0);
     const capitalUSD   = expenseLines.filter(l=>l.category==='Capital Purchases').reduce((s,l)=>s+l.amount_usd,0);
 
-    await chk(sb.from('financial_summary').insert({
+    await sb.from('financial_summary').insert({
       report_id: report.id,
       exchange_rate: exchange,
-      local_currency: formData['f-currency'] || '',
+      local_currency: document.getElementById('f-currency')?.value || '',
       beginning_balance_local: openingLocal,
       beginning_balance_usd:   toUSD(openingLocal),
       total_income_usd:        totalIncomeUSD,
@@ -3162,12 +3156,12 @@ async function submitReport() {
       total_salary_usd:         Math.round(salaryUSD*100)/100,
       total_operating_usd:      Math.round(operatingUSD*100)/100,
       total_capital_usd:        Math.round(capitalUSD*100)/100,
-    }));
+    });
 
-    if (incomeLines.length > 0) await chk(sb.from('income_lines').insert(incomeLines));
-    if (expenseLines.length > 0) await chk(sb.from('expense_lines').insert(expenseLines));
+    if (incomeLines.length > 0) await sb.from('income_lines').insert(incomeLines);
+    if (expenseLines.length > 0) await sb.from('expense_lines').insert(expenseLines);
 
-    await chk(sb.from('clinical_stats').insert({
+    await sb.from('clinical_stats').insert({
       report_id: report.id,
       consult_clinic:g('f-c-clinic'), consult_community:g('f-c-comm'),
       consult_dental:g('f-c-dental'), consult_spiritual:g('f-c-spiritual'),
@@ -3182,13 +3176,13 @@ async function submitReport() {
       comm_meetings:g('f-comm-meet'),  comm_health_ed:g('f-comm-health'),
       comm_spiritual_ed:g('f-comm-spirit'), comm_prenatal:g('f-comm-prenatal'),
       comm_health_workers:g('f-comm-workers'), comm_hygiene_projects:g('f-comm-hygiene'),
-    }));
+    });
 
     const lang = userProfile.preferred_language || 'es';
-    const narrativeText  = formData['f-narrative'] || '';
-    const storiesText    = formData['f-stories'] || '';
-    const contextText    = formData['f-context'] || '';
-    const prayerText     = formData['f-prayer'] || '';
+    const narrativeText  = document.getElementById('f-narrative')?.value || '';
+    const storiesText    = document.getElementById('f-stories')?.value || '';
+    const contextText    = document.getElementById('f-context')?.value || '';
+    const prayerText     = document.getElementById('f-prayer')?.value || '';
 
     // Translate all fields at submission time if not English
     let bodyEn = '', storiesEn = '', contextEn = '', prayerEn = '';
@@ -3206,7 +3200,7 @@ async function submitReport() {
       }
     }
 
-    await chk(sb.from('written_reports').insert({
+    await sb.from('written_reports').insert({
       report_id: report.id,
       body_original: narrativeText,
       body_english: bodyEn || null,
@@ -3217,17 +3211,9 @@ async function submitReport() {
       stories_english: storiesEn || null,
       context_concerns: contextText,
       context_english: contextEn || null,
-    }));
-
-    // Everything saved: now mark the report submitted
-    await chk(sb.from('monthly_reports').update({
-      status: 'submitted',
-      submitted_at: new Date().toISOString(),
-      submitted_by: currentUser.id
-    }).eq('id', report.id));
+    });
 
     toast('Report submitted! Your PMT has been notified.', 'success');
-    formData = {};
     formStep = 2; renderForm();
     showScreen('dashboard', document.querySelector('.tnav'));
     loadDashboard();
