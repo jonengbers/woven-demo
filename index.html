@@ -5781,59 +5781,28 @@ async function fetchTrendComparison(agg, totalPatients, costPerPatientIn, lsDepe
     let comparisonLabel = '';
 
     if (period === 'current') {
-      // Use 3-month rolling avg vs prior 3-month avg
-      // This smooths quarterly LS payments and single-month anomalies
-      const latestYear = latestReportYear || currentYear;
+      // Compare latest month vs year-to-date average (all prior months this year)
+      // This aligns the trend badge with the year-long direction shown in the chart
+      const latestYear  = latestReportYear  || currentYear;
       const latestMonth = latestReportMonth || currentMonth;
 
-      // Current window: latest 3 months (including latest report month)
-      const currentWindow = [];
-      for (let i = 0; i < 3; i++) {
-        const d = new Date(latestYear, latestMonth - 1 - i, 1);
-        currentWindow.push({ y: d.getFullYear(), m: d.getMonth() + 1 });
+      // Prior = all months this year before the latest report month
+      for (let m = 1; m < latestMonth; m++) {
+        priorMonths.push({ y: latestYear, m });
       }
+      comparisonLabel = 'vs year-to-date avg';
 
-      // Prior window: 3 months before the current window
-      for (let i = 3; i < 6; i++) {
-        const d = new Date(latestYear, latestMonth - 1 - i, 1);
-        priorMonths.push({ y: d.getFullYear(), m: d.getMonth() + 1 });
+      // If this is the first month of the year, no prior months to compare
+      if (priorMonths.length === 0) {
+        return {
+          costPerPatient: { val: costPerPatientIn, trend: 'flat', label: 'First month of year' },
+          lsDependency:   { val: lsDependencyIn,   trend: 'flat', label: 'First month of year' },
+          charityRate:    { val: charityRateIn,     trend: 'flat', label: 'First month of year' },
+          communityReach: { val: communityReachVal, trend: 'flat', label: 'First month of year' },
+        };
       }
-      comparisonLabel = 'vs prior 3-month avg';
-
-      // Fetch current window data to compute smoothed current values
-      let currExpenses = 0, currIncome = 0, currLsSupport = 0;
-      let currPatients = 0, currCharity = 0, currConsults = 0, currCommunity = 0;
-      let currMonthsWithData = 0;
-      for (const {y, m} of currentWindow) {
-        const { data } = await sb.from('monthly_reports')
-          .select('financial_summary(total_expenses_usd,total_income_usd,luke_society_support_usd), clinical_stats(pay_full,pay_partial,pay_charity,consult_clinic,consult_community,consult_dental,consult_spiritual)')
-          .eq('ministry_id', ministryId)
-          .eq('report_year', y).eq('report_month', m);
-        (data||[]).forEach(r => {
-          const fs = Array.isArray(r.financial_summary) ? r.financial_summary[0] : r.financial_summary;
-          const cs = Array.isArray(r.clinical_stats)    ? r.clinical_stats[0]    : r.clinical_stats;
-          if (fs || cs) currMonthsWithData++;
-          if (fs) {
-            currExpenses   += parseFloat(fs.total_expenses_usd)||0;
-            currIncome     += parseFloat(fs.total_income_usd)||0;
-            currLsSupport  += parseFloat(fs.luke_society_support_usd)||0;
-          }
-          if (cs) {
-            currPatients  += (cs.pay_full||0)+(cs.pay_partial||0)+(cs.pay_charity||0);
-            currCharity   += cs.pay_charity||0;
-            currConsults  += (cs.consult_clinic||0)+(cs.consult_community||0)+(cs.consult_dental||0)+(cs.consult_spiritual||0);
-            currCommunity += cs.consult_community||0;
-          }
-        });
-      }
-
-      // Override the passed-in single-month values with 3-month averages
-      if (currMonthsWithData > 0) {
-        costPerPatient = currPatients > 0 ? currExpenses / currPatients : costPerPatient;
-        lsDependency   = currIncome  > 0 ? Math.round(currLsSupport / currIncome * 100) : lsDependency;
-        charityRate    = currPatients > 0 ? Math.round(currCharity / currPatients * 100) : charityRate;
-        totalConsults  = currConsults;
-      }
+      // costPerPatient, lsDependency, charityRate already reflect the latest single month
+      // (passed in from buildHealthScore), so no override needed here
     } else if (period === 'ytd') {
       // Check if prior year data exists first
       const { count: priorYTDCount } = await sb
