@@ -2704,10 +2704,11 @@ function runMonthComparison() {
   const catOrder = ['Salaries','Community Health','Supplies','Transportation','Facility Costs','Financial Services','Employee Benefits','Capital Purchases','Other'];
 
   // Income comparison
+  const incVal = (report, cat) => { const d = (report.income||{})[cat]; return d ? (typeof d === 'object' ? d.total : d) : 0; };
   const allIncCats = new Set([...Object.keys(rA.income||{}), ...Object.keys(rB.income||{})]);
   const incRows = [...allIncCats].map(cat => {
-    const a = rA.income[cat] || 0;
-    const b = rB.income[cat] || 0;
+    const a = incVal(rA, cat);
+    const b = incVal(rB, cat);
     const diff = b - a;
     const diffColor = diff >= 0 ? 'var(--green)' : 'var(--red)';
     const diffStr = (diff >= 0 ? '+' : '') + '$' + Math.round(Math.abs(diff)).toLocaleString();
@@ -2758,8 +2759,8 @@ function runMonthComparison() {
   const totalA = Object.values(rA.expenses||{}).reduce((s,c)=>s+c.total,0);
   const totalB = Object.values(rB.expenses||{}).reduce((s,c)=>s+c.total,0);
   const totalDiff = totalB - totalA;
-  const totalIncA = Object.values(rA.income||{}).reduce((s,v)=>s+v,0);
-  const totalIncB = Object.values(rB.income||{}).reduce((s,v)=>s+v,0);
+  const totalIncA = Object.values(rA.income||{}).reduce((s,v)=>s+(typeof v==='object'?v.total:v),0);
+  const totalIncB = Object.values(rB.income||{}).reduce((s,v)=>s+(typeof v==='object'?v.total:v),0);
 
   const fmt = v => '$' + Math.round(Math.abs(v)).toLocaleString();
   const chg = (a, b, higherIsBetter=true) => {
