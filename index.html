@@ -6072,6 +6072,7 @@ async function buildHealthScore(agg, period, totalConsults, reportCount, latestY
     return;
   }
 
+  window._lastHealthMinistryId = ministryId;
   container.style.display = 'block';
   container.innerHTML = `
     <div class="card" style="padding:16px;">
@@ -6084,21 +6085,171 @@ async function buildHealthScore(agg, period, totalConsults, reportCount, latestY
           ${period === 'current' ? 'Current month' : period === 'ytd' ? 'Year to date' : period === 'prev' ? 'Prior year' : 'All time'}
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;" id="health-indicator-cards">
         ${indicators.map(ind => {
           const ti = trendIcon(trends[ind.key].trend, ind.key);
-          return `<div style="padding:12px;border-radius:var(--r-md);background:var(--surface2);border:0.5px solid var(--border);">
+          return `<div id="hi-card-${ind.key}" onclick="toggleHealthTrend('${ind.key}')" style="padding:12px;border-radius:var(--r-md);background:var(--surface2);border:0.5px solid var(--border);cursor:pointer;transition:box-shadow 0.15s;" onmouseenter="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.12)'" onmouseleave="this.style.boxShadow=''">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
               <div style="font-size:11px;color:var(--text2);font-weight:500;text-transform:uppercase;letter-spacing:0.3px;">${ind.label}</div>
               <span style="font-size:12px;font-weight:600;padding:2px 7px;border-radius:4px;background:${ti.bg};color:${ti.color};">${ti.icon} ${trends[ind.key].label}</span>
             </div>
             <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px;">${ind.value}</div>
             <div style="font-size:11px;color:var(--text2);line-height:1.5;">${ind.description}</div>
+            <div style="font-size:10px;color:var(--text2);margin-top:6px;opacity:0.6;">Click to see trend ↗</div>
           </div>`;
         }).join('')}
       </div>
-
+      <div id="health-trend-panel" style="display:none;margin-top:14px;padding-top:14px;border-top:0.5px solid var(--border);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div id="health-trend-title" style="font-size:13px;font-weight:600;"></div>
+          <button onclick="closeHealthTrend()" style="font-size:11px;padding:3px 10px;background:var(--surface2);border:0.5px solid var(--border);border-radius:4px;cursor:pointer;">✕ Close</button>
+        </div>
+        <div style="position:relative;height:160px;"><canvas id="health-trend-chart"></canvas></div>
+      </div>
     </div>`;
+}
+
+// ── HEALTH TREND CHART ───────────────────────────────────────────────
+let healthTrendChart = null;
+let healthTrendActiveKey = null;
+
+async function toggleHealthTrend(key) {
+  const panel = document.getElementById('health-trend-panel');
+  if (!panel) return;
+
+  // If clicking the same card, toggle closed
+  if (healthTrendActiveKey === key && panel.style.display !== 'none') {
+    closeHealthTrend();
+    return;
+  }
+
+  // Highlight active card
+  healthTrendActiveKey = key;
+  document.querySelectorAll('[id^="hi-card-"]').forEach(el => {
+    el.style.outline = el.id === 'hi-card-' + key ? '2px solid var(--purple)' : '';
+  });
+
+  // Show panel with loading state
+  panel.style.display = 'block';
+  const title = document.getElementById('health-trend-title');
+  const metricLabels = {
+    costPerPatient: 'Cost per patient — monthly trend',
+    lsDependency:   'LS dependency — monthly trend',
+    charityRate:    'Charity patient rate — monthly trend',
+    communityReach: 'Community reach — monthly trend',
+  };
+  if (title) title.textContent = metricLabels[key] || key;
+
+  if (healthTrendChart) { try { healthTrendChart.destroy(); } catch(e){} healthTrendChart = null; }
+
+  const ministryId = currentDetailMinistryId || window._lastHealthMinistryId;
+  if (!ministryId || !sb) return;
+
+  // Fetch all reports for current year (and optionally prior year for context)
+  const now = new Date();
+  const { data } = await sb.from('monthly_reports')
+    .select('report_month, report_year, financial_summary(total_expenses_usd,total_income_usd,luke_society_support_usd), clinical_stats(pay_full,pay_partial,pay_charity,consult_clinic,consult_community,consult_dental,consult_spiritual)')
+    .eq('ministry_id', ministryId)
+    .eq('report_year', now.getFullYear())
+    .order('report_month', { ascending: true });
+
+  if (!data || data.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const labels = [];
+  const values = [];
+  const goodDown = ['costPerPatient', 'lsDependency'];
+
+  data.forEach(r => {
+    const fs = Array.isArray(r.financial_summary) ? r.financial_summary[0] : r.financial_summary;
+    const cs = Array.isArray(r.clinical_stats)    ? r.clinical_stats[0]    : r.clinical_stats;
+    const expenses  = parseFloat(fs?.total_expenses_usd)||0;
+    const income    = parseFloat(fs?.total_income_usd)||0;
+    const ls        = parseFloat(fs?.luke_society_support_usd)||0;
+    const full      = cs?.pay_full||0;
+    const partial   = cs?.pay_partial||0;
+    const charity   = cs?.pay_charity||0;
+    const patients  = full + partial + charity;
+    const consults  = (cs?.consult_clinic||0)+(cs?.consult_community||0)+(cs?.consult_dental||0)+(cs?.consult_spiritual||0);
+    const community = cs?.consult_community||0;
+
+    let val = null;
+    if (key === 'costPerPatient') val = patients > 0 ? Math.round(expenses / patients * 100) / 100 : null;
+    if (key === 'lsDependency')   val = income   > 0 ? Math.round(ls / income * 100)             : null;
+    if (key === 'charityRate')    val = patients > 0 ? Math.round(charity / patients * 100)      : null;
+    if (key === 'communityReach') val = consults  > 0 ? Math.round(community / consults * 100)   : null;
+
+    if (val !== null) {
+      labels.push(monthNames[(r.report_month||1)-1]);
+      values.push(val);
+    }
+  });
+
+  if (values.length === 0) { panel.style.display = 'none'; return; }
+
+  const isGoodDown = goodDown.includes(key);
+  const color = '#534AB7';
+  const ctx = document.getElementById('health-trend-chart');
+  if (!ctx) return;
+
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const pad = (maxVal - minVal) * 0.2 || maxVal * 0.2 || 1;
+
+  const unitPrefix = key === 'costPerPatient' ? '$' : '';
+  const unitSuffix = key === 'costPerPatient' ? '' : '%';
+
+  healthTrendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: metricLabels[key],
+        data: values,
+        borderColor: color,
+        backgroundColor: color + '18',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4,
+        pointBackgroundColor: color,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => unitPrefix + ctx.parsed.y + unitSuffix,
+          }
+        }
+      },
+      scales: {
+        y: {
+          min: Math.max(0, Math.floor(minVal - pad)),
+          max: Math.ceil(maxVal + pad),
+          ticks: {
+            callback: v => unitPrefix + v + unitSuffix,
+            font: { size: 11 },
+          },
+          grid: { color: 'rgba(128,128,128,0.1)' }
+        },
+        x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function closeHealthTrend() {
+  const panel = document.getElementById('health-trend-panel');
+  if (panel) panel.style.display = 'none';
+  healthTrendActiveKey = null;
+  if (healthTrendChart) { try { healthTrendChart.destroy(); } catch(e){} healthTrendChart = null; }
+  document.querySelectorAll('[id^="hi-card-"]').forEach(el => el.style.outline = '');
 }
 
 // ── WORLD MAP ──
