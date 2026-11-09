@@ -2615,14 +2615,12 @@ function renderFinancialDetail(period) {
 
   const incCatEl = document.getElementById('income-categories');
   if (incCatEl) {
-    const incCatsFiltered = incomeCatOrder.filter(cat => aggIncome[cat] && aggIncome[cat].total > 0);
-    const maxIncAmt = Math.max(...incCatsFiltered.map(cat => aggIncome[cat].total), 1);
-    const rows = incCatsFiltered
+    const rows = incomeCatOrder
+      .filter(cat => aggIncome[cat] && aggIncome[cat].total > 0)
       .map((cat, i, arr) => {
         const data = aggIncome[cat];
         const amt = data.total || 0;
         const pct = totalIncome > 0 ? Math.round(amt / totalIncome * 100) : 0;
-        const barPct = Math.round(amt / maxIncAmt * 100);
         const color = incomeCatColors[cat] || '#534AB7';
         const er = reports.find(r => r.exchRate);
         const localAmt = er ? Math.round(amt * er.exchRate) : 0;
@@ -2647,7 +2645,7 @@ function renderFinancialDetail(period) {
                   <span style="font-size:13px;font-weight:500;white-space:nowrap;">${cat}</span>
                   <span class="inc-pct-label" style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;min-width:32px;text-align:right;">${pct}%</span>
                   <div class="inc-bar-wrap" style="flex:1;min-width:0;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 4px;">
-                    <div style="background:${color};height:4px;width:${barPct}%;"></div>
+                    <div style="background:${color};height:4px;width:${pct}%;"></div>
                   </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
@@ -2668,7 +2666,7 @@ function renderFinancialDetail(period) {
                 <span style="font-size:13px;white-space:nowrap;">${cat}</span>
                 <span class="inc-pct-label" style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;min-width:32px;text-align:right;">${pct}%</span>
                 <div class="inc-bar-wrap" style="flex:1;min-width:0;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 4px;">
-                  <div style="background:${color};height:4px;width:${barPct}%;"></div>
+                  <div style="background:${color};height:4px;width:${pct}%;"></div>
                 </div>
               </div>
               <div style="text-align:right;min-width:80px;">
@@ -2708,9 +2706,8 @@ function renderFinancialDetail(period) {
   const catOrder = ['Salaries','Community Health','Supplies','Transportation','Facility Costs','Financial Services','Employee Benefits','Evangelism','Capital Purchases','Other'];
   const expCatEl = document.getElementById('expense-categories');
   if (expCatEl) {
-    const expCatsFiltered = catOrder.filter(cat => aggExpenses[cat] && aggExpenses[cat].total > 0);
-    const maxExpAmt = Math.max(...expCatsFiltered.map(cat => aggExpenses[cat].total), 1);
-    expCatEl.innerHTML = expCatsFiltered
+    expCatEl.innerHTML = catOrder
+      .filter(cat => aggExpenses[cat] && aggExpenses[cat].total > 0)
       .map(cat => {
         const data = aggExpenses[cat];
         // Calculate percentage against operating expenses only (exclude capital)
@@ -2722,7 +2719,6 @@ function renderFinancialDetail(period) {
         const pctBase = isCapital ? totalExpenses : (routineTotal || totalExpenses);
         const pct = pctBase > 0 ? Math.round(data.total / pctBase * 100) : 0;
         const pctLabel = isCapital ? `${pct}% of total` : `${pct}% of operating`;
-        const barPct = Math.round(data.total / maxExpAmt * 100);
         const lineItems = Object.entries(data.lines)
           .sort((a,b) => b[1]-a[1])
           .map(([label, amt]) =>
@@ -2739,7 +2735,7 @@ function renderFinancialDetail(period) {
                 <span style="font-size:13px;font-weight:500;">${cat}</span>
                 <span class="exp-pct-label" style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;min-width:90px;text-align:right;">${pctLabel}</span>
                 <div class="exp-bar-wrap" style="flex:1;min-width:0;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 4px;">
-                  <div style="background:${isCapital ? '#EF9F27' : '#534AB7'};height:4px;width:${barPct}%;"></div>
+                  <div style="background:${isCapital ? '#EF9F27' : '#534AB7'};height:4px;width:${Math.min(pct,100)}%;"></div>
                 </div>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
