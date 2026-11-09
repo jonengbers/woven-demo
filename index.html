@@ -6445,7 +6445,8 @@ function initMap() {
   ]).then(() => {
     const W = mapDiv.offsetWidth || 900;
     const H = Math.round(W * 0.52);
-    const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+      (document.documentElement.getAttribute('data-theme') !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
 
     const svg = d3.select('#map-svg-wrap').append('svg')
       .attr('viewBox', `0 0 ${W} ${H}`)
@@ -6520,12 +6521,12 @@ function initMap() {
             332:'Haiti', 68:'Bolivia', 214:'Dominican Republic', 222:'El Salvador',
           };
           const country = ID_TO_COUNTRY[numId];
-          if (!country) return isDark ? '#2a2a28' : '#e8e6e0';
+          if (!country) return isDark ? '#2c3044' : '#e8e6e0';
           const ministry = MINISTRY_LOCATIONS.find(m => m.country === country);
-          if (!ministry) return isDark ? '#2a2a28' : '#e8e6e0';
-          return REGION_COLORS[ministry.region] + '30';
+          if (!ministry) return isDark ? '#2c3044' : '#e8e6e0';
+          return REGION_COLORS[ministry.region] + (isDark ? '50' : '30');
         })
-        .attr('stroke', isDark ? '#3a3a38' : '#ffffff')
+        .attr('stroke', isDark ? '#3d4260' : '#ffffff')
         .attr('stroke-width', 0.5);
 
       // Country border mesh
@@ -6533,7 +6534,7 @@ function initMap() {
         .datum(topojson.mesh(world, world.objects.countries, (a,b) => a !== b))
         .attr('d', path)
         .attr('fill', 'none')
-        .attr('stroke', isDark ? '#444' : '#fff')
+        .attr('stroke', isDark ? '#3d4260' : '#fff')
         .attr('stroke-width', 0.3);
 
       // Country name labels — only for ministry countries, hidden until zoom > 1.5
@@ -6552,7 +6553,7 @@ function initMap() {
           .attr('transform', `translate(${px},${py})`)
           .datum({ px, py });
 
-        // White halo
+        // Halo (white in light mode, dark slate in dark mode for legibility)
         lg.append('text')
           .attr('class', 'country-label')
           .attr('text-anchor', 'middle')
@@ -6560,8 +6561,8 @@ function initMap() {
           .attr('font-size', 11)
           .attr('font-family', 'system-ui, sans-serif')
           .attr('font-weight', '700')
-          .attr('fill', 'white')
-          .attr('stroke', 'white')
+          .attr('fill', isDark ? '#1c1f2e' : 'white')
+          .attr('stroke', isDark ? '#1c1f2e' : 'white')
           .attr('stroke-width', 3)
           .attr('stroke-linejoin', 'round')
           .attr('pointer-events', 'none')
@@ -7242,6 +7243,10 @@ function toggleDarkMode() {
   root.setAttribute('data-theme', next);
   try { localStorage.setItem('woven-theme', next); } catch(e) {}
   updateDarkModeToggle(next === 'dark');
+  // Force map to re-render with correct colors on next visit
+  mapInitialized = false;
+  const mapWrap = document.getElementById('map-svg-wrap');
+  if (mapWrap) mapWrap.innerHTML = '';
 }
 
 function updateDarkModeToggle(isDark) {
