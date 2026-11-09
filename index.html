@@ -59,6 +59,7 @@ button:hover{background:var(--surface2);}
 .b-red{background:var(--red-l);color:var(--red);}
 .b-purple{background:var(--purple-l);color:var(--purple-d);}
 .b-teal{background:var(--teal-l);color:var(--teal-d);}
+[data-theme="dark"] .b-green,[data-theme="dark"] .b-amber,[data-theme="dark"] .b-red,[data-theme="dark"] .b-teal,[data-theme="dark"] .b-purple{background:transparent;border-color:transparent;}
 .mc{background:var(--surface2);border-radius:var(--r-md);padding:14px;}
 .mc-label{font-size:11px;color:var(--text2);margin-bottom:4px;}
 .mc-val{font-size:22px;font-weight:600;color:var(--text);}
@@ -6086,7 +6087,7 @@ async function buildHealthScore(agg, period, totalConsults, reportCount, latestY
           return `<div id="hi-card-${ind.key}" onclick="toggleHealthTrend('${ind.key}')" style="padding:12px;border-radius:var(--r-md);background:var(--surface2);border:0.5px solid var(--border);cursor:pointer;transition:box-shadow 0.15s;" onmouseenter="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.12)'" onmouseleave="this.style.boxShadow=''">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
               <div style="font-size:11px;color:var(--text2);font-weight:500;text-transform:uppercase;letter-spacing:0.3px;">${ind.label}</div>
-              <span style="font-size:12px;font-weight:600;padding:2px 7px;border-radius:4px;background:${ti.bg};color:${ti.color};">${ti.icon} ${trends[ind.key].label}</span>
+              <span style="font-size:12px;font-weight:600;color:${ti.color};">${ti.icon} ${trends[ind.key].label}</span>
             </div>
             <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px;">${ind.value}</div>
             <div style="font-size:11px;color:var(--text2);line-height:1.5;">${ind.description}</div>
