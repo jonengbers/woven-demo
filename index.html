@@ -180,13 +180,16 @@ button:hover{background:var(--surface2);}
 #mobile-nav{display:none;}
 
 @media(max-width:700px){
+  /* ── Global box-sizing guard ── */
+  .screen *{box-sizing:border-box;}
+
   /* ── Hide desktop nav, show mobile nav ── */
   .top-nav{display:none;}
   #global-search-container{display:none !important;}
   #mobile-nav{
     display:flex;position:fixed;bottom:0;left:0;right:0;
     background:var(--surface);border-top:0.5px solid var(--border);
-    z-index:200;padding:0;safe-area-inset-bottom:env(safe-area-inset-bottom);
+    z-index:200;padding:0;
     padding-bottom:env(safe-area-inset-bottom);
   }
   .mnav-btn{
@@ -205,31 +208,45 @@ button:hover{background:var(--surface2);}
   .user-pill span:not(.badge){display:none;}
 
   /* ── Screens — extra bottom padding for nav bar ── */
-  .screen{padding:14px 14px 80px;}
+  .screen{padding:14px 14px 80px;overflow-x:hidden;}
 
-  /* ── Dashboard ── */
+  /* ── Dashboard metrics tiles ── */
   .metrics-row{grid-template-columns:repeat(2,1fr);gap:8px;}
-  .two-col{grid-template-columns:1fr;gap:10px;}
-  .mc{padding:10px 12px;}
+  .mc{padding:10px 12px;min-width:0;}
   .mc-val{font-size:18px;}
+  .mc-label{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  /* ── Dashboard charts — single column, stable width ── */
+  .two-col{grid-template-columns:1fr;gap:10px;}
+  .two-col > *{min-width:0;width:100%;}
+
+  /* ── Dashboard ministry table — scroll horizontally ── */
+  .card{overflow-x:hidden;}
+  .mtable-scroll-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .mtable{min-width:420px;white-space:normal;}
+  .mtable td,.mtable th{white-space:normal;word-break:break-word;}
 
   /* ── Ministry list / detail ── */
   .dp-grid{grid-template-columns:repeat(2,1fr);}
   .form-row{grid-template-columns:1fr;}
 
-  /* Health indicator 4-col → 2×2 */
-  #health-indicator-cards{grid-template-columns:1fr 1fr !important;gap:8px !important;}
+  /* Health indicator 4-col → 2×2, contained within parent padding */
+  #health-indicator-cards{
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+    width:100%;
+    box-sizing:border-box;
+  }
+  #health-indicator-cards > *{min-width:0;overflow:hidden;}
 
   /* Ministry detail statistics grids → single col */
   #dtab-stats-content > div[style*="grid-template-columns:1fr 1fr"]{
     grid-template-columns:1fr !important;
   }
 
-  /* Ministry detail tab bar — allow horizontal scroll instead of wrapping */
-  #dtab-stats,#dtab-reports,#dtab-prayer,#dtab-transfers{
-    font-size:12px !important;padding:8px 10px !important;
-  }
-  .dtab-row{overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;}
+  /* Ministry detail tab bar — horizontal scroll */
+  .dtab-row{overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;border-bottom:0.5px solid var(--border);}
+  .dtab-row button{white-space:nowrap;}
 
   /* ── Compare ── */
   .cmp-grid{grid-template-columns:1fr;}
@@ -239,7 +256,8 @@ button:hover{background:var(--surface2);}
   .convo-list{max-height:260px;}
   .chat-panel{min-height:340px;}
 
-  /* ── Transfers table — allow horizontal scroll on mobile ── */
+  /* ── Transfers table — horizontal scroll ── */
+  #transfers-list .card > div:last-child{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   #transfers-list .mtable{min-width:500px;}
 
   /* ── Map summary stats ── */
@@ -249,11 +267,11 @@ button:hover{background:var(--surface2);}
   }
 
   /* ── Toast — above mobile nav ── */
-  .toast{bottom:72px;}
+  .toast{bottom:72px;right:14px;}
 
-  /* ── Forms ── */
+  /* ── Forms — prevent iOS auto-zoom ── */
   input[type="number"],input[type="text"],input[type="email"],select,textarea{
-    font-size:16px; /* prevents iOS auto-zoom */
+    font-size:16px;
   }
 }
 </style>
