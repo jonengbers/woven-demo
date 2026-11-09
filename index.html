@@ -275,6 +275,9 @@ button:hover{background:var(--surface2);}
   input[type="number"],input[type="text"],input[type="email"],select,textarea{
     font-size:16px;
   }
+
+  /* ── Income / Expense bars — hide pct label on mobile to prevent collision ── */
+  .inc-pct-label,.exp-pct-label{display:none;}
 }
 </style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -2640,12 +2643,12 @@ function renderFinancialDetail(period) {
                 <div style="display:flex;align-items:center;gap:10px;flex:1;">
                   <span style="width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block;"></span>
                   <span style="font-size:13px;font-weight:500;">${cat}</span>
-                  <div style="flex:1;max-width:140px;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
+                  <div class="inc-bar-wrap" style="flex:1;min-width:0;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
                     <div style="background:${color};height:4px;width:${pct}%;"></div>
                   </div>
-                  <span style="font-size:11px;color:var(--text2);">${pct}%</span>
+                  <span class="inc-pct-label" style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;">${pct}%</span>
                 </div>
-                <div style="display:flex;align-items:center;gap:8px;">
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
                   <div style="text-align:right;">
                     <div style="font-size:13px;font-weight:500;color:var(--green);">$${Math.round(amt).toLocaleString()}</div>
                     ${localAmt > 0 ? `<div style="font-size:10px;color:var(--text2);">${localAmt.toLocaleString()}</div>` : ''}
@@ -2658,13 +2661,13 @@ function renderFinancialDetail(period) {
         } else {
           return `
             <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-bottom:0.5px solid var(--border);">
-              <div style="display:flex;align-items:center;gap:10px;flex:1;">
+              <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
                 <span style="width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block;"></span>
                 <span style="font-size:13px;">${cat}</span>
-                <div style="flex:1;max-width:140px;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
+                <div class="inc-bar-wrap" style="flex:1;min-width:0;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
                   <div style="background:${color};height:4px;width:${pct}%;"></div>
                 </div>
-                <span style="font-size:11px;color:var(--text2);">${pct}%</span>
+                <span class="inc-pct-label" style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;">${pct}%</span>
               </div>
               <div style="text-align:right;min-width:80px;">
                 <div style="font-size:13px;font-weight:500;color:var(--green);">$${Math.round(amt).toLocaleString()}</div>
@@ -2730,12 +2733,12 @@ function renderFinancialDetail(period) {
             <div onclick="toggleExpenseCategory('${catId}')" style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;cursor:pointer;user-select:none;" class="exp-cat-header">
               <div style="display:flex;align-items:center;gap:10px;flex:1;">
                 <span style="font-size:13px;font-weight:500;">${cat}</span>
-                <div style="flex:1;max-width:120px;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
+                <div class="exp-bar-wrap" style="flex:1;min-width:0;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
                   <div style="background:${isCapital ? '#EF9F27' : '#534AB7'};height:4px;width:${Math.min(pct,100)}%;"></div>
                 </div>
-                <span style="font-size:11px;color:var(--text2);">${pctLabel}</span>
+                <span class="exp-pct-label" style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;">${pctLabel}</span>
               </div>
-              <div style="display:flex;align-items:center;gap:8px;">
+              <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
                 <div style="text-align:right;">
                   <div style="font-size:13px;font-weight:500;">$${Math.round(data.total).toLocaleString()}</div>
                   ${(() => { const er = breakdownReports.find(r=>r.exchRate); return er ? `<div style="font-size:10px;color:var(--text2);">${Math.round(data.total * er.exchRate).toLocaleString()}</div>` : ''; })()}
