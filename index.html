@@ -175,12 +175,86 @@ button:hover{background:var(--surface2);}
 .pin:hover circle { r: 7; }
 
 /* ── RESPONSIVE ── */
+
+/* Mobile bottom nav — hidden on desktop */
+#mobile-nav{display:none;}
+
 @media(max-width:700px){
-  .metrics-row{grid-template-columns:repeat(2,1fr);}
-  .two-col,.cmp-grid,.msg-layout,.dp-grid,.form-row{grid-template-columns:1fr;}
-  .top-nav .tnav{font-size:12px;padding:5px 8px;}
+  /* ── Hide desktop nav, show mobile nav ── */
+  .top-nav{display:none;}
+  #global-search-container{display:none !important;}
+  #mobile-nav{
+    display:flex;position:fixed;bottom:0;left:0;right:0;
+    background:var(--surface);border-top:0.5px solid var(--border);
+    z-index:200;padding:0;safe-area-inset-bottom:env(safe-area-inset-bottom);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .mnav-btn{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:8px 4px 6px;border:none;background:transparent;color:var(--text2);
+    font-size:10px;font-weight:500;gap:3px;cursor:pointer;transition:color .15s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mnav-btn svg{flex-shrink:0;}
+  .mnav-btn.active{color:var(--purple);}
+  .mnav-btn.active svg{stroke:var(--purple);}
+
+  /* ── Topbar ── */
+  .topbar{padding:8px 14px;flex-wrap:nowrap;gap:6px;}
+  .logo-tag{display:none;}
   .user-pill span:not(.badge){display:none;}
-  .msg-layout{height:auto;}
+
+  /* ── Screens — extra bottom padding for nav bar ── */
+  .screen{padding:14px 14px 80px;}
+
+  /* ── Dashboard ── */
+  .metrics-row{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .two-col{grid-template-columns:1fr;gap:10px;}
+  .mc{padding:10px 12px;}
+  .mc-val{font-size:18px;}
+
+  /* ── Ministry list / detail ── */
+  .dp-grid{grid-template-columns:repeat(2,1fr);}
+  .form-row{grid-template-columns:1fr;}
+
+  /* Health indicator 4-col → 2×2 */
+  #health-indicator-cards{grid-template-columns:1fr 1fr !important;gap:8px !important;}
+
+  /* Ministry detail statistics grids → single col */
+  #dtab-stats-content > div[style*="grid-template-columns:1fr 1fr"]{
+    grid-template-columns:1fr !important;
+  }
+
+  /* Ministry detail tab bar — allow horizontal scroll instead of wrapping */
+  #dtab-stats,#dtab-reports,#dtab-prayer,#dtab-transfers{
+    font-size:12px !important;padding:8px 10px !important;
+  }
+  .dtab-row{overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;}
+
+  /* ── Compare ── */
+  .cmp-grid{grid-template-columns:1fr;}
+
+  /* ── Messages ── */
+  .msg-layout{grid-template-columns:1fr;height:auto;}
+  .convo-list{max-height:260px;}
+  .chat-panel{min-height:340px;}
+
+  /* ── Transfers table — allow horizontal scroll on mobile ── */
+  #transfers-list .mtable{min-width:500px;}
+
+  /* ── Map summary stats ── */
+  #map-container > div:first-child{
+    grid-template-columns:repeat(2,1fr) !important;
+    gap:8px !important;
+  }
+
+  /* ── Toast — above mobile nav ── */
+  .toast{bottom:72px;}
+
+  /* ── Forms ── */
+  input[type="number"],input[type="text"],input[type="email"],select,textarea{
+    font-size:16px; /* prevents iOS auto-zoom */
+  }
 }
 </style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -300,6 +374,30 @@ button:hover{background:var(--surface2);}
       </div>
     </div>
   </div>
+
+  <!-- MOBILE BOTTOM NAV -->
+  <nav id="mobile-nav" aria-label="Main navigation">
+    <button class="mnav-btn active" id="mnav-dashboard" onclick="showScreen('dashboard',this);setMobileNav('dashboard')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </button>
+    <button class="mnav-btn" id="mnav-ministries" onclick="showScreen('ministries',this);setMobileNav('ministries')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Ministries
+    </button>
+    <button class="mnav-btn" id="mnav-map" onclick="showScreen('map',this);setMobileNav('map')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+      Map
+    </button>
+    <button class="mnav-btn" id="mnav-messages" onclick="showScreen('messages',this);setMobileNav('messages')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Messages
+    </button>
+    <button class="mnav-btn" id="mnav-user" onclick="toggleUserMenu()">
+      <div class="av" id="mobile-user-av" style="width:22px;height:22px;font-size:9px;">?</div>
+      Account
+    </button>
+  </nav>
 
   <!-- DASHBOARD -->
   <div class="screen active" id="screen-dashboard">
@@ -923,6 +1021,7 @@ function enterApp(profile) {
     document.getElementById('app-screen').style.display = 'block';
     const initials = (profile.full_name || profile.name || '?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     document.getElementById('user-av').textContent = initials;
+    const mav1 = document.getElementById('mobile-user-av'); if (mav1) mav1.textContent = initials;
     document.getElementById('user-name').textContent = profile.full_name || profile.name || '';
     document.getElementById('user-role').textContent = (profile.role||'').replace('_',' ');
     showForcedPasswordChange();
@@ -932,6 +1031,7 @@ function enterApp(profile) {
   document.getElementById('app-screen').style.display = 'block';
   const initials = profile.initials || (profile.full_name || profile.name || '?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('user-av').textContent = initials;
+  const mav2 = document.getElementById('mobile-user-av'); if (mav2) mav2.textContent = initials;
   document.getElementById('user-name').textContent = profile.full_name || profile.name || '';
   document.getElementById('user-role').textContent = (profile.role||'').replace('_',' ');
   const menuName = document.getElementById('user-menu-name');
@@ -1534,11 +1634,11 @@ function showMinistryDetail(id, period) {
         <div id="dp-health-score" style="display:none;margin-bottom:16px;"></div>
 
         <!-- View tabs -->
-        <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:0.5px solid var(--border);">
-          <button onclick="switchDetailTab('stats')" id="dtab-stats" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid #534AB7;color:#534AB7;font-weight:500;background:transparent;cursor:pointer;border-radius:0;">Statistics</button>
-          <button onclick="switchDetailTab('reports')" id="dtab-reports" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid transparent;color:var(--text2);background:transparent;cursor:pointer;margin-bottom:-1px;border-radius:0;">Narrative reports</button>
-          <button onclick="switchDetailTab('prayer')" id="dtab-prayer" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid transparent;color:var(--text2);background:transparent;cursor:pointer;margin-bottom:-1px;border-radius:0;">Prayer requests</button>
-          <button onclick="switchDetailTab('transfers')" id="dtab-transfers" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid transparent;color:var(--text2);background:transparent;cursor:pointer;margin-bottom:-1px;border-radius:0;display:none;">Transfers</button>
+        <div class="dtab-row" style="display:flex;gap:0;margin-bottom:16px;border-bottom:0.5px solid var(--border);">
+          <button onclick="switchDetailTab('stats')" id="dtab-stats" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid #534AB7;color:#534AB7;font-weight:500;background:transparent;cursor:pointer;border-radius:0;white-space:nowrap;">Statistics</button>
+          <button onclick="switchDetailTab('reports')" id="dtab-reports" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid transparent;color:var(--text2);background:transparent;cursor:pointer;margin-bottom:-1px;border-radius:0;white-space:nowrap;">Narrative reports</button>
+          <button onclick="switchDetailTab('prayer')" id="dtab-prayer" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid transparent;color:var(--text2);background:transparent;cursor:pointer;margin-bottom:-1px;border-radius:0;white-space:nowrap;">Prayer requests</button>
+          <button onclick="switchDetailTab('transfers')" id="dtab-transfers" style="font-size:13px;padding:8px 16px;border:none;border-bottom:2px solid transparent;color:var(--text2);background:transparent;cursor:pointer;margin-bottom:-1px;border-radius:0;white-space:nowrap;display:none;">Transfers</button>
         </div>
 
         <!-- Statistics tab -->
@@ -7226,6 +7326,17 @@ document.addEventListener('click', function(e) {
 });
 
 
+
+// ── MOBILE NAV ──
+function setMobileNav(screen) {
+  ['dashboard','ministries','map','messages'].forEach(id => {
+    const btn = document.getElementById('mnav-'+id);
+    if (btn) btn.classList.toggle('active', id === screen);
+  });
+  // Deactivate user button when navigating to a screen
+  const userBtn = document.getElementById('mnav-user');
+  if (userBtn) userBtn.classList.remove('active');
+}
 
 // ── USER MENU ──
 function toggleUserMenu() {
