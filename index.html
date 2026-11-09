@@ -2642,11 +2642,11 @@ function renderFinancialDetail(period) {
               <div onclick="toggleIncomeCategory('${catId}')" style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;cursor:pointer;user-select:none;" class="inc-cat-header">
                 <div style="display:flex;align-items:center;gap:10px;flex:1;">
                   <span style="width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block;"></span>
-                  <span style="font-size:13px;font-weight:500;">${cat}</span>
-                  <div class="inc-bar-wrap" style="flex:1;min-width:0;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
+                  <span style="font-size:13px;font-weight:500;white-space:nowrap;">${cat}</span>
+                  <span class="inc-pct-label" style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;min-width:32px;text-align:right;">${pct}%</span>
+                  <div class="inc-bar-wrap" style="flex:1;min-width:0;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 4px;">
                     <div style="background:${color};height:4px;width:${pct}%;"></div>
                   </div>
-                  <span class="inc-pct-label" style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;">${pct}%</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
                   <div style="text-align:right;">
@@ -2663,11 +2663,11 @@ function renderFinancialDetail(period) {
             <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-bottom:0.5px solid var(--border);">
               <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
                 <span style="width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block;"></span>
-                <span style="font-size:13px;">${cat}</span>
-                <div class="inc-bar-wrap" style="flex:1;min-width:0;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
+                <span style="font-size:13px;white-space:nowrap;">${cat}</span>
+                <span class="inc-pct-label" style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;min-width:32px;text-align:right;">${pct}%</span>
+                <div class="inc-bar-wrap" style="flex:1;min-width:0;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 4px;">
                   <div style="background:${color};height:4px;width:${pct}%;"></div>
                 </div>
-                <span class="inc-pct-label" style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;">${pct}%</span>
               </div>
               <div style="text-align:right;min-width:80px;">
                 <div style="font-size:13px;font-weight:500;color:var(--green);">$${Math.round(amt).toLocaleString()}</div>
@@ -2733,10 +2733,10 @@ function renderFinancialDetail(period) {
             <div onclick="toggleExpenseCategory('${catId}')" style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;cursor:pointer;user-select:none;" class="exp-cat-header">
               <div style="display:flex;align-items:center;gap:10px;flex:1;">
                 <span style="font-size:13px;font-weight:500;">${cat}</span>
-                <div class="exp-bar-wrap" style="flex:1;min-width:0;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 8px;">
+                <span class="exp-pct-label" style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;min-width:90px;text-align:right;">${pctLabel}</span>
+                <div class="exp-bar-wrap" style="flex:1;min-width:0;background:var(--surface2);border-radius:4px;height:4px;overflow:hidden;margin:0 4px;">
                   <div style="background:${isCapital ? '#EF9F27' : '#534AB7'};height:4px;width:${Math.min(pct,100)}%;"></div>
                 </div>
-                <span class="exp-pct-label" style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;">${pctLabel}</span>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
                 <div style="text-align:right;">
